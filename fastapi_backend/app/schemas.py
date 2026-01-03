@@ -6,7 +6,8 @@ from uuid import UUID
 
 
 class UserRead(schemas.BaseUser[uuid.UUID]):
-    pass
+    id: UUID
+
 
 
 class UserCreate(schemas.BaseUserCreate):

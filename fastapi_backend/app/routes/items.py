@@ -11,6 +11,10 @@ from app.models import Item
 from app.schemas import ItemRead, ItemCreate
 from app.users import current_active_user
 
+import logging
+logger = logging.getLogger("uvicorn.error")
+
+
 router = APIRouter(tags=["item"])
 
 
@@ -27,6 +31,9 @@ async def read_item(
 ):
     params = Params(page=page, size=size)
     query = select(Item).filter(Item.user_id == user.id)
+    logger.info(f"TYPE OF user.id: {type(user.id)} VALUE: {user.id}")
+
+
     return await apaginate(db, query, params, transformer=transform_items)
 
 

@@ -14,8 +14,10 @@ help:
 # Backend commands
 .PHONY: start-backend test-backend
 
+
 start-backend: ## Start the backend server with FastAPI and hot reload
-	cd $(BACKEND_DIR) && ./start.sh
+	wsl bash -lc "cd $(BACKEND_DIR) && bash start_local.sh"
+
 
 test-backend: ## Run backend tests using pytest
 	cd $(BACKEND_DIR) && uv run pytest
@@ -25,11 +27,10 @@ test-backend: ## Run backend tests using pytest
 .PHONY: start-frontend test-frontend
 
 start-frontend: ## Start the frontend server with pnpm and hot reload
-	cd $(FRONTEND_DIR) && ./start.sh
+	cd $(FRONTEND_DIR) && bash start.sh
 
 test-frontend: ## Run frontend tests using npm
 	cd $(FRONTEND_DIR) && pnpm run test
-
 
 # Docker commands
 .PHONY: docker-backend-shell docker-frontend-shell docker-build docker-build-backend \

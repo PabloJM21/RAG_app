@@ -22,7 +22,8 @@ from .config import settings
 from .database import get_user_db
 from .email import send_reset_password_email
 from .models import User
-from .schemas import UserCreate
+from .schemas import UserRead, UserCreate, UserUpdate
+
 
 AUTH_URL_PATH = "auth"
 
@@ -87,3 +88,9 @@ auth_backend = AuthenticationBackend(
 fastapi_users = FastAPIUsers[User, uuid.UUID](get_user_manager, [auth_backend])
 
 current_active_user = fastapi_users.current_user(active=True)
+
+
+#current_active_user = fastapi_users.current_user(
+    #active=True,
+    #user_schema=UserRead
+#)

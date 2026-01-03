@@ -2,7 +2,10 @@ import pytest
 from fastapi import status
 from sqlalchemy import select, insert
 from app.models import Item
+import uuid
 
+import logging
+logger = logging.getLogger("uvicorn.error")
 
 class TestItems:
     @pytest.mark.asyncio(loop_scope="function")
@@ -19,10 +22,9 @@ class TestItems:
         assert created_item["description"] == item_data["description"]
 
         # Check if the item is in the database
-        item = await db_session.execute(
-            select(Item).where(Item.id == created_item["id"])
+        item = await db_session.scalar(
+            select(Item).where(Item.id == uuid.UUID(created_item["id"]))
         )
-        item = item.scalar()
 
         assert item is not None
         assert item.name == item_data["name"]
@@ -44,13 +46,16 @@ class TestItems:
                 "user_id": authenticated_user["user"].id,
             },
         ]
+
+
         # create items in the database
         for item_data in items_data:
-            await db_session.execute(insert(Item).values(**item_data))
+            db_session.add(Item(**item_data))
 
         await db_session.commit()  # Add commit to ensure items are saved
 
         # Read items - test pagination response
+        print("Starting GET request")
         read_response = await test_client.get(
             "/items/", headers=authenticated_user["headers"]
         )
@@ -83,12 +88,11 @@ class TestItems:
             "description": "Will be deleted",
             "user_id": authenticated_user["user"].id,
         }
-        await db_session.execute(insert(Item).values(**item_data))
+        db_session.add(Item(**item_data))
 
         # Get the created item from database
-        db_item = (
-            await db_session.execute(select(Item).where(Item.name == item_data["name"]))
-        ).scalar()
+        db_item = await db_session.scalar(select(Item).where(Item.name == item_data["name"]))
+
 
         # Delete the item
         delete_response = await test_client.delete(
@@ -97,9 +101,9 @@ class TestItems:
         assert delete_response.status_code == status.HTTP_200_OK
 
         # Verify item is deleted from database
-        db_check = (
-            await db_session.execute(select(Item).where(Item.id == db_item.id))
-        ).scalar()
+        db_check = await db_session.scalar(
+            select(Item).where(Item.id == db_item.id))
+
         assert db_check is None
 
     @pytest.mark.asyncio(loop_scope="function")

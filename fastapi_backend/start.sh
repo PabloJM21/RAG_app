@@ -1,4 +1,5 @@
 #!/bin/bash
+export PATH="$PATH:/c/Users/Verwenden/.local/bin"
 
 if [ -f /.dockerenv ]; then
     echo "Running in Docker"
@@ -11,3 +12,5 @@ else
 fi
 
 wait
+
+
