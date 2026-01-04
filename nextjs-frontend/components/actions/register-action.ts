@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 
-import { registerRegister } from "@/app/clientService";
+import { registerRegister } from "@/app/openapi-client/sdk.gen";
 
 import { registerSchema } from "@/lib/definitions";
 import { getErrorMessage } from "@/lib/utils";
@@ -28,15 +28,28 @@ export async function register(prevState: unknown, formData: FormData) {
     },
   };
   try {
-    const { error } = await registerRegister(input);
-    if (error) {
-      return { server_validation_error: getErrorMessage(error) };
+    const result = await registerRegister(input);
+
+    // Log the full result so you can see what the SDK returned
+    console.log("registerRegister result:", result);
+
+    if (result?.error) {
+      console.error("Backend returned error:", result.error);
+      return { server_validation_error: getErrorMessage(result.error) };
     }
+
   } catch (err) {
-    console.error("Registration error:", err);
+    // Log everything we can about the thrown error
+    console.error("Registration error (thrown):", err);
+
+    if (err instanceof Error) {
+      console.error("Error message:", err.message);
+      console.error("Error stack:", err.stack);
+    }
+
     return {
       server_error: "An unexpected error occurred. Please try again later.",
     };
   }
-  redirect(`/login`);
+  redirect("/login");
 }

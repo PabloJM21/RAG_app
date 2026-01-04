@@ -1,7 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { readItem, deleteItem, createItem } from "@/app/clientService";
+import { readItem, deleteItem, createItem } from "@/app/openapi-client/sdk.gen";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { itemSchema } from "@/lib/definitions";

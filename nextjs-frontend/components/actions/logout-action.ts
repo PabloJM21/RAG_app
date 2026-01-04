@@ -1,7 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { authJwtLogout } from "@/app/clientService";
+import { authJwtLogout } from "@/app/openapi-client/sdk.gen";
 import { redirect } from "next/navigation";
 
 export async function logout() {

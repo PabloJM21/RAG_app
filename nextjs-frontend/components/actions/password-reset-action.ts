@@ -1,6 +1,6 @@
 "use server";
 
-import { resetForgotPassword, resetResetPassword } from "@/app/clientService";
+import { resetForgotPassword, resetResetPassword } from "@/app/openapi-client/sdk.gen";
 import { redirect } from "next/navigation";
 import { passwordResetConfirmSchema } from "@/lib/definitions";
 import { getErrorMessage } from "@/lib/utils";

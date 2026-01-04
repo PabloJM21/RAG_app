@@ -6,11 +6,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from .utils import simple_generate_unique_route_id
 from app.routes.items import router as items_router
 from app.config import settings
+from app.database import create_db_and_tables
+
 
 app = FastAPI(
     generate_unique_id_function=simple_generate_unique_route_id,
     openapi_url=settings.OPENAPI_URL,
 )
+
+
+@app.on_event("startup")
+async def on_startup():
+    await create_db_and_tables()
+
 
 # Middleware for CORS configuration
 app.add_middleware(

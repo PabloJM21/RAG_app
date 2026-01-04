@@ -2,7 +2,7 @@
 
 import { cookies } from "next/headers";
 
-import { authJwtLogin } from "@/app/clientService";
+import { authJwtLogin } from "@/app/openapi-client/sdk.gen";
 import { redirect } from "next/navigation";
 import { loginSchema } from "@/lib/definitions";
 import { getErrorMessage } from "@/lib/utils";

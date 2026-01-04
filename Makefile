@@ -16,7 +16,7 @@ help:
 
 
 start-backend: ## Start the backend server with FastAPI and hot reload
-	wsl bash -lc "cd $(BACKEND_DIR) && bash start_local.sh"
+	cd $(BACKEND_DIR) && bash start_local.sh
 
 
 test-backend: ## Run backend tests using pytest

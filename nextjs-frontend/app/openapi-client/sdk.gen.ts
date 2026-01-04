@@ -55,6 +55,7 @@ import type {
 } from "./types.gen";
 import { client } from "./client.gen";
 
+
 export type Options<
   TData extends TDataShape = TDataShape,
   ThrowOnError extends boolean = boolean,
@@ -85,7 +86,7 @@ export const authJwtLogin = <ThrowOnError extends boolean = false>(
   >({
     ...urlSearchParamsBodySerializer,
     responseType: "json",
-    url: "/auth/jwt/login",
+    url: `/auth/jwt/login`,
     ...options,
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
