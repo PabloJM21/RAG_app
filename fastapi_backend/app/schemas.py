@@ -33,3 +33,24 @@ class ItemRead(ItemBase):
     user_id: UUID
 
     model_config = {"from_attributes": True}
+
+
+
+# Docs
+
+
+class DocBase(BaseModel):
+    name: str
+    path: str
+
+
+
+class DocCreate(DocBase):
+    pass
+
+
+class DocRead(DocBase):
+    id: UUID
+    user_id: UUID
+
+    model_config = {"from_attributes": True}

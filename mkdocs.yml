@@ -4,7 +4,7 @@ site_url: https://vintasoftware.github.io/nextjs-fastapi-template/
 
 repo_name: vintasoftware/nextjs-fastapi-template
 repo_url: https://github.com/vintasoftware/nextjs-fastapi-template/
-edit_uri: blob/main/docs/
+edit_uri: blob/main/@docs/
 
 copyright: From <a href="https://www.vintasoftware.com">Vinta Software</a> to the community with 💙
 

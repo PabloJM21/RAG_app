@@ -5,6 +5,7 @@ import {
   type Client,
   type TDataShape,
   urlSearchParamsBodySerializer,
+  formDataBodySerializer,
 } from "./client";
 import type {
   AuthJwtLoginData,
@@ -43,18 +44,24 @@ import type {
   UsersPatchUserData,
   UsersPatchUserResponses,
   UsersPatchUserErrors,
-  ReadItemData,
-  ReadItemResponses,
-  ReadItemErrors,
-  CreateItemData,
-  CreateItemResponses,
-  CreateItemErrors,
-  DeleteItemData,
-  DeleteItemResponses,
-  DeleteItemErrors,
+  ReadDocListData,
+  ReadDocListResponses,
+  CreateDocData,
+  CreateDocResponses,
+  CreateDocErrors,
+  UploadDocFileData,
+  UploadDocFileResponses,
+  UploadDocFileErrors,
+  DeleteDocData,
+  DeleteDocResponses,
+  DeleteDocErrors,
+  ReadPipelineData,
+  ReadPipelineResponses,
+  AddPipelineData,
+  AddPipelineResponses,
+  AddPipelineErrors,
 } from "./types.gen";
 import { client } from "./client.gen";
-
 
 export type Options<
   TData extends TDataShape = TDataShape,
@@ -86,7 +93,7 @@ export const authJwtLogin = <ThrowOnError extends boolean = false>(
   >({
     ...urlSearchParamsBodySerializer,
     responseType: "json",
-    url: `/auth/jwt/login`,
+    url: "/auth/jwt/login",
     ...options,
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -346,14 +353,14 @@ export const usersPatchUser = <ThrowOnError extends boolean = false>(
 };
 
 /**
- * Read Item
+ * Read Doc List
  */
-export const readItem = <ThrowOnError extends boolean = false>(
-  options?: Options<ReadItemData, ThrowOnError>,
+export const readDocList = <ThrowOnError extends boolean = false>(
+  options?: Options<ReadDocListData, ThrowOnError>,
 ) => {
   return (options?.client ?? client).get<
-    ReadItemResponses,
-    ReadItemErrors,
+    ReadDocListResponses,
+    unknown,
     ThrowOnError
   >({
     responseType: "json",
@@ -363,20 +370,20 @@ export const readItem = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/items/",
+    url: "/docs/",
     ...options,
   });
 };
 
 /**
- * Create Item
+ * Create Doc
  */
-export const createItem = <ThrowOnError extends boolean = false>(
-  options: Options<CreateItemData, ThrowOnError>,
+export const createDoc = <ThrowOnError extends boolean = false>(
+  options: Options<CreateDocData, ThrowOnError>,
 ) => {
   return (options.client ?? client).post<
-    CreateItemResponses,
-    CreateItemErrors,
+    CreateDocResponses,
+    CreateDocErrors,
     ThrowOnError
   >({
     responseType: "json",
@@ -386,7 +393,7 @@ export const createItem = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/items/",
+    url: "/docs/",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -396,14 +403,42 @@ export const createItem = <ThrowOnError extends boolean = false>(
 };
 
 /**
- * Delete Item
+ * Upload Doc File
  */
-export const deleteItem = <ThrowOnError extends boolean = false>(
-  options: Options<DeleteItemData, ThrowOnError>,
+export const uploadDocFile = <ThrowOnError extends boolean = false>(
+  options: Options<UploadDocFileData, ThrowOnError>,
+) => {
+  return (options.client ?? client).post<
+    UploadDocFileResponses,
+    UploadDocFileErrors,
+    ThrowOnError
+  >({
+    ...formDataBodySerializer,
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/docs/uploads/{doc_id}",
+    ...options,
+    headers: {
+      "Content-Type": null,
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Delete Doc
+ */
+export const deleteDoc = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteDocData, ThrowOnError>,
 ) => {
   return (options.client ?? client).delete<
-    DeleteItemResponses,
-    DeleteItemErrors,
+    DeleteDocResponses,
+    DeleteDocErrors,
     ThrowOnError
   >({
     responseType: "json",
@@ -413,7 +448,57 @@ export const deleteItem = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/items/{item_id}",
+    url: "/docs/{doc_id}",
     ...options,
+  });
+};
+
+/**
+ * Read Pipeline
+ */
+export const readPipeline = <ThrowOnError extends boolean = false>(
+  options?: Options<ReadPipelineData, ThrowOnError>,
+) => {
+  return (options?.client ?? client).get<
+    ReadPipelineResponses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/main-pipeline/pipeline/data/",
+    ...options,
+  });
+};
+
+/**
+ * Add Pipeline
+ */
+export const addPipeline = <ThrowOnError extends boolean = false>(
+  options: Options<AddPipelineData, ThrowOnError>,
+) => {
+  return (options.client ?? client).post<
+    AddPipelineResponses,
+    AddPipelineErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/main-pipeline/pipeline/data/",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
   });
 };

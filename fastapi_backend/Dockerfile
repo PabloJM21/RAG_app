@@ -4,7 +4,22 @@ FROM python:3.12-bookworm
 WORKDIR /app
 
 # The uv installer requires curl (and certificates) to download the release archive
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
+    build-essential \
+    git \
+    poppler-utils \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# For CPU-only image
+ENV TRANSFORMERS_NO_TF=1 \
+    TRANSFORMERS_NO_FLAX=1 \
+    TOKENIZERS_PARALLELISM=false
 
 # Download the latest uv installer
 ADD https://astral.sh/uv/install.sh /uv-installer.sh

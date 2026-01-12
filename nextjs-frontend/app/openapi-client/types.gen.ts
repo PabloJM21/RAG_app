@@ -59,6 +59,40 @@ export type BodyAuthVerifyVerify = {
 };
 
 /**
+ * Body_docs-upload_doc_file
+ */
+export type BodyDocsUploadDocFile = {
+  /**
+   * File
+   */
+  file: Blob | File;
+};
+
+/**
+ * DocCreate
+ */
+export type DocCreate = {
+  /**
+   * Name
+   */
+  name: string;
+};
+
+/**
+ * DocResponse
+ */
+export type DocResponse = {
+  /**
+   * Name
+   */
+  name: string;
+  /**
+   * Doc Id
+   */
+  doc_id: string;
+};
+
+/**
  * ErrorModel
  */
 export type ErrorModel = {
@@ -83,73 +117,27 @@ export type HttpValidationError = {
 };
 
 /**
- * ItemCreate
+ * PipelineResponse
  */
-export type ItemCreate = {
+export type PipelineResponse = {
   /**
-   * Name
+   * Router
    */
-  name: string;
+  router: {
+    [key: string]: unknown;
+  };
   /**
-   * Description
+   * Reranker
    */
-  description?: string | null;
+  reranker: {
+    [key: string]: unknown;
+  };
   /**
-   * Quantity
+   * Generator
    */
-  quantity?: number | null;
-};
-
-/**
- * ItemRead
- */
-export type ItemRead = {
-  /**
-   * Name
-   */
-  name: string;
-  /**
-   * Description
-   */
-  description?: string | null;
-  /**
-   * Quantity
-   */
-  quantity?: number | null;
-  /**
-   * Id
-   */
-  id: string;
-  /**
-   * User Id
-   */
-  user_id: string;
-};
-
-/**
- * Page[ItemRead]
- */
-export type PageItemRead = {
-  /**
-   * Items
-   */
-  items: Array<ItemRead>;
-  /**
-   * Total
-   */
-  total?: number | null;
-  /**
-   * Page
-   */
-  page: number | null;
-  /**
-   * Size
-   */
-  size: number | null;
-  /**
-   * Pages
-   */
-  pages?: number | null;
+  generator: {
+    [key: string]: unknown;
+  };
 };
 
 /**
@@ -659,89 +647,139 @@ export type UsersPatchUserResponses = {
 export type UsersPatchUserResponse =
   UsersPatchUserResponses[keyof UsersPatchUserResponses];
 
-export type ReadItemData = {
+export type ReadDocListData = {
   body?: never;
   path?: never;
-  query?: {
-    /**
-     * Page
-     * Page number
-     */
-    page?: number;
-    /**
-     * Size
-     * Page size
-     */
-    size?: number;
-  };
-  url: "/items/";
+  query?: never;
+  url: "/docs/";
 };
 
-export type ReadItemErrors = {
+export type ReadDocListResponses = {
   /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type ReadItemError = ReadItemErrors[keyof ReadItemErrors];
-
-export type ReadItemResponses = {
-  /**
+   * Response Docs-Read Doc List
    * Successful Response
    */
-  200: PageItemRead;
+  200: Array<DocResponse>;
 };
 
-export type ReadItemResponse = ReadItemResponses[keyof ReadItemResponses];
+export type ReadDocListResponse =
+  ReadDocListResponses[keyof ReadDocListResponses];
 
-export type CreateItemData = {
-  body: ItemCreate;
+export type CreateDocData = {
+  body: DocCreate;
   path?: never;
   query?: never;
-  url: "/items/";
+  url: "/docs/";
 };
 
-export type CreateItemErrors = {
+export type CreateDocErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError;
 };
 
-export type CreateItemError = CreateItemErrors[keyof CreateItemErrors];
+export type CreateDocError = CreateDocErrors[keyof CreateDocErrors];
 
-export type CreateItemResponses = {
+export type CreateDocResponses = {
   /**
    * Successful Response
    */
-  200: ItemRead;
+  200: DocResponse;
 };
 
-export type CreateItemResponse = CreateItemResponses[keyof CreateItemResponses];
+export type CreateDocResponse = CreateDocResponses[keyof CreateDocResponses];
 
-export type DeleteItemData = {
+export type UploadDocFileData = {
+  body: BodyDocsUploadDocFile;
+  path: {
+    /**
+     * Doc Id
+     */
+    doc_id: string;
+  };
+  query?: never;
+  url: "/docs/uploads/{doc_id}";
+};
+
+export type UploadDocFileErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type UploadDocFileError = UploadDocFileErrors[keyof UploadDocFileErrors];
+
+export type UploadDocFileResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type DeleteDocData = {
   body?: never;
   path: {
     /**
-     * Item Id
+     * Doc Id
      */
-    item_id: string;
+    doc_id: string;
   };
   query?: never;
-  url: "/items/{item_id}";
+  url: "/docs/{doc_id}";
 };
 
-export type DeleteItemErrors = {
+export type DeleteDocErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError;
 };
 
-export type DeleteItemError = DeleteItemErrors[keyof DeleteItemErrors];
+export type DeleteDocError = DeleteDocErrors[keyof DeleteDocErrors];
 
-export type DeleteItemResponses = {
+export type DeleteDocResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type ReadPipelineData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/main-pipeline/pipeline/data/";
+};
+
+export type ReadPipelineResponses = {
+  /**
+   * Successful Response
+   */
+  200: PipelineResponse;
+};
+
+export type ReadPipelineResponse =
+  ReadPipelineResponses[keyof ReadPipelineResponses];
+
+export type AddPipelineData = {
+  body: PipelineResponse;
+  path?: never;
+  query?: never;
+  url: "/main-pipeline/pipeline/data/";
+};
+
+export type AddPipelineErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type AddPipelineError = AddPipelineErrors[keyof AddPipelineErrors];
+
+export type AddPipelineResponses = {
   /**
    * Successful Response
    */

@@ -4,7 +4,8 @@ from .users import auth_backend, fastapi_users, AUTH_URL_PATH
 from .schemas import UserCreate, UserRead, UserUpdate
 from fastapi.middleware.cors import CORSMiddleware
 from .utils import simple_generate_unique_route_id
-from app.routes.items import router as items_router
+from app.routes.docs import router as docs_router
+from app.routes.main_pipeline import router as main_pipeline_router
 from app.config import settings
 from app.database import create_db_and_tables
 
@@ -56,6 +57,7 @@ app.include_router(
     tags=["users"],
 )
 
-# Include items routes
-app.include_router(items_router, prefix="/items")
+# Include routes
+app.include_router(docs_router, prefix="/docs")
+app.include_router(main_pipeline_router, prefix="/main-pipeline")
 add_pagination(app)

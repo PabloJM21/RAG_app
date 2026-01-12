@@ -40,5 +40,5 @@ export async function login(prevState: unknown, formData: FormData) {
       server_error: "An unexpected error occurred. Please try again later.",
     };
   }
-  redirect("/dashboard");
+  redirect("/rag");
 }
