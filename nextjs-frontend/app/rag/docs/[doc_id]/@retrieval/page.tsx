@@ -1,7 +1,7 @@
 "use client";
 
 import {useEffect, useState} from "react";
-import {addPipeline, fetchPipeline} from "@/app/rag/api/docs/[doc_id]/retrieval/retrieval-action";
+import {addRetrievalPipeline, fetchRetrievalPipeline} from "@/app/rag/api/docs/[doc_id]/retrieval/retrieval-action";
 import {fetchLevels} from "@/app/rag/api/docs/[doc_id]/extraction/extraction-action";
 
 
@@ -62,15 +62,7 @@ export function RetrievalEditor({
       "EmbeddingRetriever"
     );
 
-  /* ---------------- API actions ---------------- */
 
-  async function save() {
-    await fetch(`/api/docs/${doc_id}/retrieval/methods`, {
-      method: "PUT",
-      body: JSON.stringify(methodList),
-      headers: { "Content-Type": "application/json" }
-    });
-  }
 
   /* ---------------- Helpers ---------------- */
 
@@ -302,7 +294,7 @@ export function RetrievalEditor({
       {/* ---------- Save ---------- */}
       <div style={{ marginTop: 12 }}>
         {isCompleteMethod(pipeline) && (
-          <form action={addPipeline}>
+          <form action={addRetrievalPipeline}>
 
               <input
                 type="hidden"
@@ -348,7 +340,7 @@ export default async function RetrievalPage({
   useEffect(() => {
     async function loadPipeline() {
       try {
-        const pipeline_data = await fetchPipeline(params.doc_id);
+        const pipeline_data = await fetchRetrievalPipeline(params.doc_id);
         setPipeline(pipeline_data ?? []);
         const levels_data = await fetchLevels(params.doc_id);
         setLevels(levels_data ?? []);

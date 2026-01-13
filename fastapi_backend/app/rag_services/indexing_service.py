@@ -772,7 +772,7 @@ class CustomIndexer(BaseIndexer, ImageChunker, TableChunker, EmbeddingChunker):
             with open(self.output_markdown_path, "r", encoding="utf-8") as f:
                 md_text = f.read()
 
-            # chunk markdown and store paragraphs and indexing data into Paragraphs_"doc_id" table
+            # chunk markdown and store paragraphs and @indexing data into Paragraphs_"doc_id" table
             await self.chunk_markdown(md_text)
 
             # export chunks to Retrievals table

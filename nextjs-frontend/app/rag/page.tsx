@@ -1,8 +1,8 @@
 // app/rag/page.tsx
 import DocsPage from "./docs/page";
 import MainPipelinePage from "./main-pipeline/page";
-import {fetchPipeline} from "@/app/rag/api/main-pipeline/pipeline-action";
-import {PipelineSpec} from "@/app/rag/api/main-pipeline/sdk.gen";
+//import {fetchPipeline} from "@/app/rag/api/main-pipeline/pipeline-action";
+//import {PipelineSpec} from "@/app/rag/api/main-pipeline/sdk.gen";
 
 
 // Dynamically import your client components (optional, helps SSR warnings)
@@ -14,8 +14,8 @@ import {PipelineSpec} from "@/app/rag/api/main-pipeline/sdk.gen";
 
 export default async function RagIndexPage() {
 
-  const pipeline = (await fetchPipeline()) as PipelineSpec; //This doesn't do shit
-  const router = pipeline.router
+  //const pipeline = (await fetchPipeline()) as PipelineSpec; //This doesn't do shit
+  //const router = pipeline.router
 
 
   return (

@@ -1,57 +1,8 @@
+import { addIndexPipeline, fetchIndexPipeline, runIndexing } from "@/app/rag/api/docs/[doc_id]/indexing/indexing-action";
+import {addExtractionPipeline, fetchExtractionPipeline, fetchLevels, runExtraction} from "@/app/rag/api/docs/[doc_id]/extraction/extraction-action";
+import {fetchResults, addResults} from "@/app/rag/api/docs/[doc_id]/indexing_results/table-action";
+import {addRetrievalPipeline, fetchRetrievalPipeline} from "@/app/rag/api/docs/[doc_id]/retrieval/retrieval-action";
 
-import TablePage from "./indexing_results/page"
-import IndexingPage from "./indexing/page"
-import ExtractionPage from "./extraction/page";
-import RetrievalPage from "./retrieval/page";
-
-
-export default async function RagIndexPage() {
-  return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(4, 1fr)",
-        height: "100vh",
-      }}
-    >
-      <section
-        style={{
-          borderRight: "1px solid #ddd",
-          padding: 12,
-          overflow: "auto",
-        }}
-      >
-        <TablePage />
-      </section>
-
-      <section
-        style={{
-          borderRight: "1px solid #ddd",
-          padding: 12,
-          overflow: "auto",
-        }}
-      >
-        <IndexingPage />
-      </section>
-
-      <section
-        style={{
-          borderRight: "1px solid #ddd",
-          padding: 12,
-          overflow: "auto",
-        }}
-      >
-        <ExtractionPage />
-      </section>
-
-      <section
-        style={{
-          padding: 12,
-          overflow: "auto",
-        }}
-      >
-        <RetrievalPage />
-      </section>
-    </div>
-  );
+export default function DocPage() {
+  return null;
 }

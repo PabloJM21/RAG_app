@@ -2,8 +2,8 @@
 
 import {useEffect, useState} from "react";
 import {fetchResults, addResults} from "@/app/rag/api/docs/[doc_id]/indexing_results/table-action";
-import {ExtractionEditor} from "@/app/rag/docs/[doc_id]/extraction/page";
-import {addPipeline} from "@/app/rag/api/docs/[doc_id]/indexing/indexing-action";
+import {ExtractionEditor} from "@/app/rag/docs/[doc_id]/@extraction/page";
+import {addIndexPipeline} from "@/app/rag/api/docs/[doc_id]/indexing/indexing-action";
 
 type Item = {
   retrieval_id: number;

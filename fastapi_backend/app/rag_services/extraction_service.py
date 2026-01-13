@@ -9,18 +9,15 @@ import pandas as pd
 import os
 
 #Orchestrators
-from src.agent_flow.apis.chat_api import ChatOrchestrator
+from app.rag_apis.chat_api import ChatOrchestrator
 
 
-#data base
-from src.RAG_project.database.database_ops import DB
-import sqlite3
 
 #loggs
-from src.RAG_project.log_generator import InfoLogger
+from app.log_generator import InfoLogger
 
 #helpers
-from src.RAG_project.services.retrieval_service import Retriever
+from app.rag_services.retrieval_service import Retriever
 
 # Database ops
 from sqlalchemy.dialects.postgresql import UUID

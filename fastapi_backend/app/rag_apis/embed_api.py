@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from itertools import cycle
 from httpx import HTTPStatusError, RequestError
 
-from src.RAG_project.apis.model_enums import EMBEDDING_SUBCATEGORIES
+from app.rag_apis.model_enums import EMBEDDING_SUBCATEGORIES
 from loguru import logger as AgentLogger
 
 from dotenv import load_dotenv

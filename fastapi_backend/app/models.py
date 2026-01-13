@@ -76,7 +76,7 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     # rag ops
     paragraphs = relationship("Paragraph", back_populates="user", cascade="all, delete-orphan")
     retrievals = relationship("Retrieval", back_populates="user", cascade="all, delete-orphan") # also used for table
-    embeddings = relationship("Embedding", back_populates="user", cascade="all, delete-orphan")
+    #embeddings = relationship("Embedding", back_populates="user", cascade="all, delete-orphan")
 
 
 # Docs
@@ -165,7 +165,7 @@ class Paragraph(Base):
 
     user_id = Column(UUID(as_uuid=True), ForeignKey("user.id"), nullable=False)
 
-    user = relationship("User", back_populates="retrieval_methods")
+    user = relationship("User", back_populates="paragraphs")
 
     @classmethod
     async def insert_data(
@@ -225,7 +225,7 @@ class Retrieval(Base):
 
     user_id = Column(UUID(as_uuid=True), ForeignKey("user.id"), nullable=False)
 
-    user = relationship("User", back_populates="retrieval_methods")
+    user = relationship("User", back_populates="retrievals")
 
     @classmethod
     async def insert_data(

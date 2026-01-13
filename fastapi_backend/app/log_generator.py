@@ -131,7 +131,7 @@ class InfoLogger:
         extra_message = {
             "session_id": self.session_id,
             "task": task,
-            "stage": stage,  # The Pipeline Stage (indexing, extraction, retrieval)
+            "stage": stage,  # The Pipeline Stage (@indexing, @extraction, retrieval)
             "strategy": strategy,
             "inputs": inputs,
             "outputs": outputs,

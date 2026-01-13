@@ -61,7 +61,7 @@ export type runPipelineData = {
     doc_id: string;
   };
   query?: never;
-  url: "/extraction/{doc_id}/data";
+  url: "/indexing/{doc_id}/run";
 };
 
 export type runPipelineResponses = {

@@ -30,12 +30,12 @@ export async function runIndexing(doc_id: string) {
     throw result.error;
   }
 
-  revalidatePath("/docs/{doc_id}/indexing");
+  revalidatePath(`rag/docs/${doc_id}`);
 }
 
 
 
-export async function addPipeline(formData: FormData) {
+export async function addIndexPipeline(formData: FormData) {
 
   const doc_id = formData.get("doc_id") as string;
   const pipeline = JSON.parse(formData.get("pipeline") as string) as PipelineSpec;
@@ -61,15 +61,16 @@ export async function addPipeline(formData: FormData) {
     throw result.error;
   }
 
-  revalidatePath("/docs/{doc_id}/indexing");
+  revalidatePath(`rag/docs/${doc_id}`);
 }
 
 
 
 
-export async function fetchPipeline(doc_id: string): Promise<PipelineSpec> {
+export async function fetchIndexPipeline(doc_id: string): Promise<PipelineSpec> {
   const cookieStore = await cookies();
   const token = cookieStore.get("accessToken")?.value;
+  console.log("doc_id from prop:", doc_id);
 
   if (!token) {
     throw new Error("No access token found");

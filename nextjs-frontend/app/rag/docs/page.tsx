@@ -69,7 +69,7 @@ export default function DocsPage() {
             }}
           >
             <Link
-              href={`/docs/${doc.doc_id}`}
+              href={`/rag/docs/${doc.doc_id}`}
               style={{
                 textDecoration: "none",
                 color: "#0070f3",

@@ -21,4 +21,10 @@ export type CreateClientConfig<T extends DefaultClientOptions = ClientOptions> =
     override?: Config<DefaultClientOptions & T>,
   ) => Config<Required<DefaultClientOptions> & T>;
 
-export const client = createClient(createConfig<ClientOptions>());
+export const client = createClient(
+  createConfig<{
+  baseURL: `${string}://openapi.json` | (string & {});
+}>({
+    baseURL: process.env.API_BASE_URL ?? "http://localhost:8000",
+  })
+);

@@ -56,7 +56,7 @@ async def create_doc(
 
     return {
         "name": db_doc.name,
-        "doc_id": db_doc.id,
+        "doc_id": db_doc.doc_id,
     }
 
 
@@ -72,7 +72,7 @@ async def upload_doc_file(
 ):
     # 1️⃣ Fetch doc with ownership constraint
     stmt = select(Doc).filter(
-        Doc.id == doc_id,
+        Doc.doc_id == doc_id,
         Doc.user_id == user.id,
     )
 
@@ -84,7 +84,7 @@ async def upload_doc_file(
 
     # 2️⃣ Compute path (server-owned logic)
     base_path = Path("shared-data/uploads")
-    doc_dir = base_path / str(user.id) / str(doc.id)
+    doc_dir = base_path / str(user.id) / str(doc.doc_id)
     doc_dir.mkdir(parents=True, exist_ok=True)
 
     file_path = doc_dir / doc.name
@@ -120,7 +120,7 @@ async def delete_doc(
 
 
     stmt = select(Doc).filter(
-        Doc.id == doc_id,
+        Doc.doc_id == doc_id,
         Doc.user_id == user.id,
     )
 
@@ -167,7 +167,7 @@ async def read_doc_list(
     return [
         DocResponse(
             name=doc.name,
-            doc_id=doc.id,
+            doc_id=doc.doc_id,
         )
         for doc in docs
     ]

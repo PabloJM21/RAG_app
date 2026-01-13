@@ -119,7 +119,7 @@ async def run_index_pipeline(
 
 
     # ---------------
-    # Avoid indexed=1 to be indexed again. This restriction should only apply to global indexing
+    # Avoid indexed=1 to be indexed again. This restriction should only apply to global @indexing
     # ---------------
     # 3. filter: output error if the pipeline's "indexed" status is not zero,
     #if int(index_pipeline.indexed):
@@ -130,7 +130,7 @@ async def run_index_pipeline(
     indexer = json.loads(index_pipeline.indexer)
     await run_indexing(indexer, user.id, [doc_id], db)
 
-    # After indexing
+    # After @indexing
 
     # Set indexed=1
     index_pipeline.indexed = 1

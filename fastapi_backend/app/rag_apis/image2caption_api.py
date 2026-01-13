@@ -6,8 +6,8 @@ import httpx
 import json
 from datetime import datetime, timedelta
 from itertools import cycle
-from src.agent_flow.apis.model_enums import MULTIMODAL_SUBCATEGORIES
-from src.agent_flow.log_generator import AgentLogger
+from app.rag_apis.model_enums import MULTIMODAL_SUBCATEGORIES
+from loguru import logger as AgentLogger
 
 # ───────────────────────────────────────────────
 # Config

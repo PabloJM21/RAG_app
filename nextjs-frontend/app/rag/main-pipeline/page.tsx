@@ -348,10 +348,10 @@ export function MainPipelineEditor({
 
       {/*
       <div style={{ marginTop: 16 }}>
-        <button onClick={() => run("indexing")}>
+        <button onClick={() => run("@indexing")}>
           runIndexing
         </button>{" "}
-        <button onClick={() => run("extraction")}>
+        <button onClick={() => run("@extraction")}>
           runExtraction
         </button>{" "}
         <button onClick={() => run("embeddings")}>

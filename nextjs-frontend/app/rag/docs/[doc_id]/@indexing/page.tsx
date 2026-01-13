@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { addPipeline, fetchPipeline, runIndexing } from "@/app/rag/api/docs/[doc_id]/indexing/indexing-action";
+import { addIndexPipeline, fetchIndexPipeline, runIndexing } from "@/app/rag/api/docs/[doc_id]/indexing/indexing-action";
 import {runExtraction} from "@/app/rag/api/docs/[doc_id]/extraction/extraction-action";
 
 /* ---------- Domain options ---------- */
@@ -239,7 +239,7 @@ export function IndexingEditor({
 
       <div style={{ marginTop: 12 }}>
         {isCompleteMethod(methodSpec) && (
-          <form action={addPipeline}>
+          <form action={addIndexPipeline}>
             <input
               type="hidden"
               name="doc_id"
@@ -280,6 +280,8 @@ export default function IndexingPage({
 }: {
   params: { doc_id: string };
 }) {
+
+
   const [pipeline, setPipeline] =
     useState<PipelineSpec>({});
   const [loading, setLoading] =
@@ -290,7 +292,7 @@ export default function IndexingPage({
   useEffect(() => {
     async function loadPipeline() {
       try {
-        const data = await fetchPipeline(params.doc_id);
+        const data = await fetchIndexPipeline(params.doc_id);
         setPipeline(data ?? {});
       } catch (err: any) {
         setError(err.message ?? "Unknown error");

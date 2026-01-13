@@ -30,7 +30,7 @@ export async function runExtraction(doc_id: string) {
     throw result.error;
   }
 
-  revalidatePath("/docs/{doc_id}/extraction");
+  revalidatePath(`rag/docs/${doc_id}`);
 }
 
 
@@ -38,7 +38,7 @@ export async function runExtraction(doc_id: string) {
 
 
 
-export async function addPipeline(formData: FormData) {
+export async function addExtractionPipeline(formData: FormData) {
 
   const doc_id = formData.get("doc_id") as string;
   const pipeline = JSON.parse(formData.get("pipeline") as string) as PipelineSpec;
@@ -64,13 +64,13 @@ export async function addPipeline(formData: FormData) {
     throw result.error;
   }
 
-  revalidatePath("/docs/{doc_id}/extraction");
+  revalidatePath(`rag/docs/${doc_id}`);
 }
 
 
 
 
-export async function fetchPipeline(doc_id: string): Promise<PipelineSpec> {
+export async function fetchExtractionPipeline(doc_id: string): Promise<PipelineSpec> {
   const cookieStore = await cookies();
   const token = cookieStore.get("accessToken")?.value;
 

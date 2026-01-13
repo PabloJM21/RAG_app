@@ -107,7 +107,7 @@ async def run_extraction_pipeline(
         raise HTTPException(status_code=404, detail="No pipeline was saved")
 
     # ---------------
-    # Avoid extracted=1 to be extracted again. This restriction should only apply to global extraction
+    # Avoid extracted=1 to be extracted again. This restriction should only apply to global @extraction
     # ---------------
 
     # 3. filter: output error if the pipeline's "extracted" status is not zero,
@@ -120,7 +120,7 @@ async def run_extraction_pipeline(
     method_list = json.loads(extraction_pipeline.method_list)
     await run_extraction(method_list, user.id, doc_id, db)
 
-    # After extraction
+    # After @extraction
 
     # Set extracted=1
     extraction_pipeline.extracted = 1

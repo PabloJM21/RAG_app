@@ -6,8 +6,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from .utils import simple_generate_unique_route_id
 from app.routes.docs import router as docs_router
 from app.routes.main_pipeline import router as main_pipeline_router
+from app.routes.indexing import router as indexing_router
+#from app.routes.retrieval import router as retrieval_router
+from app.routes.extraction import router as extraction_router
 from app.config import settings
-from app.database import create_db_and_tables
+from app.database import create_db_and_tables, drop_tables
 
 
 app = FastAPI(
@@ -18,6 +21,7 @@ app = FastAPI(
 
 @app.on_event("startup")
 async def on_startup():
+    await drop_tables()
     await create_db_and_tables()
 
 
@@ -60,4 +64,7 @@ app.include_router(
 # Include routes
 app.include_router(docs_router, prefix="/docs")
 app.include_router(main_pipeline_router, prefix="/main-pipeline")
+app.include_router(indexing_router, prefix="/indexing")
+app.include_router(extraction_router, prefix="/extraction")
+#app.include_router(retrieval_router, prefix="/retrieval")
 add_pagination(app)

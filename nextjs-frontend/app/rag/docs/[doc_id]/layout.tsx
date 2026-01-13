@@ -1,11 +1,11 @@
 
 export default function DocLayout({
-  table,
+  indexing_results,
   indexing,
   extraction,
   retrieval,
 }: {
-  table: React.ReactNode;
+  indexing_results: React.ReactNode;
   indexing: React.ReactNode;
   extraction: React.ReactNode;
   retrieval: React.ReactNode;
@@ -19,7 +19,7 @@ export default function DocLayout({
       }}
     >
       <section style={{ borderRight: "1px solid #ddd", padding: 12, overflow: "auto" }}>
-        {table}
+        {indexing_results}
       </section>
 
       <section style={{ borderRight: "1px solid #ddd", padding: 12, overflow: "auto" }}>

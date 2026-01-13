@@ -1,7 +1,7 @@
 "use client";
 
 import {useEffect, useState} from "react";
-import {addPipeline, fetchPipeline, fetchLevels, runExtraction} from "@/app/rag/api/docs/[doc_id]/extraction/extraction-action";
+import {addExtractionPipeline, fetchExtractionPipeline, fetchLevels, runExtraction} from "@/app/rag/api/docs/[doc_id]/extraction/extraction-action";
 
 
 
@@ -353,7 +353,7 @@ export function ExtractionEditor({
 
       <div style={{ marginTop: 12 }}>
         {isCompleteMethod(pipeline) && (
-          <form action={addPipeline}>
+          <form action={addExtractionPipeline}>
 
             <input
               type="hidden"
@@ -411,7 +411,7 @@ export default function ExtractionPage({
   useEffect(() => {
     async function loadPipeline() {
       try {
-        const pipeline_data = await fetchPipeline(params.doc_id);
+        const pipeline_data = await fetchExtractionPipeline(params.doc_id);
         setPipeline(pipeline_data ?? []);
         const levels_data = await fetchLevels(params.doc_id);
         setLevels(levels_data ?? []);
