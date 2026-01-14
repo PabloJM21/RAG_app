@@ -18,7 +18,7 @@ import json
 import os
 
 # Indexing service
-from app.rag_services.indexing_service import run_indexing, load_indexing_results, update_indexing_results
+from app.rag_services.indexing_service import run_indexing, load_indexing_results, update_indexing_results, load_indexing_levels
 
 # Markdown generator
 from app.generate_markdown import generate_markdown_from_log, find_session_id
@@ -43,7 +43,7 @@ async def read_index_pipeline(
     user: User = Depends(current_active_user),
 ):
     stmt = select(IndexPipeline).filter(
-        IndexPipeline.id == doc_id,
+        IndexPipeline.doc_id == doc_id,
         IndexPipeline.user_id == user.id,
     )
     result = await db.execute(stmt)
@@ -68,7 +68,7 @@ async def add_index_pipeline(
 
     # First we delete current pipeline if it's set
     stmt = select(IndexPipeline).filter(
-        IndexPipeline.id == doc_id,
+        IndexPipeline.doc_id == doc_id,
         IndexPipeline.user_id == user.id,
     )
 
@@ -105,7 +105,7 @@ async def run_index_pipeline(
 ):
     # 1. filter: this endpoint is only triggered when a pipeline is fetched or created from the UI
     stmt = select(IndexPipeline).filter(
-        IndexPipeline.id == doc_id,
+        IndexPipeline.doc_id == doc_id,
         IndexPipeline.user_id == user.id,
     )
 
@@ -176,6 +176,16 @@ async def run_index_pipeline(
         "status": "ok"
     }
 
+
+@router.get("/{doc_id}/levels", response_model=list[str])
+async def read_index_levels(
+    doc_id: UUID,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+    levels = await load_indexing_levels(user_id=user.id, doc_id=doc_id, db=db)
+
+    return levels
 
 
 

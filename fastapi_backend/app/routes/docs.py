@@ -20,12 +20,6 @@ from uuid import uuid4
 router = APIRouter(tags=["docs"])
 
 
-
-
-
-
-
-
 class DocResponse(BaseModel):
     name: str
     doc_id: UUID

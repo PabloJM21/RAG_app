@@ -28,6 +28,7 @@ dependencies = [
     "transformers>=4.41,<5",
     "docling>=2.0,<3",
     "docling-core>=2.0,<3",
+    "sqlite-vec>=0.1.6",
 ]
 
 [dependency-groups]

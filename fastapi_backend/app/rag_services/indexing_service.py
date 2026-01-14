@@ -500,8 +500,8 @@ class BaseIndexer:
 
         print(f"document input level detected for document {self.doc_id}")
 
-        rows = await Doc.get_all({"user_id": self.user_id, "doc_id": self.doc_id}, self.db)
-        document_df = pd.DataFrame(rows)
+        rows, columns = await Doc.get_all({"user_id": self.user_id, "doc_id": self.doc_id}, self.db)
+        document_df = pd.DataFrame(rows, columns=columns)
 
         if len(document_df) > 1:
             raise Exception("More than one document in this paragraphs table")
@@ -526,9 +526,9 @@ class BaseIndexer:
 
         await Retrieval.delete_data({"user_id": self.user_id, "doc_id": self.doc_id}, self.db)
 
-        rows = await Paragraph.get_all({"user_id": self.user_id, "doc_id": self.doc_id}, self.db)
+        rows, columns = await Paragraph.get_all({"user_id": self.user_id, "doc_id": self.doc_id}, self.db)
         
-        self.paragraph_df = pd.DataFrame(rows).sort_values(
+        self.paragraph_df = pd.DataFrame(rows, columns=columns).sort_values(
             by="paragraph_id")  # ensures that paragraphs are in the right order
 
         # Insert Document title
@@ -746,8 +746,8 @@ class CustomIndexer(BaseIndexer, ImageChunker, TableChunker, EmbeddingChunker):
         # First, check if there is any Doc_ID in the  "Docs" table that doesn't have a paragraphs table.
         # Then, run the docling client and process the markdown text
 
-        rows = await Doc.get_all({"user_id": self.user_id, "indexed": 0}, self.db)
-        new_document_df = pd.DataFrame(rows)
+        rows, columns = await Doc.get_all({"user_id": self.user_id, "indexed": 0}, self.db)
+        new_document_df = pd.DataFrame(rows, columns=columns)
 
         if self.doc_ids:
             mask = new_document_df["doc_id"].isin(self.doc_ids)
@@ -872,8 +872,8 @@ class DoclingIndexer(BaseIndexer):
 
         # Creates chunks suited for this embedding model without merging sections. Each section is decomposed in one or more of these chunks (allows parent child relationship)
 
-        rows = await Doc.get_all({"user_id": self.user_id, "indexed": 0}, self.db)
-        new_document_df = pd.DataFrame(rows)
+        rows, columns = await Doc.get_all({"user_id": self.user_id, "indexed": 0}, self.db)
+        new_document_df = pd.DataFrame(rows, columns=columns)
 
         if self.doc_ids:
             mask = new_document_df["doc_id"].isin(self.doc_ids)
@@ -946,6 +946,10 @@ TYPE_MAPPER = {
 
 
 
+
+# Run Indexing
+
+
 async def run_indexing(indexer_dict: Dict[str, Any], user_id: UUID, doc_ids: list[UUID], db: AsyncSession):
     indexer_dict["db"] = db
     indexer_dict["user_id"] = user_id
@@ -959,6 +963,20 @@ async def run_indexing(indexer_dict: Dict[str, Any], user_id: UUID, doc_ids: lis
 
 
 
+# Levels
+
+
+async def load_indexing_levels(user_id: UUID, doc_id: UUID, db: AsyncSession)-> List[str]:
+
+
+
+    rows, columns = await Retrieval.get_all(where_dict={"user_id": user_id, "doc_id": doc_id}, db=db)
+    retrieval_df = pd.DataFrame(rows, columns=columns)
+
+    indexed_levels = list(set(retrieval_df["level"]))
+
+    return indexed_levels
+
 
 
 # Results
@@ -968,8 +986,8 @@ async def load_indexing_results(user_id: UUID, doc_id: UUID, db: AsyncSession)->
 
 
 
-    rows = await Retrieval.get_all(where_dict={"user_id": user_id, "doc_id": doc_id}, db=db)
-    retrieval_df = pd.DataFrame(rows)
+    rows, columns = await Retrieval.get_all(where_dict={"user_id": user_id, "doc_id": doc_id}, db=db)
+    retrieval_df = pd.DataFrame(rows, columns=columns)
 
     indexed_levels = list(set(retrieval_df["level"]))
 

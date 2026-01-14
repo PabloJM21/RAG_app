@@ -32,14 +32,14 @@ router = APIRouter(tags=["extraction"])
 MethodSpec = Dict[str, Any]
 
 
-@router.get("/{doc_id}/data", response_model=MethodSpec)
+@router.get("/{doc_id}/data", response_model=List[MethodSpec])
 async def read_extraction_pipeline(
         doc_id: UUID,
         db: AsyncSession = Depends(get_async_session),
         user: User = Depends(current_active_user),
 ):
     stmt = select(ExtractionPipeline).filter(
-        ExtractionPipeline.id == doc_id,
+        ExtractionPipeline.doc_id== doc_id,
         ExtractionPipeline.user_id == user.id,
     )
     result = await db.execute(stmt)
@@ -47,7 +47,7 @@ async def read_extraction_pipeline(
 
     if pipeline is None:
         # Return default empty pipeline if none exists
-        return {}
+        return []
 
     return json.loads(pipeline.method_list)
 
@@ -61,7 +61,7 @@ async def add_extraction_pipeline(
 ):
     # First we delete current pipeline if it's set
     stmt = select(ExtractionPipeline).filter(
-        ExtractionPipeline.id == doc_id,
+        ExtractionPipeline.doc_id== doc_id,
         ExtractionPipeline.user_id == user.id,
     )
 
@@ -94,7 +94,7 @@ async def run_extraction_pipeline(
 ):
     # 1. filter: this endpoint is only triggered when a pipeline is fetched or created from the UI
     stmt = select(ExtractionPipeline).filter(
-        ExtractionPipeline.id == doc_id,
+        ExtractionPipeline.doc_id== doc_id,
         ExtractionPipeline.user_id == user.id,
     )
 

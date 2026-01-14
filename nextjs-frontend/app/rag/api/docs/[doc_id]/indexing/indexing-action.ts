@@ -3,7 +3,8 @@
 
 import {cookies} from "next/headers";
 import {revalidatePath} from "next/cache";
-import {createPipeline, PipelineSpec, readPipeline, runPipeline} from "./sdk.gen";
+import {createPipeline, PipelineSpec, readPipeline, runPipeline, readLevels} from "./sdk.gen";
+
 
 
 
@@ -77,6 +78,34 @@ export async function fetchIndexPipeline(doc_id: string): Promise<PipelineSpec> 
   }
 
   const result = await readPipeline({
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    path:{
+      doc_id: doc_id,
+    },
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  return result.data;
+}
+
+
+
+
+
+export async function fetchLevels(doc_id: string): Promise<string[]> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("accessToken")?.value;
+
+  if (!token) {
+    throw new Error("No access token found");
+  }
+
+  const result = await readLevels({
     headers: {
       Authorization: `Bearer ${token}`,
     },

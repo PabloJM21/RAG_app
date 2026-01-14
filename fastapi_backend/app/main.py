@@ -19,9 +19,10 @@ app = FastAPI(
 )
 
 
+#await drop_tables()
+
 @app.on_event("startup")
 async def on_startup():
-    await drop_tables()
     await create_db_and_tables()
 
 

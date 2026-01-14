@@ -9,6 +9,7 @@ export default function DocLayout({
   indexing: React.ReactNode;
   extraction: React.ReactNode;
   retrieval: React.ReactNode;
+  params: { doc_id: string };
 }) {
   return (
     <div
@@ -36,3 +37,5 @@ export default function DocLayout({
     </div>
   );
 }
+
+

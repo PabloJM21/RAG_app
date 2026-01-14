@@ -67,14 +67,14 @@ class Extractor:
 
         # loggs
 
-        rows = await Paragraph.get_all(where_dict={"user_id": self.user_id, "doc_id": self.doc_id}, db=self.db)
-        paragraphs_df = pd.DataFrame(rows)
+        rows, columns = await Paragraph.get_all(where_dict={"user_id": self.user_id, "doc_id": self.doc_id}, db=self.db)
+        paragraphs_df = pd.DataFrame(rows, columns=columns)
 
-        rows = await Retrieval.get_all(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.input_level}, db=self.db)
-        input_df = pd.DataFrame(rows).sort_values(by="level_id")  # like the retrievals table, but one for each hierarchy level
+        rows, columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.input_level}, db=self.db)
+        input_df = pd.DataFrame(rows, columns=columns).sort_values(by="level_id")  # like the retrievals table, but one for each hierarchy level
 
-        rows = await Retrieval.get_all(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.output_level}, db=self.db)
-        output_df = pd.DataFrame(rows).sort_values(by="level_id")  # like the retrievals table, but one for each hierarchy level
+        rows, columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.output_level}, db=self.db)
+        output_df = pd.DataFrame(rows, columns=columns).sort_values(by="level_id")  # like the retrievals table, but one for each hierarchy level
 
         input_ids = list(set(input_df[f"level_id"]))
 
@@ -285,9 +285,9 @@ class Enricher:
 
 
 
-        rows = await Retrieval.get_all(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.input_level}, db=self.db)
+        rows, columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.input_level}, db=self.db)
 
-        input_df = pd.DataFrame(rows).sort_values(by="level_id")  # like the retrievals table, but one for each hierarchy level
+        input_df = pd.DataFrame(rows, columns=columns).sort_values(by="level_id")  # like the retrievals table, but one for each hierarchy level
 
         input_ids = list(set(input_df[f"level_id"]))
 

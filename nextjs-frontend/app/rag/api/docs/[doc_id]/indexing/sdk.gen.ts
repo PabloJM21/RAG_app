@@ -181,3 +181,42 @@ export const readPipeline = <ThrowOnError extends boolean = false>(
 };
 
 
+/**
+ * Read Levels
+ */
+
+
+export type ReadLevelsData = {
+  body?: never;
+  path: {
+    doc_id: string;
+  };
+  query?: never;
+  url: "/indexing/{doc_id}/levels";
+};
+
+
+
+export type ReadLevelsResponses = {
+  200: string[];
+};
+
+export const readLevels = <ThrowOnError extends boolean = false>(
+  options?: Options<ReadLevelsData, ThrowOnError>,
+) => {
+  return (options?.client ?? client).get<
+    ReadLevelsResponses,
+    Errors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/indexing/{doc_id}/levels",
+    ...options,
+  });
+};
