@@ -78,7 +78,7 @@ async def upload_doc_file(
 
     # 2️⃣ Compute path (server-owned logic)
     base_path = Path("shared-data/uploads")
-    doc_dir = base_path / str(user.id) / str(doc.doc_id)
+    doc_dir = base_path / str(doc.user_id) / str(doc.doc_id)
     doc_dir.mkdir(parents=True, exist_ok=True)
 
     file_path = doc_dir / doc.name

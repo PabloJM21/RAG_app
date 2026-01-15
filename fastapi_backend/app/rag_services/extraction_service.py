@@ -165,25 +165,28 @@ class Enricher:
 
         self.db = db
         self.user_id = user_id
+        self.doc_id = doc_id
+        self.input_level = where
         self.logger = logger
 
         self.what = what
         self.caption = caption
         self.model = model
+        self.replace = replace
 
         # these instructions aim at replacing the content of a big chunk like "embedding_chunk" by a summary of its own input_content created previously by extracting its sections titles.
         # input_level can also refer to a child of output_level instead, which can also be a summary created previously, thus defining enrichment in a recursive manner, for example with numbered sections.
 
 
-        self.input_level = where
 
 
 
 
-        self.replace = replace
 
-        self.doc_id = doc_id
-        
+
+
+
+
 
 
 
@@ -326,13 +329,60 @@ class Enricher:
                                             where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level_id": input_id,
                                                         "level": self.input_level}, db=self.db)
 
-                
+class Reset:
+
+
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, where: str = "section"):
+
+        self.db = db
+        self.user_id = user_id
+        self.doc_id = doc_id
+        self.level = where
+        self.logger = logger
+
+    async def run_method(self):
+
+        # Finally, merge paragraphs data and insert chunks into the RETRIEVALS table (Sections and EmbeddingChunks)
+
+        await Retrieval.delete_data({"user_id": self.user_id, "doc_id": self.doc_id, "level": self.level}, self.db)
+
+        rows, columns = await Paragraph.get_all({"user_id": self.user_id, "doc_id": self.doc_id}, self.db)
+
+        self.paragraph_df = pd.DataFrame(rows, columns=columns).sort_values(
+            by="paragraph_id")  # ensures that paragraphs are in the right order
+
+        # Insert Document title
+
+        await self.export_document_title()
+
+        # Export Level Chunks
+
+
+        id_values = list(set(self.paragraph_df[f"{self.level}_id"]))
+
+        for id_value in id_values:
+            filtered_df = self.paragraph_df[self.paragraph_df[f"{self.level}_id"] == id_value]
+
+            title = filtered_df["paragraph"].iloc[0]
+            chunk = "\n".join(filtered_df["paragraph"].iloc[1:])
+
+            # self.db.insert("Retrievals", {"doc_id": self.doc_id, "level": level, "level_id": id_value, "title": title, "content": chunk})
+
+            await Retrieval.insert_data(
+                {"user_id": self.user_id, "doc_id": self.doc_id, "level": self.level, "level_id": id_value,
+                 "title": title, "content": chunk},
+                self.db)
+
+        await self.db.commit()
+
+
 
 
 
 TYPE_MAPPER = {
     "Extractor": Extractor,
-    "Enricher": Enricher
+    "Enricher": Enricher,
+    "Reset Content": Reset,
 }
 
 async def run_extraction(method_list: list[dict[str, Any]], user_id: UUID, doc_id: UUID, db: AsyncSession):

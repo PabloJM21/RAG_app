@@ -11,11 +11,17 @@ type PipelineSpec = MethodSpec[]
 
 /* ---------- Domain options ---------- */
 
-const METHOD_TYPES = ["Extractor", "Enricher"] as const;
+const METHOD_TYPES = ["Extractor", "Enricher", "Reset Content", "Embedding Chunker"] as const;
 
 const EXTRACTOR_WHAT = ["content", "title"];
 const ENRICHER_WHAT = ["summary", "questions", "keywords"];
-const ENRICHER_MODEL = ["coder", "thinker", "classifier", "generator", "reasoner"]
+const ENRICHER_MODELS = ["coder", "thinker", "classifier", "generator", "reasoner"]
+
+const EMBEDDING_MODELS = [
+  "intfloat/e5-mistral-7b-instruct",
+  "intfloat/multilingual-e5-large-instruct",
+  "Qwen/Qwen3-Embedding-4B",
+];
 /* ---------- Templates ---------- */
 
 const EXTRACTOR_TEMPLATE: MethodSpec = {
@@ -35,6 +41,30 @@ const ENRICHER_TEMPLATE: MethodSpec = {
   replace: false,
   caption: ""
 };
+
+const RESET_TEMPLATE: MethodSpec = {
+  type: "Reset Content",
+  where: ""
+};
+
+const CHUNKER_TEMPLATE: MethodSpec = {
+  type: "Embedding Chunker",
+  where: "",
+  model: ""
+};
+
+const TEMPLATE_MAP: Record<(typeof METHOD_TYPES)[number], MethodSpec> = {
+  Extractor: EXTRACTOR_TEMPLATE,
+  Enricher: ENRICHER_TEMPLATE,
+  "Reset Content": RESET_TEMPLATE,
+  "Embedding Chunker": CHUNKER_TEMPLATE
+};
+
+function templateFor(
+  type: (typeof METHOD_TYPES)[number]
+): MethodSpec {
+  return structuredClone(TEMPLATE_MAP[type]);
+}
 
 export function ExtractionEditor({
   doc_id,
@@ -78,16 +108,12 @@ export function ExtractionEditor({
   }
 
   function addMethod() {
-    const template =
-      selectedType === "Extractor"
-        ? structuredClone(EXTRACTOR_TEMPLATE)
-        : structuredClone(ENRICHER_TEMPLATE);
-
+    const template = structuredClone(templateFor(selectedType));
     setPipeline([...pipeline, template]);
   }
 
   function isCompleteMethod(
-  methods: PipelineSpec
+    methods: PipelineSpec
   ): methods is MethodSpec[] {
     return methods.every(
       (method) => typeof method?.type === "string"
@@ -219,7 +245,68 @@ export function ExtractionEditor({
           }
         >
           <option value="">—</option>
-          {ENRICHER_MODEL.map((label) => (
+          {ENRICHER_MODELS.map((label) => (
+            <option key={label} value={label}>
+              {label}
+            </option>
+          ))}
+        </select>
+      );
+    }
+
+
+
+    // Reset AND Chunker Dropdowns
+    if (method.type === "Reset Content" && key === "where") {
+      return (
+        <select
+          value={value}
+          onChange={(e) =>
+            updatePipeline(index, key, e.target.value)
+          }
+        >
+          <option value="">—</option>
+          {levels.map((lvl) => (
+            <option key={lvl} value={lvl}>
+              {lvl}
+            </option>
+          ))}
+        </select>
+      );
+    }
+
+
+    if (method.type === "Embedding Chunker" && key === "where") {
+      return (
+        <select
+          value={value}
+          onChange={(e) =>
+            updatePipeline(index, key, e.target.value)
+          }
+        >
+          <option value="">—</option>
+          {levels.map((lvl) => (
+            <option key={lvl} value={lvl}>
+              {lvl}
+            </option>
+          ))}
+        </select>
+      );
+    }
+    
+    
+    if (
+      method.type === "Embedding Chunker" && key === "model"
+    ) {
+      return (
+        <select
+          value={value}
+          onChange={(e) =>
+            updatePipeline(index, key, e.target.value)
+          }
+        >
+          <option value="">—</option>
+          {EMBEDDING_MODELS.map((label) => (
             <option key={label} value={label}>
               {label}
             </option>

@@ -61,69 +61,6 @@ from app.models import Doc, Paragraph, Retrieval
 
 
 
-
-
-
-
-
-class EmbeddingChunker:
-
-
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID):
-        super().__init__(db, logger, user_id)
-
-        self.chunk_record = {}
-
-
-
-    def update_initial_dict(self, paragraph_dict: Dict, min_chars_embedding_chunk: int):
-        # THRESHOLD SECTIONS
-
-        # update paragraph_dict keys
-        paragraph_dict[f"embedding_chunk_id"] = 1  # these ids are 1 until the chunk length overpasses the limit
-
-
-        self.logger.log_step(log_text=f"Defined Embedding Chunk with {min_chars_embedding_chunk} characters")
-
-        self.chunk_record = {"length": 0, "limit": min_chars_embedding_chunk}
-
-        # end logg
-
-
-
-    def update_dict(self, paragraph_dict, lines):
-        # Check for new levels based on threshold
-
-
-        if paragraph_dict["embedding_chunk_id"] and self.chunk_record["length"] > self.chunk_record["limit"]:
-
-
-            # logg
-            self.logger.log_step(task="debug", log_text=f"Also starting new embedding_chunk, as the previous one consists of {self.chunk_record["length"]} characters")
-            # end logg
-
-            paragraph_dict[f"embedding_chunk_id"] += 1
-            self.chunk_record["length"] = 0
-
-
-
-    def update_chunk_length(self, line):
-
-        # update chunk length with current paragraph
-
-        self.chunk_record["length"] += len(line)
-
-
-
-
-    
-
-
-
-
-
-
-
 class TableChunker:
 
     """
@@ -137,6 +74,8 @@ class TableChunker:
         self.table_lines = []
         self.table_paragraph = ""
         self.table_id = 0
+        
+        self.convert_tables = True
         
 
     def scan_paragraphs(self, lines: List[str]):
@@ -213,25 +152,27 @@ class TableChunker:
         return output_dict["Output"]
 
 
-    def process_tables(self, i, current_paragraph, paragraph_list):
+    def process_tables(self, i, line, output_text):
 
 
         if i in self.table_lines:
             print(f"[DEBUG] Paragraph {i} is inside table → skipping \n")
-            print(f"[DEBUG] It goes like this: {current_paragraph}")
+            print(f"[DEBUG] It goes like this: {line}")
             # update actual paragraph for next iteration
-            self.table_paragraph += current_paragraph
+            self.table_paragraph += line
             return True
 
         if self.table_paragraph:
-
-
-            # process table into readable text
-
-            output_text = self.explain_table_content(self.table_paragraph)
-            for line in output_text.split("\n"):
-                paragraph_list.append(f"{line}\n")
-
+            
+            if self.convert_tables:
+                # process table into readable text
+                output_text = self.explain_table_content(self.table_paragraph)
+                for line in output_text.split("\n"):
+                    output_text += f"{line}[PARA_SEP]"
+    
+            else:
+                output_text += f"{self.table_paragraph}[PARA_SEP]"
+    
             self.table_paragraph = ""
 
 
@@ -240,14 +181,17 @@ class TableChunker:
 
 
 
-    def process_last_table(self, paragraph_list):
+    def process_last_table(self, output_text):
         if self.table_paragraph:
 
-            # process table into readable text
+            if self.convert_tables:
+                # process table into readable text
+                output_text = self.explain_table_content(self.table_paragraph)
+                for line in output_text.split("\n"):
+                    output_text += f"{line}[PARA_SEP]"
 
-            output_text = self.explain_table_content(self.table_paragraph)
-            for line in output_text.split("\n"):
-                paragraph_list.append(f"{line}\n")
+            else:
+                output_text += f"{self.table_paragraph}[PARA_SEP]"
 
 
 
@@ -404,7 +348,7 @@ class ImageChunker:
 
 
 
-    def process_images(self, line, paragraph_list):
+    def process_images(self, line, output_text):
 
 
 
@@ -421,10 +365,11 @@ class ImageChunker:
 
 
 
-            output_text = re.sub(r"picture-\d+\.png", replace_with_dict, line)
-            for line in output_text.split("\n"):
+            image_text = re.sub(r"picture-\d+\.png", replace_with_dict, line)
 
-                paragraph_list.append(f"{line}\n")
+            for line in image_text.split("\n"):
+
+                output_text += (f"{line}[PARA_SEP]")
 
 
 
@@ -437,24 +382,22 @@ class BaseIndexer:
 
         self.db = db
         self.user_id = user_id
+        self.doc_id = 0
         self.logger = logger
 
-        self.doc_id = 0
-        self.do_embedding_chunks = True
         self.paragraph_df = pd.DataFrame()
         
 
-
-    
-    def check_hierarchy(self, child, parent):
+    async def get_document_dir(self):
 
 
-        chunk_ids = list(set(self.paragraph_df[f"{child}_id"]))
-        for id_value in chunk_ids:
-            if len(set(self.paragraph_df.loc[self.paragraph_df[f"{child}_id"] == id_value, f"{parent}_id"])) > 1:
-                return False
+        print(f"document input level detected for document {self.doc_id}")
 
-        return True
+        rows, columns = await Doc.get_all({"user_id": self.user_id, "doc_id": self.doc_id}, self.db)
+        document_df = pd.DataFrame(rows, columns=columns)
+        document_dir = os.path.dirname(document_df["path"].iloc[0])
+        
+        return document_dir
 
 
 
@@ -475,25 +418,7 @@ class BaseIndexer:
 
         await self.db.commit()
 
-    async def export_parent_and_child(self, child, parent):
-        parent_ids = list(set(self.paragraph_df[f"{parent}_id"]))
-
-        for id_value in parent_ids:
-            filtered_df = self.paragraph_df[self.paragraph_df[f"{parent}_id"] == id_value]
-            title = filtered_df["paragraph"].iloc[0]
-            filtered_df = filtered_df.iloc[1:].copy()
-
-            child_ids = list(set(filtered_df[f"{child}_id"]))
-
-            for chunk_id in child_ids:
-                chunk = "\n".join(
-                    filtered_df.loc[filtered_df[f"{child}_id"] == chunk_id, "paragraph"])
-
-                await Retrieval.insert_data(
-                    {"user_id": self.user_id, "doc_id": self.doc_id, "level": child, "level_id": chunk_id, "title": title, "content": chunk},
-                    self.db)
-
-        await self.db.commit()
+    
 
     async def export_document_title(self):
 
@@ -502,12 +427,7 @@ class BaseIndexer:
 
         rows, columns = await Doc.get_all({"user_id": self.user_id, "doc_id": self.doc_id}, self.db)
         document_df = pd.DataFrame(rows, columns=columns)
-
-        if len(document_df) > 1:
-            raise Exception("More than one document in this paragraphs table")
-
-        else:
-            document_title = os.path.basename(document_df["path"].iloc[0]).split(".")[0]
+        document_title = os.path.basename(document_df["path"].iloc[0]).split(".")[0]
 
         
 
@@ -516,6 +436,8 @@ class BaseIndexer:
             self.db)
 
         await self.db.commit()
+        
+
 
 
     async def export_to_retrievals(self):
@@ -537,26 +459,7 @@ class BaseIndexer:
         
         # Insert Sections
 
-
         await self.export_level("section")
-
-        # Insert Embedding Chunks 
-
-        
-        if self.do_embedding_chunks:
-            
-            # first check if embedding_chunk_id has 1-to-* relationship with section_id
-            if self.check_hierarchy("embedding_chunk", "section"):
-                print("section is parent of embedding_chunk")
-
-                await self.export_parent_and_child("embedding_chunk", "section")
-
-
-            else:
-                print("section has NO relationship to embedding_chunk")
-                await self.export_level("embedding_chunk")
-
-
         
         
         await Doc.update_data(data_dict={"indexed": 1}, where_dict={"user_id": self.user_id, "doc_id": self.doc_id}, db=self.db)
@@ -564,10 +467,10 @@ class BaseIndexer:
 
 
 
-class CustomIndexer(BaseIndexer, ImageChunker, TableChunker, EmbeddingChunker):
+class CustomIndexer(BaseIndexer, ImageChunker, TableChunker):
 
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_ids: Optional[Iterable[int]] = (), new_section: str = "## ", do_ocr = True, do_tables = True, min_chars_embedding_chunk = 0):
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_ids: Optional[Iterable[int]] = (), new_section: str = "## ", do_ocr: bool = True, tables: str = "convert"):
         super().__init__(db, logger, user_id)
        
 
@@ -576,18 +479,22 @@ class CustomIndexer(BaseIndexer, ImageChunker, TableChunker, EmbeddingChunker):
         self.doc_id = 0
 
         self.do_ocr = do_ocr
-        self.table_conversion = do_tables
-        self.min_chars_embedding_chunk = min_chars_embedding_chunk
-        
-        if self.min_chars_embedding_chunk:
-            self.do_embedding_chunks = True
-        else:
-            self.do_embedding_chunks = False
+
+        # --- TABLE LOGIC ---
+        self.keep_tables = False
+        self.convert_tables = False
+        if tables == "keep":
+            self.keep_tables = True
+        elif tables == "convert":
+            self.keep_tables = True
+            self.convert_tables = True
+        # --------------------
+
+
         
         self.new_section =  new_section
 
-        self.output_markdown_path = os.path.join(os.path.abspath("output"), "processed_markdown.md")
-
+        self.processed_markdown_path = ""
 
 
 
@@ -613,7 +520,7 @@ class CustomIndexer(BaseIndexer, ImageChunker, TableChunker, EmbeddingChunker):
 
 
 
-    def process_markdown(self, md_text, images):
+    async def process_markdown(self, md_text, images):
 
 
 
@@ -634,12 +541,12 @@ class CustomIndexer(BaseIndexer, ImageChunker, TableChunker, EmbeddingChunker):
         lines = md_text.split("\n")
         # search tables, if the required chunker is provided
 
-        if self.table_conversion:
+        if self.keep_tables:
             self.scan_paragraphs(lines)
 
         # initialize the paragraph_dict. If no chunkers are provided it will only store paragraphs and record their section_id
 
-        paragraph_list = []
+        output_text = ""
 
         # create new tables for this document, if they don't exist
 
@@ -651,37 +558,35 @@ class CustomIndexer(BaseIndexer, ImageChunker, TableChunker, EmbeddingChunker):
 
         for i, line in enumerate(lines):
 
-            if not line.strip():
+            line = line.strip()
+            if not line:
                 continue
 
-            current_paragraph = line + "\n"
 
             # process images
             if self.do_ocr:
-                self.process_images(line, paragraph_list)
+                self.process_images(line, output_text)
                 continue
 
             # process tables
-            if self.table_conversion:
+            if self.keep_tables:
 
-                is_table = self.process_tables(i, line, paragraph_list)
+                is_table = self.process_tables(i, line, output_text)
                 if is_table:
                     continue
 
-            paragraph_list.append(current_paragraph)
-
+            output_text += f"{line}[PARA_SEP]"
 
 
         # In case that the last paragraph still belongs to a table, save this table
-        if self.table_conversion:
-            self.process_last_table(paragraph_list)
+        if self.keep_tables:
+            self.process_last_table(output_text)
 
 
-
-        output_md_text = "".join(paragraph_list)
-
-        with open(self.output_markdown_path, "w", encoding="utf-8") as f:
-            f.write(output_md_text)
+        doc_dir = await self.get_document_dir()
+        self.processed_markdown_path = os.path.join(doc_dir, "processed_markdown.md")
+        with open(self.processed_markdown_path, "w", encoding="utf-8") as f:
+            f.write(output_text)
 
 
 
@@ -698,44 +603,36 @@ class CustomIndexer(BaseIndexer, ImageChunker, TableChunker, EmbeddingChunker):
 
         # start processing paragraphs
 
-        lines = md_text.split("\n")
+        lines = md_text.split("[PARA_SEP]")
 
-        paragraph_dict = {"doc_id": self.doc_id, "section_id": 0}
 
-        if self.do_embedding_chunks:
-            self.update_initial_dict(paragraph_dict, self.min_chars_embedding_chunk)
+        paragraph_dict: Dict[str, Any] = {
+            "doc_id": self.doc_id, "section_id": 0
+        }
 
-        for i, line in enumerate(lines):
 
-            if not line.strip():
+        for line in lines:
+            line = line.strip()
+            if not line:
                 continue
 
-            current_paragraph = line + "\n"
-
             # Check for new section
-            if current_paragraph.startswith(self.new_section):  # will trigger at any section
+            if line.startswith(self.new_section):  # will trigger at any section
 
-                line = line.strip(self.new_section)
-                current_paragraph = current_paragraph.strip(self.new_section)
+                line = line[len(self.new_section):].strip()
 
                 # logg
                 self.logger.log_step(task="debug", log_text=f"Detected new section with title: {line}")
 
-                # update dict with chunkers
-                if self.do_embedding_chunks:
-                    self.update_dict(paragraph_dict, line)
 
                 # update section_id
                 paragraph_dict["section_id"] += 1
 
             if paragraph_dict["section_id"]:  # don't store paragraphs before the first section is detected
-                paragraph_dict["paragraph"] = current_paragraph
+                paragraph_dict["paragraph"] = f"{line}\n"
                 #paragraph_id = self.db.insert(f"Paragraphs_{self.doc_id}", paragraph_dict)  # update(paragraph_dict)
                 await Paragraph.insert_data({"user_id": self.user_id} | paragraph_dict, self.db)
 
-            # update chunk length with current paragraph. Only the ThresholdIndexer implements this method
-            if self.do_embedding_chunks:
-                self.update_chunk_length(line)
 
         await self.db.commit()
 
@@ -769,7 +666,7 @@ class CustomIndexer(BaseIndexer, ImageChunker, TableChunker, EmbeddingChunker):
 
             self.process_markdown(md_text, images)
 
-            with open(self.output_markdown_path, "r", encoding="utf-8") as f:
+            with open(self.processed_markdown_path, "r", encoding="utf-8") as f:
                 md_text = f.read()
 
             # chunk markdown and store paragraphs and @indexing data into Paragraphs_"doc_id" table

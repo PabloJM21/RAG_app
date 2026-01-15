@@ -31,11 +31,12 @@ type PipelineSpec = Partial<MethodSpec>;
 
 const CUSTOM_TEMPLATE: MethodSpec = {
   type: "Custom",
-  section_marker: "",
+  section_marker: "##",
+  sections: true,
+  numbered_sections: false,
+  paragraphs: false,
   do_ocr: false,
-  do_tables: false,
-  do_numbered_sections: false,
-  min_chars_subsection: "",
+  tables: false,
 };
 
 const DOCLING_HIERARCHICAL_TEMPLATE: MethodSpec = {
