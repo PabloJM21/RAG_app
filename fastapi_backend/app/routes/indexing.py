@@ -8,7 +8,7 @@ from sqlalchemy.future import select
 from sqlalchemy import Column, String, Integer, ForeignKey
 from sqlalchemy.orm import DeclarativeBase, relationship
 
-from app.models import IndexPipeline, ExtractionPipeline
+from app.models import IndexPipeline, ExtractionPipeline, Doc
 from app.database import User, get_async_session
 from app.users import current_active_user
 
@@ -16,6 +16,7 @@ from typing import List, Dict, Any
 from uuid import uuid4
 import json
 import os
+import pandas as pd
 
 # Indexing service
 from app.rag_services.indexing_service import run_indexing, load_indexing_results, update_indexing_results, load_indexing_levels
@@ -218,3 +219,18 @@ async def add_index_results(
     return {
         "status": "ok"
     }
+
+
+# ---------- ALL DOCs ----------
+@router.post("/run")
+async def run_index_pipeline(
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+
+    rows, columns = await Doc.get_all(where_dict={"user_id": user.id, "indexed": 0}, db=db)
+    new_document_df = pd.DataFrame(rows, columns=columns)
+
+    doc_ids =  new_document_df["doc_id"].tolist()
+
+

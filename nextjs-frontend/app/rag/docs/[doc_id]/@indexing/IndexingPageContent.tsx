@@ -1,168 +1,170 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { addIndexPipeline, fetchIndexPipeline, runIndexing } from "@/app/rag/api/docs/[doc_id]/indexing/indexing-action";
+import {useEffect, useState} from "react";
+import {addIndexPipeline, fetchIndexPipeline, runIndexing} from "@/app/rag/api/docs/[doc_id]/indexing/indexing-action";
 
+
+
+
+type MethodSpec = Record<string, any>;
+type PipelineSpec = MethodSpec[]
 
 /* ---------- Domain options ---------- */
 
-const METHOD_TYPES = [
-  "Docling Hierarchical",
-  "Docling Hybrid",
-  "Custom"
-] as const;
+const METHOD_TYPES = ["Paragraph Chunker", "Hybrid Chunker", "Sliding Chunker"] as const;
 
-const BOOLEAN_OPTIONS = ["true", "false"];
+
 
 const EMBEDDING_MODELS = [
   "intfloat/e5-mistral-7b-instruct",
   "intfloat/multilingual-e5-large-instruct",
   "Qwen/Qwen3-Embedding-4B",
 ];
-
-/* ---------- Types (simple approach) ---------- */
-
-type MethodSpec = Record<string, any>;
-
-/** What can come back from the API */
-type PipelineSpec = Partial<MethodSpec>;
-
 /* ---------- Templates ---------- */
 
-const CUSTOM_TEMPLATE: MethodSpec = {
-  type: "Custom",
-  section_marker: "##",
-  sections: true,
-  numbered_sections: false,
-  paragraphs: false,
-  do_ocr: false,
-  tables: false,
+
+
+const PARAGRAPH_TEMPLATE: MethodSpec = {
+  type: "Paragraph Chunker",
+  name: "",
+  separator: "##", // Choose "\n" for paragraphs
+  tokenizer_model: "", // if empty, tokens will be characters
+  max_tokens: "", // if empty, max tokens of the model will be used
 };
 
-const DOCLING_HIERARCHICAL_TEMPLATE: MethodSpec = {
-  type: "Docling Hierarchical",
-  do_ocr: false,
-  do_tables: false,
-  max_tokens_subsection: "",
-  min_tokens_subsection: "",
-  overlap_subsection: "",
-  merge_across_blocks_subsection: "",
+
+
+const HYBRID_TEMPLATE: MethodSpec = {
+  type: "Hybrid Chunker",
+  name: "",
+  tokenizer_model: "", // can't be empty
+
 };
 
-const DOCLING_HYBRID_TEMPLATE: MethodSpec = {
-  type: "Docling Hybrid",
-  do_ocr: false,
-  do_tables: false,
-  embedding_model_subsection: "",
+
+const SLIDING_TEMPLATE: MethodSpec = {
+  type: "Sliding Window Chunker",
+  name: "",
+  tokenizer_model: "", // if empty, tokens will be characters
+  max_tokens: "", // Window size. If empty, max tokens of the model will be used
+  overlap_tokens: "", // Size of the overlap
+};
+
+
+
+
+const TEMPLATE_MAP: Record<(typeof METHOD_TYPES)[number], MethodSpec> = {
+  "Paragraph Chunker": PARAGRAPH_TEMPLATE,
+  "Hybrid Chunker": HYBRID_TEMPLATE,
+  "Sliding Chunker": SLIDING_TEMPLATE
 };
 
 function templateFor(
   type: (typeof METHOD_TYPES)[number]
 ): MethodSpec {
-  switch (type) {
-    case "Custom":
-      return structuredClone(CUSTOM_TEMPLATE);
-    case "Docling Hierarchical":
-      return structuredClone(DOCLING_HIERARCHICAL_TEMPLATE);
-    case "Docling Hybrid":
-      return structuredClone(DOCLING_HYBRID_TEMPLATE);
-    default:
-      return {};
-  }
+  return structuredClone(TEMPLATE_MAP[type]);
 }
-
-/* ---------- Component ---------- */
 
 export function IndexingEditor({
   doc_id,
-  method
+  methods
 }: {
   doc_id: string;
-  method?: PipelineSpec;
+  methods: PipelineSpec;
 }) {
-  const initialType =
-    (method?.type as (typeof METHOD_TYPES)[number]) ??
-    "Docling Hierarchical";
+
+
+  const [pipeline, setPipeline] =
+    useState<PipelineSpec>(methods);
 
   const [selectedType, setSelectedType] =
     useState<(typeof METHOD_TYPES)[number]>(
-      initialType
+      "Paragraph Chunker"
     );
 
-  const [methodSpec, setMethodSpec] =
-    useState<MethodSpec>(() => ({
-      ...templateFor(initialType),
-      ...method
-    }));
 
-  useEffect(() => {
-    setMethodSpec({
-      ...templateFor(selectedType),
-      type: selectedType
-    });
-  }, [selectedType]);
+
+
 
   /* ---------------- Helpers ---------------- */
 
-  function update(key: string, value: any) {
-    setMethodSpec({
-      ...methodSpec,
-      [key]: value
-    });
+  function updatePipeline(
+    index: number,
+    key: string,
+    value: any
+  ) {
+    const copy = [...pipeline];
+    copy[index] = { ...copy[index], [key]: value };
+    setPipeline(copy);
+  }
+
+  function deleteMethod(index: number) {
+    setPipeline(
+      pipeline.filter((_, i) => i !== index)
+    );
+  }
+
+  function addMethod() {
+    const template = structuredClone(templateFor(selectedType));
+    setPipeline([...pipeline, template]);
   }
 
   function isCompleteMethod(
-    method: PipelineSpec
-  ): method is MethodSpec {
-    return typeof method?.type === "string";
+    methods: PipelineSpec
+  ): methods is MethodSpec[] {
+    return methods.every(
+      (method) => typeof method?.type === "string"
+    );
   }
+
+
+
+
 
   /* ---------------- Field renderer ---------------- */
 
-  function renderEditor(key: string, value: any) {
+  function renderValueEditor(
+    method: Partial<MethodSpec>,
+    index: number,
+    key: string,
+    value: any
+  ) {
+    // type is fixed
     if (key === "type") {
-      return <span>{value}</span>;
+      return <span>{String(value)}</span>;
     }
+    
 
-    if (typeof value === "boolean") {
-      return (
-        <select
-          value={String(value)}
-          onChange={(e) =>
-            update(key, e.target.value === "true")
-          }
-        >
-          {BOOLEAN_OPTIONS.map((v) => (
-            <option key={v} value={v}>
-              {v}
-            </option>
-          ))}
-        </select>
-      );
-    }
-
-    if (key === "embedding_model_subsection") {
+    if (
+      key === "model"
+    ) {
       return (
         <select
           value={value}
-          onChange={(e) => update(key, e.target.value)}
+          onChange={(e) =>
+            updatePipeline(index, key, e.target.value)
+          }
         >
           <option value="">—</option>
-          {EMBEDDING_MODELS.map((m) => (
-            <option key={m} value={m}>
-              {m}
+          {EMBEDDING_MODELS.map((label) => (
+            <option key={label} value={label}>
+              {label}
             </option>
           ))}
         </select>
       );
     }
 
+
+
+
+    // caption + fallback → free text
     return (
       <input
         type="text"
         value={String(value)}
         onChange={(e) =>
-          update(key, e.target.value)
+          updatePipeline(index, key, e.target.value)
         }
         style={{ width: "100%" }}
       />
@@ -175,71 +177,111 @@ export function IndexingEditor({
     <section>
       <h2>Indexing</h2>
 
-      <div style={{ marginBottom: 12 }}>
-        <label>
-          Method:{" "}
-          <select
-            value={selectedType}
-            onChange={(e) =>
-              setSelectedType(
-                e.target.value as any
-              )
-            }
-          >
-            {METHOD_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-
+      {/* ---------- Methods row ---------- */}
       <div
         style={{
-          border: "1px solid #ccc",
-          padding: 12,
-          maxWidth: 420
+          display: "flex",
+          gap: 16,
+          overflowX: "auto",
+          paddingBottom: 8
         }}
       >
-        <table
-          style={{
-            borderCollapse: "collapse",
-            width: "100%"
-          }}
-        >
-          <tbody>
-            {Object.entries(methodSpec).map(
-              ([key, value]) => (
-                <tr key={key}>
-                  <td
-                    style={{
-                      borderBottom: "1px solid #eee",
-                      padding: 6,
-                      fontWeight: 600,
-                      width: "45%"
-                    }}
-                  >
-                    {key}
-                  </td>
-                  <td
-                    style={{
-                      borderBottom: "1px solid #eee",
-                      padding: 6
-                    }}
-                  >
-                    {renderEditor(key, value)}
-                  </td>
-                </tr>
-              )
-            )}
-          </tbody>
-        </table>
+        {pipeline.map((method, index) => (
+          <div
+            key={index}
+            style={{
+              position: "relative",
+              border: "1px solid #ccc",
+              padding: 8,
+              minWidth: 260
+            }}
+          >
+            {/* ❌ Delete */}
+            <button
+              onClick={() => deleteMethod(index)}
+              style={{
+                position: "absolute",
+                top: 4,
+                right: 4,
+                border: "none",
+                background: "transparent",
+                cursor: "pointer"
+              }}
+            >
+              ❌
+            </button>
+
+            <table
+              style={{
+                borderCollapse: "collapse",
+                width: "100%"
+              }}
+            >
+              <tbody>
+                {Object.entries(method).map(
+                  ([key, value]) => (
+                    <tr key={key}>
+                      <td
+                        style={{
+                          borderBottom:
+                            "1px solid #eee",
+                          padding: 4,
+                          fontWeight: 600
+                        }}
+                      >
+                        {key}
+                      </td>
+                      <td
+                        style={{
+                          borderBottom:
+                            "1px solid #eee",
+                          padding: 4
+                        }}
+                      >
+                        {renderValueEditor(
+                          method,
+                          index,
+                          key,
+                          value
+                        )}
+                      </td>
+                    </tr>
+                  )
+                )}
+              </tbody>
+            </table>
+          </div>
+        ))}
       </div>
 
+      {/* ---------- Add method ---------- */}
       <div style={{ marginTop: 12 }}>
-        {isCompleteMethod(methodSpec) && (
+        <select
+          value={selectedType}
+          onChange={(e) =>
+            setSelectedType(
+              e.target.value as any
+            )
+          }
+        >
+          {METHOD_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>{" "}
+        <button onClick={addMethod}>
+          Add method
+        </button>
+      </div>
+
+      {/* ---------- Actions ---------- */}
+
+
+      <div style={{ marginTop: 12 }}>
+        {isCompleteMethod(pipeline) && (
           <form action={addIndexPipeline}>
+
             <input
               type="hidden"
               name="doc_id"
@@ -249,7 +291,7 @@ export function IndexingEditor({
             <input
               type="hidden"
               name="pipeline"
-              value={JSON.stringify(methodSpec)}
+              value={JSON.stringify(pipeline)}
             />
             <button type="submit">
               Save Pipeline
@@ -259,7 +301,7 @@ export function IndexingEditor({
       </div>
 
       <div style={{ marginTop: 12 }}>
-        {isCompleteMethod(methodSpec) && (
+        {isCompleteMethod(pipeline) && (
           <button
             onClick={() => runIndexing(doc_id)}
             style={{ marginLeft: 8 }}
@@ -268,18 +310,21 @@ export function IndexingEditor({
           </button>
         )}
       </div>
-
     </section>
   );
 }
 
-/* ---------- Page ---------- */
+
+
+
+
+
 
 export default function IndexingPageContent({ doc_id }: { doc_id: string }) {
 
-
   const [pipeline, setPipeline] =
-    useState<PipelineSpec>({});
+    useState<PipelineSpec>([]);
+
   const [loading, setLoading] =
     useState(true);
   const [error, setError] =
@@ -288,8 +333,9 @@ export default function IndexingPageContent({ doc_id }: { doc_id: string }) {
   useEffect(() => {
     async function loadPipeline() {
       try {
-        const data = await fetchIndexPipeline(doc_id);
-        setPipeline(data ?? {});
+        const pipeline_data = await fetchIndexPipeline(doc_id);
+        setPipeline(pipeline_data ?? []);
+
       } catch (err: any) {
         setError(err.message ?? "Unknown error");
       } finally {
@@ -308,10 +354,12 @@ export default function IndexingPageContent({ doc_id }: { doc_id: string }) {
       </div>
     );
 
+
+
   return (
     <IndexingEditor
       doc_id={doc_id}
-      method={pipeline}
+      methods={pipeline}
     />
   );
 }

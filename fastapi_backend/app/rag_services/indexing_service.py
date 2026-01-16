@@ -61,21 +61,23 @@ from app.models import Doc, Paragraph, Retrieval
 
 
 
-class TableChunker:
+
+
+
+
+class TableConverter:
 
     """
     treats tables as paragraphs
     """
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID):
-        super().__init__(db, logger, user_id)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
-
-        self.table_lines = []
-        self.table_paragraph = ""
-        self.table_id = 0
-        
-        self.convert_tables = True
+        self.table_lines = [] # stores all table positions
+        self.table_paragraph = "" # stores paragraph from previous iterations
+        self.convert_tables = True # set by parent
+        self.logger = InfoLogger(__name__) # set by parent
         
 
     def scan_paragraphs(self, lines: List[str]):
@@ -201,10 +203,10 @@ class TableChunker:
 
 
 
-class ImageChunker:
+class ImageConverter:
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID):
-        super().__init__(db, logger, user_id)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
         self.image_dict = {}
         self.image_id = 0
@@ -346,8 +348,6 @@ class ImageChunker:
 
 
 
-
-
     def process_images(self, line, output_text):
 
 
@@ -374,109 +374,46 @@ class ImageChunker:
 
 
 
+class BaseConverter:
 
-class BaseIndexer:
-    
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID):
-        super().__init__(db, logger, user_id)
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, input_path: str, output_path: str):
+        super().__init__(db, logger, user_id, doc_id, input_path)
 
         self.db = db
-        self.user_id = user_id
-        self.doc_id = 0
         self.logger = logger
+        self.user_id = user_id
+        self.doc_id = doc_id
+        self.input_path = input_path
+        self.output_path = output_path
 
         self.paragraph_df = pd.DataFrame()
-        
-
-    async def get_document_dir(self):
-
-
-        print(f"document input level detected for document {self.doc_id}")
-
-        rows, columns = await Doc.get_all({"user_id": self.user_id, "doc_id": self.doc_id}, self.db)
-        document_df = pd.DataFrame(rows, columns=columns)
-        document_dir = os.path.dirname(document_df["path"].iloc[0])
-        
-        return document_dir
 
 
 
-    async def export_level(self, level):
-        id_values = list(set(self.paragraph_df[f"{level}_id"]))
-
-
-        for id_value in id_values:
-            filtered_df = self.paragraph_df[self.paragraph_df[f"{level}_id"] == id_value]
-
-            title = filtered_df["paragraph"].iloc[0]
-            chunk = "\n".join(filtered_df["paragraph"].iloc[1:])
-
-            # self.db.insert("Retrievals", {"doc_id": self.doc_id, "level": level, "level_id": id_value, "title": title, "content": chunk})
-
-            await Retrieval.insert_data({"user_id": self.user_id, "doc_id": self.doc_id, "level": level, "level_id": id_value, "title": title, "content": chunk},
-                                  self.db)
-
-        await self.db.commit()
-
-    
-
-    async def export_document_title(self):
-
-
-        print(f"document input level detected for document {self.doc_id}")
-
-        rows, columns = await Doc.get_all({"user_id": self.user_id, "doc_id": self.doc_id}, self.db)
-        document_df = pd.DataFrame(rows, columns=columns)
-        document_title = os.path.basename(document_df["path"].iloc[0]).split(".")[0]
-
-        
-
-        await Retrieval.insert_data(
-            {"user_id": self.user_id, "doc_id": self.doc_id, "level": "document", "level_id": self.doc_id, "title": document_title},
-            self.db)
-
-        await self.db.commit()
-        
+    async def run_conversion(self) -> None:
+        # First, check if there is any Doc_ID in the  "Docs" table that doesn't have a paragraphs table.
+        # Then, run the docling client and process the markdown text
 
 
 
-    async def export_to_retrievals(self):
+        self.logger.log_step(log_text="processing markdown")
 
+        output_text = await self.convert_file(self.input_path)
 
-
-        # Finally, merge paragraphs data and insert chunks into the RETRIEVALS table (Sections and EmbeddingChunks)
-
-        await Retrieval.delete_data({"user_id": self.user_id, "doc_id": self.doc_id}, self.db)
-
-        rows, columns = await Paragraph.get_all({"user_id": self.user_id, "doc_id": self.doc_id}, self.db)
-        
-        self.paragraph_df = pd.DataFrame(rows, columns=columns).sort_values(
-            by="paragraph_id")  # ensures that paragraphs are in the right order
-
-        # Insert Document title
-
-        await self.export_document_title()
-        
-        # Insert Sections
-
-        await self.export_level("section")
-        
-        
-        await Doc.update_data(data_dict={"indexed": 1}, where_dict={"user_id": self.user_id, "doc_id": self.doc_id}, db=self.db)
+        with open(self.output_path, "w", encoding="utf-8") as f:
+            f.write(output_text)
 
 
 
 
-class CustomIndexer(BaseIndexer, ImageChunker, TableChunker):
 
+class CustomConverter(BaseConverter, ImageConverter, TableConverter):
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_ids: Optional[Iterable[int]] = (), new_section: str = "## ", do_ocr: bool = True, tables: str = "convert"):
-        super().__init__(db, logger, user_id)
-       
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, input_path: str, output_path: str, doc_id: int = 0,
+                 do_ocr: bool = True, tables: str = "convert"):
+        super().__init__(db, logger, user_id, doc_id, input_path, output_path)
 
-
-        self.doc_ids = doc_ids
-        self.doc_id = 0
+        self.doc_id = doc_id
 
         self.do_ocr = do_ocr
 
@@ -491,36 +428,24 @@ class CustomIndexer(BaseIndexer, ImageChunker, TableChunker):
         # --------------------
 
 
-        
-        self.new_section =  new_section
-
-        self.processed_markdown_path = ""
 
 
 
+    async def convert_file(self, input_path: str):
 
-    async def convert_pdf(self, path: str) -> (str, Iterable):
-        """
-        Converts a PDF to markdown via Docling,
-        then chunks the markdown according to provided settings.
-        """
+        #
+
         client = DoclingClient()
 
         result = await client.convert(
-            file_path=path,
+            file_path=input_path,
             response_type=DoclingOutputType.MARKDOWN,
             extract_tables_as_images=False,
         )
 
-        markdown_text = result.get("markdown", "")
+        md_text = result.get("markdown", "")
         images = result.get("images", [])
 
-        return markdown_text, images
-
-
-
-
-    async def process_markdown(self, md_text, images):
 
 
 
@@ -550,18 +475,13 @@ class CustomIndexer(BaseIndexer, ImageChunker, TableChunker):
 
         # create new tables for this document, if they don't exist
 
-
-
-
         # start processing paragraphs
-
 
         for i, line in enumerate(lines):
 
             line = line.strip()
             if not line:
                 continue
-
 
             # process images
             if self.do_ocr:
@@ -577,16 +497,12 @@ class CustomIndexer(BaseIndexer, ImageChunker, TableChunker):
 
             output_text += f"{line}[PARA_SEP]"
 
-
         # In case that the last paragraph still belongs to a table, save this table
         if self.keep_tables:
             self.process_last_table(output_text)
 
 
-        doc_dir = await self.get_document_dir()
-        self.processed_markdown_path = os.path.join(doc_dir, "processed_markdown.md")
-        with open(self.processed_markdown_path, "w", encoding="utf-8") as f:
-            f.write(output_text)
+        return output_text
 
 
 
@@ -595,100 +511,239 @@ class CustomIndexer(BaseIndexer, ImageChunker, TableChunker):
 
 
 
-
-    async def chunk_markdown(self, md_text):
-
-
-        await Paragraph.delete_data({"user_id": self.user_id, "doc_id": self.doc_id}, self.db)
-
-        # start processing paragraphs
-
-        lines = md_text.split("[PARA_SEP]")
-
-
-        paragraph_dict: Dict[str, Any] = {
-            "doc_id": self.doc_id, "section_id": 0
-        }
-
-
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-
-            # Check for new section
-            if line.startswith(self.new_section):  # will trigger at any section
-
-                line = line[len(self.new_section):].strip()
-
-                # logg
-                self.logger.log_step(task="debug", log_text=f"Detected new section with title: {line}")
-
-
-                # update section_id
-                paragraph_dict["section_id"] += 1
-
-            if paragraph_dict["section_id"]:  # don't store paragraphs before the first section is detected
-                paragraph_dict["paragraph"] = f"{line}\n"
-                #paragraph_id = self.db.insert(f"Paragraphs_{self.doc_id}", paragraph_dict)  # update(paragraph_dict)
-                await Paragraph.insert_data({"user_id": self.user_id} | paragraph_dict, self.db)
-
-
-        await self.db.commit()
-
-
-
-
-    async def run_indexing(self) -> None:
-        # First, check if there is any Doc_ID in the  "Docs" table that doesn't have a paragraphs table.
-        # Then, run the docling client and process the markdown text
-
-        rows, columns = await Doc.get_all({"user_id": self.user_id, "indexed": 0}, self.db)
-        new_document_df = pd.DataFrame(rows, columns=columns)
-
-        if self.doc_ids:
-            mask = new_document_df["doc_id"].isin(self.doc_ids)
-            new_document_df = new_document_df[mask]
-
-
-        for _, row in  new_document_df.iterrows():
-
-            self.doc_id = int(row["doc_id"])
-
-
-            self.logger.log_step(task="debug", log_text=f"processing document {self.doc_id}")
-
-            self.logger.log_step(log_text="extracting pdf as markdown")
-
-            md_text, images = await (self.convert_pdf(row["path"]))
-
-            self.logger.log_step(log_text="processing markdown")
-
-            self.process_markdown(md_text, images)
-
-            with open(self.processed_markdown_path, "r", encoding="utf-8") as f:
-                md_text = f.read()
-
-            # chunk markdown and store paragraphs and @indexing data into Paragraphs_"doc_id" table
-            await self.chunk_markdown(md_text)
-
-            # export chunks to Retrievals table
-            await self.export_to_retrievals()
-
-
-
-
-class DoclingIndexer(BaseIndexer):
-
+class DoclingConverter(BaseConverter):
     """
     Base Docling Method for Hierarchical and Hybrid variants
 
     """
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id, doc_ids: Optional[Iterable[int]] = (), do_ocr=True, do_tables=True):
-        
-        super().__init__(db, logger, user_id)
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id, doc_id: UUID,
+                 input_path: str, output_path: str, do_ocr=True, do_tables=True):
 
+        super().__init__(db, logger, user_id, doc_id, input_path, output_path)
+
+
+        self.do_ocr = do_ocr
+        self.do_table_structure = do_tables
+
+    def convert_file(self, input_path: str):
+
+        pipeline_options = PdfPipelineOptions()
+        pipeline_options.do_ocr = self.do_ocr
+        pipeline_options.do_table_structure = self.do_table_structure
+        pipeline_options.table_structure_options.do_cell_matching = True
+
+        doc_converter = DocumentConverter(
+            format_options={
+                InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
+            }
+        )
+
+        dl_doc = doc_converter.convert(source=input_path).document
+
+        return dl_doc.export_to_markdown()
+
+
+
+
+
+# ---------------------------------------------
+
+# ----------------CHUNKERS --------------------
+
+# ---------------------------------------------
+
+
+class BaseChunker:
+    
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, level_name: str, do_title: bool):
+
+
+        self.db = db
+        self.logger = logger
+        self.user_id = user_id
+        self.doc_id = doc_id
+
+        self.level = level_name # name of the new level to be created
+        self.level_id = 1
+        self.do_title = do_title
+
+        self.paragraph_df = pd.DataFrame()
+
+    async def run_doc_chunking(self, input_path: str):
+
+        # loggs
+        self.logger.log_step(task="debug", log_text=f"Processing document {self.doc_id}")
+        # -----
+
+
+        doc_title = os.path.basename(input_path).split(".")[0]
+        await Retrieval.insert_data( data_dict={"level": self.level, "level_id": self.level_id, "user_id": self.user_id, 
+                                            "doc_id": self.doc_id, "title": doc_title}, db=self.db)
+
+        with open(input_path, "r", encoding="utf-8") as f:
+            md_text = f.read()
+
+
+        # This dict will contain all metadata for the final insert in the "Paragraphs" table
+        meta_dict = {"paragraph": md_text, "doc_id": self.doc_id}
+
+        # call chunk_text method normally,
+        meta_list = await self.run_text_chunking(meta_dict)
+
+        return meta_list
+
+    async def run_text_chunking(self, meta_dict: Dict[str, Any])-> List[Dict[str, Any]]:
+
+        input_chunk = meta_dict.pop("paragraph")
+        # now meta_dict holds only the parent level IDs
+
+        # method of the child class
+        output_chunks = self.chunk_text(input_chunk)
+
+        # each item will correspond to a chunk, its level_id plus meta_dict
+        meta_list = []
+        for chunk in output_chunks:
+
+            title = ""
+            if self.do_title:
+                title, chunk = chunk.split("\n", 1)
+
+
+            await Retrieval.insert_data(data_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.level, "level_id": self.level_id, "title": title, "content": chunk}, db=self.db)
+
+            meta_list.append(meta_dict | {"paragraph": chunk, f"{self.level}_id": self.level_id})
+
+            self.level_id += 1
+
+        await self.db.commit()
+
+        return meta_list
+
+
+
+
+
+
+from docling_core.transforms.chunker.tokenizer.huggingface import HuggingFaceTokenizer
+from transformers import AutoTokenizer
+
+
+class ParagraphChunker(BaseChunker):
+
+    """
+    Requirements: "chunk_text" method with the specified input and output data types
+
+    """
+
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, level_name: str,
+                 do_title: bool, separator: str = "##", tokenizer_model: str = "", max_tokens: int = 0):
+
+        super().__init__(db, logger, user_id, doc_id, level_name, do_title)
+
+
+        self.tokenizer = ""
+        self.model = tokenizer_model
+
+        self.max_tokens = max_tokens
+        self.separator = separator
+
+    def compute_paragraph_length(self, paragraph):
+
+        """
+        if tokenizer_model is empty, paragraph length will be computed as the number of characters
+        if max_tokens is empty, the max tokens of tokenizer_model will be used
+        if both are empty, this ParagraphChunker is equivalent to regex chunking
+        """
+        if not self.model and not self.max_tokens:
+            return 1 # ensures that len(paragraph) > max_tokens
+
+        elif not self.model:
+            return len(paragraph)
+
+
+        # if tokenizer_model was given with no max_tokens
+
+        elif not self.tokenizer:
+            self.tokenizer = self.compute_tokenizer(self.model, self.max_tokens)
+
+        length = self.tokenizer.count_tokens(paragraph)
+        return length
+
+
+    @staticmethod
+    def compute_tokenizer(model: str, max_tokens: int = 512):
+        if model:
+            hf_tok = AutoTokenizer.from_pretrained(model)
+            if not max_tokens:
+                max_tokens = hf_tok.model_max_length
+            tokenizer: BaseTokenizer = HuggingFaceTokenizer(tokenizer=hf_tok, max_tokens=max_tokens)
+        else:
+            tokenizer = ""
+
+        return tokenizer
+
+
+    def chunk_text(self, input_chunk: str) -> List[str]:
+        paragraphs = input_chunk.split(self.separator)
+        chunks = []
+        current = []
+        current_len = 0
+
+
+
+        for p in paragraphs:
+            p = p.strip()
+            if not p:
+                continue
+
+            p_len = self.compute_paragraph_length(p)
+            if current_len + p_len > self.max_tokens:
+                chunks.append(f"{self.separator}".join(current))
+                current = [p]
+                current_len = p_len
+            else:
+                current.append(p)
+                current_len += p_len
+
+        if current:
+            chunks.append(f"{self.separator}".join(current))
+
+        return chunks
+
+
+
+
+# ----------- SLIDING WINDOW --------------
+
+def sliding_window(text, tokenizer, max_tokens=512, overlap=128):
+    tokens = tokenizer.get_tokenizer().encode(text)
+    chunks = []
+    start = 0
+
+    while start < len(tokens):
+        end = start + max_tokens
+        chunk_tokens = tokens[start:end]
+        chunk_text = tokenizer.get_tokenizer().decode(chunk_tokens)
+        chunks.append(chunk_text)
+        start += max_tokens - overlap
+
+    return chunks
+
+
+
+
+
+class DoclingChunker(BaseChunker):
+    """
+    Base Docling Method for Hierarchical and Hybrid variants
+
+    """
+
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id, doc_ids: Optional[Iterable[int]] = (),
+                 do_ocr=True, do_tables=True):
+
+        super().__init__(db, logger, user_id, doc_id)
 
         self.doc_ids = doc_ids
         self.doc_id = 0
@@ -696,12 +751,7 @@ class DoclingIndexer(BaseIndexer):
         self.do_ocr = do_ocr
         self.do_table_structure = do_tables
 
-
-
-
-
     def convert_file(self, input_path: str):
-
 
         pipeline_options = PdfPipelineOptions()
         pipeline_options.do_ocr = self.do_ocr
@@ -717,9 +767,6 @@ class DoclingIndexer(BaseIndexer):
         doc = doc_converter.convert(source=input_path).document
 
         return doc
-
-
-
 
     async def chunk_doc(self, doc, chunker):
         chunk_iter = chunker.chunk(dl_doc=doc)
@@ -739,11 +786,11 @@ class DoclingIndexer(BaseIndexer):
 
                 section_id += 1
                 for paragraph in paragraph_list:
-                    #self.db.insert(f"Paragraphs_{self.doc_id}", {"doc_id": self.doc_id, "section_id": section_id, "embedding_chunk_id": embedding_chunk_id, "paragraph": f"{paragraph}\n"})
+                    # self.db.insert(f"Paragraphs_{self.doc_id}", {"doc_id": self.doc_id, "section_id": section_id, "embedding_chunk_id": embedding_chunk_id, "paragraph": f"{paragraph}\n"})
 
                     paragraph_dict = {"user_id": self.user_id, "doc_id": self.doc_id, "section_id": section_id,
-                                    "embedding_chunk_id": embedding_chunk_id, "paragraph": f"{paragraph}\n"}
-                    
+                                      "embedding_chunk_id": embedding_chunk_id, "paragraph": f"{paragraph}\n"}
+
                     await Paragraph.insert_data(paragraph_dict, self.db)
 
 
@@ -757,45 +804,37 @@ class DoclingIndexer(BaseIndexer):
 
             title = new_title
 
-
         await self.db.commit()
-
-
-
+        
+        
 
     async def _index_with_chunker(self, chunker):
 
+        self.logger.log_step(task="debug", log_text=f"processing document {self.doc_id}")
 
+        # read processed markdown
+        doc_dir = await self.get_document_dir()
+        processed_markdown_path = os.path.join(doc_dir, "processed_markdown.md")
+        with open(processed_markdown_path, "r", encoding="utf-8") as f:
+            md_text = f.read()
 
-        # Creates chunks suited for this embedding model without merging sections. Each section is decomposed in one or more of these chunks (allows parent child relationship)
+        # chunk markdown and store paragraphs and @indexing data into Paragraphs_"doc_id" table
+    
+        await self.chunk_doc(md_text, chunker)
 
-        rows, columns = await Doc.get_all({"user_id": self.user_id, "indexed": 0}, self.db)
-        new_document_df = pd.DataFrame(rows, columns=columns)
-
-        if self.doc_ids:
-            mask = new_document_df["doc_id"].isin(self.doc_ids)
-            new_document_df = new_document_df[mask]
-
-
-        for _, row in new_document_df.iterrows():
-            self.doc_id = int(row["doc_id"])
-
-            self.logger.log_step(task="debug", log_text=f"processing document {self.doc_id}")
-
-
-            doc = self.convert_file(row["path"])
-
-
-            await self.chunk_doc(doc, chunker)
-
-            await self.export_to_retrievals()
+        await self.export_to_retrievals()
+            
+            
 
 
 
-class HierarchicalIndexer(DoclingIndexer):
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, do_ocr: bool, do_tables: bool, max_tokens_subsection, min_tokens_subsection, overlap_subsection, merge_across_blocks_subsection, doc_ids: Optional[Iterable[int]] = ()):
-        super().__init__(db, logger, user_id, doc_ids, do_ocr, do_tables)
+
+
+class HierarchicalDoclingChunker(DoclingChunker):
+
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, do_ocr: bool, do_tables: bool, max_tokens_subsection, min_tokens_subsection, overlap_subsection, merge_across_blocks_subsection, doc_ids: Optional[Iterable[int]] = ()):
+        super().__init__(db, logger, user_id, doc_id, doc_ids, do_ocr, do_tables)
 
         self.max_tokens = max_tokens_subsection
         self.min_tokens = min_tokens_subsection
@@ -817,10 +856,13 @@ class HierarchicalIndexer(DoclingIndexer):
 
 
 
-class HybridIndexer(DoclingIndexer):
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, do_ocr: bool, do_tables: bool, embedding_model_subsection: str, doc_ids: Optional[Iterable[int]] = ()):
-        super().__init__(db, logger, user_id, doc_ids, do_ocr, do_tables)
+
+
+class HybridDoclingChunker(DoclingChunker):
+
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, do_ocr: bool, do_tables: bool, embedding_model_subsection: str):
+        super().__init__(db, logger, user_id, doc_id, doc_ids, do_ocr, do_tables)
         self.embedding_model = embedding_model_subsection
 
     def _initialize_chunker(self):
@@ -834,29 +876,132 @@ class HybridIndexer(DoclingIndexer):
         await self._index_with_chunker(chunker)
 
 
-TYPE_MAPPER = {
+
+
+
+
+
+
+# Run Conversion
+
+CONVERSION_TYPE_MAPPER = {
+    "Docling": DoclingConverter,
+    "Custom": CustomConverter,
+}
+
+
+async def run_indexing(indexer_dict: Dict[str, Any], user_id: UUID, doc_id: UUID, db: AsyncSession):
+    rows, columns = await Doc.get_all({"user_id": user_id, "doc_id": doc_id}, db)
+    document_df = pd.DataFrame(rows, columns=columns)
+    input_path = document_df["path"].iloc[0]
+    output_path = os.path.join(os.path.dirname(input_path), "processed_markdown.md")
+
+
+
+    indexer_dict["db"] = db
+    indexer_dict["user_id"] = user_id
+    indexer_dict["doc_id"] = doc_id
+    indexer_dict["input_path"] = input_path
+    indexer_dict["output_path"] = output_path
+    indexer_dict["logger"] = InfoLogger()
+
+    indexer_type = indexer_dict.pop("type")
+    indexer = CONVERSION_TYPE_MAPPER[indexer_type](**indexer_dict)
+
+    await indexer.run_indexing()
+
+
+
+
+
+# Run Chunking
+
+CHUNKING_TYPE_MAPPER = {
     "Docling Hierarchical": HierarchicalIndexer,
     "Docling Hybrid": HybridIndexer,
-    "Custom": CustomIndexer,
+    "Custom": CustomConverter,
 }
 
 
 
+async def run_chunking(method_list: list[dict[str, Any]], user_id: UUID, doc_id: UUID, db: AsyncSession):
+    rows, columns = await Doc.get_all({"user_id": user_id, "doc_id": doc_id}, db)
+    document_df = pd.DataFrame(rows, columns=columns)
+    source_path = document_df["path"].iloc[0]
+    input_path = os.path.join(os.path.dirname(source_path), "processed_markdown.md")
 
 
-# Run Indexing
+    # LIMIT Chunking iterations
+    method_limit = 2
+
+    # Delete previous occurrences of this doc in the "Retrievals" table
+    await Retrieval.delete_data({"user_id": user_id, "doc_id": doc_id}, db)
+    
+    async def generate_offspring(input_chunks):
+        output_chunks = []
+        for input_chunk in input_chunks:
+
+            new_chunks = await method_instance.run_text_chunking(input_chunk)
+            output_chunks += new_chunks
+
+        return output_chunks
+    
+    
+    first_method = method_list.pop(0)
+    method_type = first_method.pop("type")
+    
+    method_instance = CHUNKING_TYPE_MAPPER[method_type](**first_method)
+
+    # apply first chunker to the document at this path
+    old_chunk_array = await method_instance.run_doc_chunking(input_path)
+
+    
+    for i, method in enumerate(method_list):
+        # New Chunking Method
+        method["db"] = db
+        method["user_id"] = user_id
+        method["doc_id"] = doc_id
+        method["logger"] = InfoLogger()
+        method_type = method.pop("type")
+
+        # Instance new method
+        method_instance = CHUNKING_TYPE_MAPPER[method_type](**method)
+        
+        # Generate offspring based on past generation
+        new_chunk_array = await generate_offspring(old_chunk_array)
 
 
-async def run_indexing(indexer_dict: Dict[str, Any], user_id: UUID, doc_ids: list[UUID], db: AsyncSession):
-    indexer_dict["db"] = db
-    indexer_dict["user_id"] = user_id
-    indexer_dict["doc_ids"] = doc_ids
-    indexer_dict["logger"] = InfoLogger()
+        if i+2 > min(method_limit, len(method_list)): break
+        
+        old_chunk_array = new_chunk_array
+        
+    # Now we introduce new_chunks into the "Paragraphs" table with all recorded level IDs
 
-    indexer_type = indexer_dict.pop("type")
-    indexer = TYPE_MAPPER[indexer_type](**indexer_dict)
+    # First delete previous occurrences of this doc in the table
+    await Paragraph.delete_data({"user_id": user_id, "doc_id": doc_id}, db)
 
-    await indexer.run_indexing()
+    for chunk_dict in new_chunk_array:
+        await Paragraph.insert_data(data_dict=chunk_dict, db=db)
+
+
+    # Finally we label this doc as "chunked"
+    await Doc.update_data(data_dict={"indexed": 1}, where_dict={"user_id": user_id, "doc_id": doc_id},
+                          db=db)
+            
+        
+            
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

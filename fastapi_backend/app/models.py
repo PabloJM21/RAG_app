@@ -224,7 +224,7 @@ class Paragraph(Base):
         new_dict = paragraph_dict | {"paragraph_metadata": metadata_dict}
         new_row = cls(**new_dict)
         db.add(new_row)
-        return new_row
+
 
     @classmethod
     async def get_all_old(
@@ -366,10 +366,10 @@ class Retrieval(Base):
             cls: type[T],
             data_dict: Dict[str, Any],
             db: AsyncSession,
-    ) -> T:
+    ):
         new_row = cls(**data_dict)
         db.add(new_row)
-        return new_row
+
 
     @classmethod
     async def get_all(
@@ -427,7 +427,7 @@ class Embedding(Base):
     ) -> T:
         new_row = cls(**data_dict)
         db.add(new_row)
-        return new_row
+
 
     @classmethod
     async def get_all(
