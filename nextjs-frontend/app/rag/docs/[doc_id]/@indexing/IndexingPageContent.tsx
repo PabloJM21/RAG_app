@@ -13,7 +13,7 @@ type PipelineSpec = MethodSpec[]
 
 const METHOD_TYPES = ["Paragraph Chunker", "Hybrid Chunker", "Sliding Chunker"] as const;
 
-
+const BOOLEAN_OPTIONS = ["true", "false"];
 
 const EMBEDDING_MODELS = [
   "intfloat/e5-mistral-7b-instruct",
@@ -26,28 +26,30 @@ const EMBEDDING_MODELS = [
 
 const PARAGRAPH_TEMPLATE: MethodSpec = {
   type: "Paragraph Chunker",
-  name: "",
+  level_name: "",
   separator: "##", // Choose "\n" for paragraphs
   tokenizer_model: "", // if empty, tokens will be characters
-  max_tokens: "", // if empty, max tokens of the model will be used
+  max_tokens: "", // if empty, max tokens of the model will be used //if both are empty, chunks are defined by separator only
+  with_title: false,
 };
 
 
 
 const HYBRID_TEMPLATE: MethodSpec = {
   type: "Hybrid Chunker",
-  name: "",
+  level_name: "",
   tokenizer_model: "", // can't be empty
-
+  with_title: false, // max_tokens are given by model
 };
 
 
 const SLIDING_TEMPLATE: MethodSpec = {
   type: "Sliding Window Chunker",
-  name: "",
+  level_name: "",
   tokenizer_model: "", // if empty, tokens will be characters
-  max_tokens: "", // Window size. If empty, max tokens of the model will be used
+  max_tokens: "", // Window size. If empty, max_tokens are given by model
   overlap_tokens: "", // Size of the overlap
+  with_title: false,
 };
 
 
@@ -132,6 +134,23 @@ export function IndexingEditor({
     // type is fixed
     if (key === "type") {
       return <span>{String(value)}</span>;
+    }
+
+    if (typeof value === "boolean") {
+      return (
+        <select
+          value={String(value)}
+          onChange={(e) =>
+            update(key, e.target.value === "true")
+          }
+        >
+          {BOOLEAN_OPTIONS.map((v) => (
+            <option key={v} value={v}>
+              {v}
+            </option>
+          ))}
+        </select>
+      );
     }
     
 

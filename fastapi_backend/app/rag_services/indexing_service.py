@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional, Iterable
 import re
 import pandas as pd
 
+
 import os
 import time
 
@@ -12,8 +13,11 @@ from app.rag_apis.docling_api import DoclingClient, DoclingOutputType
 from app.rag_apis.image2caption_api import MultiModalVisionClient
 from app.rag_apis.chat_api import ChatOrchestrator
 
-
+# -----------------------------------------
 # Docling
+# -----------------------------------------
+
+# Tokenizers and chunkers
 
 from docling_core.transforms.chunker.hybrid_chunker import HybridChunker
 from docling_core.transforms.chunker.tokenizer.base import BaseTokenizer
@@ -22,16 +26,28 @@ from transformers import AutoTokenizer
 from docling_core.transforms.chunker.base import BaseChunk
 from docling_core.transforms.chunker.hierarchical_chunker import DocChunk, HierarchicalChunker
 
+# Doc conversion
 
 from docling.datamodel.base_models import InputFormat
-from docling.datamodel.pipeline_options import (
-    PdfPipelineOptions,
-)
-from docling.document_converter import DocumentConverter, PdfFormatOption
+from docling.document_converter import DocumentConverter
 
-#loggs
+# from pdf path
+from docling.datamodel.pipeline_options import PdfPipelineOptions
+from docling.document_converter import PdfFormatOption
+
+# from python string
+
+from docling.datamodel.pipeline_options import TextPipelineOptions
+from docling.document_converter import TextFormatOption
+
+# helpers for disc paths
+
+from app.rag_services.helpers import get_paths
+
+
+#logs
 from app.log_generator import InfoLogger
-
+from app.generate_markdown import export_logs
 
 # Database ops
 from sqlalchemy.dialects.postgresql import UUID
@@ -552,11 +568,11 @@ class DoclingConverter(BaseConverter):
 # ----------------CHUNKERS --------------------
 
 # ---------------------------------------------
-
+# Requirement for new Chunker classes: "chunk_text" method with the specified input and output data types.
 
 class BaseChunker:
     
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, level_name: str, do_title: bool):
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, level_name: str, with_title: bool):
 
 
         self.db = db
@@ -566,9 +582,18 @@ class BaseChunker:
 
         self.level = level_name # name of the new level to be created
         self.level_id = 1
-        self.do_title = do_title
+        self.with_title = with_title
 
         self.paragraph_df = pd.DataFrame()
+
+    @staticmethod
+    def compute_tokenizer(model: str, max_tokens: int = 512):
+        hf_tok = AutoTokenizer.from_pretrained(model)
+        if not max_tokens:
+            max_tokens = hf_tok.model_max_length
+        tokenizer: BaseTokenizer = HuggingFaceTokenizer(tokenizer=hf_tok, max_tokens=max_tokens)
+
+        return tokenizer
 
     async def run_doc_chunking(self, input_path: str):
 
@@ -606,7 +631,7 @@ class BaseChunker:
         for chunk in output_chunks:
 
             title = ""
-            if self.do_title:
+            if self.with_title:
                 title, chunk = chunk.split("\n", 1)
 
 
@@ -625,21 +650,17 @@ class BaseChunker:
 
 
 
-from docling_core.transforms.chunker.tokenizer.huggingface import HuggingFaceTokenizer
-from transformers import AutoTokenizer
-
-
 class ParagraphChunker(BaseChunker):
 
     """
-    Requirements: "chunk_text" method with the specified input and output data types
+    tokenizer_model and max_tokens can be empty
 
     """
 
     def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, level_name: str,
-                 do_title: bool, separator: str = "##", tokenizer_model: str = "", max_tokens: int = 0):
+                 with_title: bool, separator: str = "##", tokenizer_model: str = "", max_tokens: int = 0):
 
-        super().__init__(db, logger, user_id, doc_id, level_name, do_title)
+        super().__init__(db, logger, user_id, doc_id, level_name, with_title)
 
 
         self.tokenizer = ""
@@ -648,12 +669,16 @@ class ParagraphChunker(BaseChunker):
         self.max_tokens = max_tokens
         self.separator = separator
 
+
+
+
+
     def compute_paragraph_length(self, paragraph):
 
         """
         if tokenizer_model is empty, paragraph length will be computed as the number of characters
         if max_tokens is empty, the max tokens of tokenizer_model will be used
-        if both are empty, this ParagraphChunker is equivalent to regex chunking
+        if tokenizer_model and max_tokens are empty, this ParagraphChunker is equivalent to regex chunking
         """
         if not self.model and not self.max_tokens:
             return 1 # ensures that len(paragraph) > max_tokens
@@ -670,18 +695,6 @@ class ParagraphChunker(BaseChunker):
         length = self.tokenizer.count_tokens(paragraph)
         return length
 
-
-    @staticmethod
-    def compute_tokenizer(model: str, max_tokens: int = 512):
-        if model:
-            hf_tok = AutoTokenizer.from_pretrained(model)
-            if not max_tokens:
-                max_tokens = hf_tok.model_max_length
-            tokenizer: BaseTokenizer = HuggingFaceTokenizer(tokenizer=hf_tok, max_tokens=max_tokens)
-        else:
-            tokenizer = ""
-
-        return tokenizer
 
 
     def chunk_text(self, input_chunk: str) -> List[str]:
@@ -716,19 +729,43 @@ class ParagraphChunker(BaseChunker):
 
 # ----------- SLIDING WINDOW --------------
 
-def sliding_window(text, tokenizer, max_tokens=512, overlap=128):
-    tokens = tokenizer.get_tokenizer().encode(text)
-    chunks = []
-    start = 0
 
-    while start < len(tokens):
-        end = start + max_tokens
-        chunk_tokens = tokens[start:end]
-        chunk_text = tokenizer.get_tokenizer().decode(chunk_tokens)
-        chunks.append(chunk_text)
-        start += max_tokens - overlap
 
-    return chunks
+class SlidingChunker(BaseChunker):
+
+    """
+    max_tokens and overlap_tokens can be empty
+    tokenizer_model is mandatory
+    """
+
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, level_name: str,
+                 with_title: bool, tokenizer_model: str = "", max_tokens: int = 0, overlap_tokens: int = 0):
+
+        super().__init__(db, logger, user_id, doc_id, level_name, with_title)
+
+
+        self.tokenizer = self.compute_tokenizer(tokenizer_model, max_tokens)
+        self.max_tokens = max_tokens
+        self.overlap_tokens = overlap_tokens
+
+
+
+
+
+
+    def chunk_text(self, text):
+        tokens = self.tokenizer.get_tokenizer().encode(text)
+        chunks = []
+        start = 0
+
+        while start < len(tokens):
+            end = start + self.max_tokens
+            chunk_tokens = tokens[start:end]
+            chunk_text = self.tokenizer.get_tokenizer().decode(chunk_tokens)
+            chunks.append(chunk_text)
+            start += self.max_tokens - self.overlap_tokens
+
+        return chunks
 
 
 
@@ -740,119 +777,61 @@ class DoclingChunker(BaseChunker):
 
     """
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id, doc_ids: Optional[Iterable[int]] = (),
-                 do_ocr=True, do_tables=True):
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, level_name: str, with_title: bool):
 
-        super().__init__(db, logger, user_id, doc_id)
+        super().__init__(db, logger, user_id, doc_id, level_name, with_title)
 
-        self.doc_ids = doc_ids
-        self.doc_id = 0
+        self.chunker = "" # expected from child class
 
-        self.do_ocr = do_ocr
-        self.do_table_structure = do_tables
 
-    def convert_file(self, input_path: str):
+    @staticmethod
+    def convert_text(input_text: str):
+        # Configure text pipeline
+        pipeline_options = TextPipelineOptions()
 
-        pipeline_options = PdfPipelineOptions()
-        pipeline_options.do_ocr = self.do_ocr
-        pipeline_options.do_table_structure = self.do_table_structure
-        pipeline_options.table_structure_options.do_cell_matching = True
-
+        # Create converter for TEXT input
         doc_converter = DocumentConverter(
             format_options={
-                InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
+                InputFormat.TEXT: TextFormatOption(pipeline_options=pipeline_options)
             }
         )
 
-        doc = doc_converter.convert(source=input_path).document
-
-        return doc
-
-    async def chunk_doc(self, doc, chunker):
-        chunk_iter = chunker.chunk(dl_doc=doc)
-        chunks = list(chunk_iter)
-
-        title = ""
-        section_id = 0
-        for i, chunk in enumerate(chunks):
-            embedding_chunk_id = i + 1
-
-            chunk_text = chunker.contextualize(chunk=chunk)
-            paragraph_list = chunk_text.split("\n")
-
-            new_title = paragraph_list[0]
-
-            if not section_id or new_title != title:  # must trigger at first iteration
-
-                section_id += 1
-                for paragraph in paragraph_list:
-                    # self.db.insert(f"Paragraphs_{self.doc_id}", {"doc_id": self.doc_id, "section_id": section_id, "embedding_chunk_id": embedding_chunk_id, "paragraph": f"{paragraph}\n"})
-
-                    paragraph_dict = {"user_id": self.user_id, "doc_id": self.doc_id, "section_id": section_id,
-                                      "embedding_chunk_id": embedding_chunk_id, "paragraph": f"{paragraph}\n"}
-
-                    await Paragraph.insert_data(paragraph_dict, self.db)
+        # Convert the raw string into a dl_doc
+        dl_doc = doc_converter.convert(source=input_text).document
+        return dl_doc
 
 
-            else:  # don't store the new title, as it's the same from the previous chunk
 
-                for paragraph in paragraph_list[1:]:
-                    paragraph_dict = {"user_id": self.user_id, "doc_id": self.doc_id, "section_id": section_id,
-                                      "embedding_chunk_id": embedding_chunk_id, "paragraph": f"{paragraph}\n"}
+    def chunk_text(self, input_chunk: str):
 
-                    await Paragraph.insert_data(paragraph_dict, self.db)
+        dl_doc = self.convert_text(input_chunk)
+        chunk_iter = self.chunker.chunk(dl_doc=dl_doc)
+        output_chunks = [self.chunker.contextualize(chunk=chunk) for chunk in chunk_iter]
 
-            title = new_title
+        return output_chunks
 
-        await self.db.commit()
         
-        
-
-    async def _index_with_chunker(self, chunker):
-
-        self.logger.log_step(task="debug", log_text=f"processing document {self.doc_id}")
-
-        # read processed markdown
-        doc_dir = await self.get_document_dir()
-        processed_markdown_path = os.path.join(doc_dir, "processed_markdown.md")
-        with open(processed_markdown_path, "r", encoding="utf-8") as f:
-            md_text = f.read()
-
-        # chunk markdown and store paragraphs and @indexing data into Paragraphs_"doc_id" table
-    
-        await self.chunk_doc(md_text, chunker)
-
-        await self.export_to_retrievals()
-            
-            
-
-
-
-
 
 
 class HierarchicalDoclingChunker(DoclingChunker):
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, do_ocr: bool, do_tables: bool, max_tokens_subsection, min_tokens_subsection, overlap_subsection, merge_across_blocks_subsection, doc_ids: Optional[Iterable[int]] = ()):
-        super().__init__(db, logger, user_id, doc_id, doc_ids, do_ocr, do_tables)
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, level_name: str,
+        with_title: bool, max_tokens: int, min_tokens, overlap, merge_across_blocks):
+        super().__init__(db, logger, user_id, doc_id, level_name, with_title)
 
-        self.max_tokens = max_tokens_subsection
-        self.min_tokens = min_tokens_subsection
-        self.overlap = overlap_subsection
-        self.merge_across_blocks = merge_across_blocks_subsection
+        self.chunker = self.compute_chunker(max_tokens, min_tokens, overlap, merge_across_blocks)
 
-    def _initialize_chunker(self):
+    @staticmethod
+    def compute_chunker(max_tokens, min_tokens, overlap, merge_across_blocks):
         chunker = HierarchicalChunker(
-            max_tokens=self.max_tokens,
-            min_tokens=self.min_tokens,
-            overlap=self.overlap,
-            merge_across_blocks=self.merge_across_blocks,
+            max_tokens=max_tokens,
+            min_tokens=min_tokens,
+            overlap=overlap,
+            merge_across_blocks=merge_across_blocks,
         )
         return chunker
 
-    async def run_indexing(self):
-        chunker = self._initialize_chunker()
-        await self._index_with_chunker(chunker)
+
 
 
 
@@ -861,24 +840,28 @@ class HierarchicalDoclingChunker(DoclingChunker):
 
 class HybridDoclingChunker(DoclingChunker):
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, do_ocr: bool, do_tables: bool, embedding_model_subsection: str):
-        super().__init__(db, logger, user_id, doc_id, doc_ids, do_ocr, do_tables)
-        self.embedding_model = embedding_model_subsection
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, level_name: str,
+        with_title: bool, tokenizer_model: str = "", max_tokens: int = 0):
 
-    def _initialize_chunker(self):
-        tokenizer: BaseTokenizer = HuggingFaceTokenizer(tokenizer=AutoTokenizer.from_pretrained(self.embedding_model))
-        chunker = HybridChunker(tokenizer=tokenizer)
+        super().__init__(db, logger, user_id, doc_id, level_name, with_title)
 
-        return chunker
+        self.tokenizer = self.compute_tokenizer(tokenizer_model, max_tokens)
+        self.chunker = HybridChunker(tokenizer=self.tokenizer)
 
-    async def run_indexing(self):
-        chunker = self._initialize_chunker()
-        await self._index_with_chunker(chunker)
+    @staticmethod
+    def compute_chunker(tokenizer):
+        return HybridChunker(tokenizer=tokenizer)
 
 
 
 
 
+
+# ---------------------------------------------
+
+# ---------------- ORCHESTRATORS --------------------
+
+# ---------------------------------------------
 
 
 
@@ -890,25 +873,29 @@ CONVERSION_TYPE_MAPPER = {
 }
 
 
-async def run_indexing(indexer_dict: Dict[str, Any], user_id: UUID, doc_id: UUID, db: AsyncSession):
-    rows, columns = await Doc.get_all({"user_id": user_id, "doc_id": doc_id}, db)
-    document_df = pd.DataFrame(rows, columns=columns)
-    input_path = document_df["path"].iloc[0]
-    output_path = os.path.join(os.path.dirname(input_path), "processed_markdown.md")
 
 
+async def run_conversion(indexer_dict: Dict[str, Any], user_id: UUID, doc_id: UUID, db: AsyncSession):
 
-    indexer_dict["db"] = db
-    indexer_dict["user_id"] = user_id
-    indexer_dict["doc_id"] = doc_id
-    indexer_dict["input_path"] = input_path
-    indexer_dict["output_path"] = output_path
-    indexer_dict["logger"] = InfoLogger()
+    input_path, output_path, log_path, log_md_path = await get_paths(user_id, doc_id, stage="conversion", db=db)
+    session_logger = InfoLogger(log_path, "conversion")
 
+
+    indexer_dict.update({"db": db, "user_id": user_id, "doc_id": doc_id, "input_path": input_path, "output_path": output_path, "logger": session_logger})
     indexer_type = indexer_dict.pop("type")
     indexer = CONVERSION_TYPE_MAPPER[indexer_type](**indexer_dict)
 
     await indexer.run_indexing()
+
+    # Finally we label this doc as "converted"
+    await Doc.update_data(data_dict={"converted": 1}, where_dict={"user_id": user_id, "doc_id": doc_id},
+                          db=db)
+
+    # And after that export the logs to md
+
+    export_logs(log_path, log_md_path)
+
+
 
 
 
@@ -917,18 +904,17 @@ async def run_indexing(indexer_dict: Dict[str, Any], user_id: UUID, doc_id: UUID
 # Run Chunking
 
 CHUNKING_TYPE_MAPPER = {
-    "Docling Hierarchical": HierarchicalIndexer,
-    "Docling Hybrid": HybridIndexer,
-    "Custom": CustomConverter,
+    "Paragraph Chunker": ParagraphChunker,
+    "Hybrid Chunker": HybridChunker,
+    "Sliding Window Chunker": SlidingChunker,
 }
 
 
 
 async def run_chunking(method_list: list[dict[str, Any]], user_id: UUID, doc_id: UUID, db: AsyncSession):
-    rows, columns = await Doc.get_all({"user_id": user_id, "doc_id": doc_id}, db)
-    document_df = pd.DataFrame(rows, columns=columns)
-    source_path = document_df["path"].iloc[0]
-    input_path = os.path.join(os.path.dirname(source_path), "processed_markdown.md")
+    source_path, input_path, log_path, log_md_path = await get_paths(user_id, doc_id, stage="chunking", db=db)
+
+    session_logger = InfoLogger(log_path, "chunking")
 
 
     # LIMIT Chunking iterations
@@ -961,7 +947,7 @@ async def run_chunking(method_list: list[dict[str, Any]], user_id: UUID, doc_id:
         method["db"] = db
         method["user_id"] = user_id
         method["doc_id"] = doc_id
-        method["logger"] = InfoLogger()
+        method["logger"] = session_logger
         method_type = method.pop("type")
 
         # Instance new method
@@ -975,7 +961,7 @@ async def run_chunking(method_list: list[dict[str, Any]], user_id: UUID, doc_id:
         
         old_chunk_array = new_chunk_array
         
-    # Now we introduce new_chunks into the "Paragraphs" table with all recorded level IDs
+    # After all chunking iterations, we introduce the latest new_chunks into the "Paragraphs" table with all recorded level IDs
 
     # First delete previous occurrences of this doc in the table
     await Paragraph.delete_data({"user_id": user_id, "doc_id": doc_id}, db)
@@ -985,23 +971,15 @@ async def run_chunking(method_list: list[dict[str, Any]], user_id: UUID, doc_id:
 
 
     # Finally we label this doc as "chunked"
-    await Doc.update_data(data_dict={"indexed": 1}, where_dict={"user_id": user_id, "doc_id": doc_id},
+    await Doc.update_data(data_dict={"chunked": 1}, where_dict={"user_id": user_id, "doc_id": doc_id},
                           db=db)
+
+    # And after that export the logs to md
+
+    export_logs(log_path, log_md_path)
             
         
             
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -1059,3 +1037,9 @@ async def update_indexing_results(user_id: UUID, db: AsyncSession, result_list: 
         data_dict = {"content": row.pop("content")}
 
         await Retrieval.update_data(data_dict=data_dict, where_dict=row, db=db)
+
+
+
+# MARKDOWN RESULTS
+
+

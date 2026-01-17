@@ -26,98 +26,153 @@ from app.models import Doc, Paragraph, Retrieval, Embedding
 
 
 
-class Retriever:
-
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, level: str, retrieval_amount: int):
+class BaseRetriever:
+    def __init__(
+        self,
+        db: AsyncSession,
+        logger: InfoLogger,
+        user_id: UUID,
+        level: str,
+        retrieval_amount: int,
+    ):
         self.db = db
-        self.user_id = user_id
         self.logger = logger
-
-
+        self.user_id = user_id
         self.level = level
         self.k = retrieval_amount
 
+    # ---------------------------------------------------------
+    # Internal helpers
+    # ---------------------------------------------------------
+
+    @staticmethod
+    def rows_to_columns(rows):
+
+        if not rows:
+            return {}
+        cols = rows[0].keys()
+        out = {c: [] for c in cols}
+        for row in rows:
+            for c in cols:
+                out[c].append(row[c])
+
+        return out
 
 
 
     async def _find_source_data(self, filter_ids: Iterable = ()):
-        
-        # the retrieval_ids list should correspond to one paragraphs table and level
-    
-        retrieval_rows, columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "retrieval_id": filter_ids}, db=self.db)
-        retrieval_df = pd.DataFrame(retrieval_rows, columns=columns)
+        """
+        Given a set of retrieval_ids, determine the originating document
+        and the level_ids that correspond to the next retrieval stage.
+        """
 
-  
+        retrieval_rows, columns = await Retrieval.get_all(
+            columns=["doc_id", "level", "level_id"],
+            where_dict={
+                "user_id": self.user_id,
+                "retrieval_id": filter_ids,
+            },
+            db=self.db,
+        )
 
-        input_doc_id = list(set(retrieval_df["doc_id"].values))
-        filter_level = list(set(retrieval_df["level"].values))
-        
-        if len(input_doc_id) > 1 or len(filter_level) > 1:
-            raise Exception(f"Filter consists of {len(filter_level)} levels in {len(input_doc_id)} tables")
-        else:
-            filter_level = filter_level[0]
-            input_doc_id = input_doc_id[0]
+        retrieval_dict = self.rows_to_columns(retrieval_rows)
 
+        # Extract unique values
+        input_doc_id = retrieval_dict["doc_id"][0]
+        filter_level = retrieval_dict["level"][0]
 
+        filter_level_ids = list(set(retrieval_dict["level_id"]))
 
-        level_ids = list(set(retrieval_df["level_id"].values))
-        # ------ OLD APPROACH --------
-        #source_rows = []
-        #for id_value in level_ids:
-            #source_rows += self.db.get_all(input_doc_id, f"{filter_level}_id=?", [id_value])
-        # source_df = pd.DataFrame(source_rows)
-        # ----------------------------
+        # Fetch paragraphs belonging to this doc + level
+        paragraph_rows, columns = await Paragraph.get_all(
+            columns=[f"{self.level}_id"],
+            where_dict={
+                "user_id": self.user_id,
+                "doc_id": input_doc_id,
+                f"{filter_level}_id": filter_level_ids,
+            },
+            db=self.db,
+        )
 
-        paragraph_rows, columns = await Paragraph.get_all(where_dict={"user_id": self.user_id, "doc_id": input_doc_id, f"{filter_level}_id": level_ids}, db=self.db)
-        source_df = pd.DataFrame(paragraph_rows, columns=columns)
-
-
-        level_ids = list(set(source_df[f"{self.level}_id"].values))
+        # Extract next-level ids
+        level_ids = self.rows_to_columns(paragraph_rows)[f"{self.level}_id"]
 
         return input_doc_id, level_ids
 
+    async def _get_content(self, retrieval_ids: Iterable = ()):
+        """
+        Return a list of content strings for the given retrieval_ids.
+        """
+        where = {"user_id": self.user_id, "retrieval_id": retrieval_ids}
+
+        retrieval_rows, columns = await Retrieval.get_all(
+            columns=["retrieval_id", "content"],
+            where_dict=where,
+            db=self.db,
+        )
 
 
+        return self.rows_to_columns(retrieval_rows)
 
-
-    async def _get_retrieval_content(self, retrieval_ids: Iterable = ()):
-
-
-
-        retrieval_rows, columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "retrieval_id": retrieval_ids}, db=self.db)
-        retrieval_df = pd.DataFrame(retrieval_rows, columns=columns)
-
-
-        retrieval_output = retrieval_df["retrieval_output"].tolist()
-    
-       
-        return retrieval_output
-
-
-    async def _get_retrieval_df(self, filter_ids: Optional[Iterable] = ()):
-
-        # check if there are filters, like document, chapter... from previous retrieval
+    async def _filter_content(self, filter_ids: Optional[Iterable] = ()):
+        """
+        Return a DataFrame with retrieval_id and content.
+        If filter_ids are provided, restrict results to the corresponding
+        document + level_ids from previous retrieval.
+        """
 
         if filter_ids:
-            doc_id, level_ids = self._find_source_data(filter_ids)
+            doc_id, level_ids = await self._find_source_data(filter_ids)
 
-            retrieval_rows, columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "doc_id": doc_id, "level_id": level_ids, "level": self.level}, db=self.db)
-            # retrieval_rows should be a list of only one dict, as (doc_id, level_id) is 1-to-1 with retrieval_id
-
+            where = {
+                "user_id": self.user_id,
+                "doc_id": doc_id,
+                "level_id": level_ids,
+                "level": self.level,
+            }
         else:
+            where = {
+                "user_id": self.user_id,
+                "level": self.level,
+            }
 
-            retrieval_rows, columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "level": self.level}, db=self.db)
+        retrieval_rows, columns = await Retrieval.get_all(
+            columns=["retrieval_id", "content"],
+            where_dict=where,
+            db=self.db,
+        )
 
-        retrieval_df = pd.DataFrame(retrieval_rows, columns=columns)
+        return self.rows_to_columns(retrieval_rows)
+    
+    
+    async def get_retrieval_content(self, filter_ids: Optional[Iterable] = ()):
+        
+        # if the reranker is running, return the content of the filter_ids
+        if self.level == "rerank":
+            return await self._get_content(filter_ids)
+        
+        else:
+            return await self._filter_content(filter_ids)
 
 
-        # print("retrieval_df: ", retrieval_df.head())
-        # retrieval_df.to_excel('retrieval_df.xlsx', index=False)
-
-        return retrieval_df
 
 
-class ReasonerRetriever(Retriever):
+
+
+
+
+
+# ---------------------------------------------
+
+# ----------------CHUNKERS --------------------
+
+# ---------------------------------------------
+# Requirement for new Retriever classes: "run_retrieval" method with the specified input and output types
+
+
+
+
+class ReasonerRetriever(BaseRetriever):
     """"
     Provides retrieval_output that aligns best with the raw input query
 
@@ -134,7 +189,7 @@ class ReasonerRetriever(Retriever):
 
 
 
-    def _get_retrieval_ids(self, query: str, retrieval_input_chunks: str) -> List:
+    def _retrieve_ids(self, query: str, retrieval_input_chunks: str) -> List:
         # Qwen3-Coder is explicitly an instruction-tuned coder model, so its usage profile lines up with OpenAIs mini line
 
         # QWEN2.5_CODER_32B_INSTRUCT
@@ -184,23 +239,20 @@ class ReasonerRetriever(Retriever):
 
 
 
-    async def run_retrieval(self, query: str, filter_ids: Optional[Iterable] = ()):
+    async def run_retrieval(self, query: str, filter_ids: Optional[Iterable] = ())-> Iterable:
         start = time.time()
 
-        retrieval_df = await self._get_retrieval_df(filter_ids)
+        # 
+        retrieval_dict = await self.get_retrieval_content(filter_ids)
 
 
         retrieval_input_chunks = ""
-        for i, row in retrieval_df.iterrows():
-            retrieval_input_chunks += f"CHUNK_ID={row["retrieval_id"]}\n{row["content"]}\n"
+        for retrieval_id, content in zip(retrieval_dict["retrieval_id"], retrieval_dict["content"]):
+            retrieval_input_chunks += f"CHUNK_ID={retrieval_id}\n{content}\n"
 
-        retrieval_output_ids = self._get_retrieval_ids(query, retrieval_input_chunks)
+        retrieval_output_ids = self._retrieve_ids(query, retrieval_input_chunks)
 
         end = time.time()
-
-        #output_mask = retrieval_df["retrieval_id"].isin(retrieval_output_ids)
-
-        #retrieval_output = retrieval_df[output_mask]["retrieval_output"].tolist()
 
 
 
@@ -210,7 +262,11 @@ class ReasonerRetriever(Retriever):
         return retrieval_output_ids
 
 
-class EmbeddingRetriever(Retriever):
+
+
+
+
+class EmbeddingRetriever(BaseRetriever):
     """
     Contains all functionality to generate embeddings of a query and retrieval_input, and provide retrieval_output based on cosine similarity.
 
@@ -234,8 +290,6 @@ class EmbeddingRetriever(Retriever):
 
         self.generate_embeddings()
 
-
-
     # ============================================================
     # INTERNAL HELPERS
     # ============================================================
@@ -258,20 +312,20 @@ class EmbeddingRetriever(Retriever):
 
         self.logger.log_step(log_text=f"Embedding the retrieval input of each {self.level}" + filter_prompt)
 
-        retrieval_df = await self._get_retrieval_df(filter_ids)
+        retrieval_dict = await self.get_retrieval_content(filter_ids)
 
 
 
         # 1. Embed the retrieval input content asynchronously
-        async def embed_columns(retrieval_df):
+        async def embed_columns(retrieval_dict):
 
-            print(retrieval_df["content"].tolist())
-            embeddings = await self._embed(retrieval_df["content"].tolist())
+            print(retrieval_dict["content"])
+            embeddings = await self._embed(retrieval_dict["content"])
             print(f"Generated embeddings for {self.level}")
             # Convert to list of Python lists
             embeddings = [np.array(e, dtype=np.float32).tobytes() for e in embeddings]
 
-            output_df = pd.DataFrame({"user_id": [self.user_id] * len(embeddings), "retrieval_id": retrieval_df["retrieval_id"], "embedding": embeddings})
+            output_df = pd.DataFrame({"user_id": [self.user_id] * len(embeddings), "retrieval_id": retrieval_dict["retrieval_id"], "embedding": embeddings})
 
 
 
@@ -280,12 +334,12 @@ class EmbeddingRetriever(Retriever):
 
             return output_df
 
-        embedding_df = await embed_columns(retrieval_df)
+        embedding_df = await embed_columns(retrieval_dict)
 
 
         # get current retrieval ids
-        rows = await Embedding.get_all(where_dict={"user_id": self.user_id}, db=self.db)
-        dict_df = pd.DataFrame(rows)
+        rows, columns = await Embedding.get_all(where_dict={"user_id": self.user_id}, db=self.db)
+        dict_df = pd.DataFrame(rows, columns=columns)
         current_retrieval_ids = list(set(dict_df["retrieval_id"].values)) if not dict_df.empty else []
 
 
@@ -336,12 +390,12 @@ class EmbeddingRetriever(Retriever):
 
         start = time.time()
 
-        retrieval_df = await self._get_retrieval_df(filter_ids)
+        retrieval_dict = await self.get_retrieval_content(filter_ids)
 
 
         # 3. Load embeddings for these IDs if they exist
 
-        retrieval_ids = retrieval_df["retrieval_id"].tolist()
+        retrieval_ids = retrieval_dict["retrieval_id"]
         embedding_rows, columns = await Embedding.get_all(where_dict={"user_id": self.user_id, "retrieval_id": retrieval_ids}, db=self.db)
         embedding_df = pd.DataFrame(embedding_rows, columns=columns)
 
@@ -399,4 +453,13 @@ class EmbeddingRetriever(Retriever):
         emb_norms = np.linalg.norm(emb_matrix, axis=1)
         sims = (emb_matrix @ query_embedding) / (emb_norms * query_norm)
         return sims
+
+
+
+
+# ============================================================
+# ORCHESTRATORS
+# ============================================================
+
+
 

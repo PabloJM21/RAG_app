@@ -50,11 +50,11 @@ class Extractor:
 
         self.doc_id = doc_id
 
-
+        self.title = False
         if what == "title":
             self.title = True
-        else:
-            self.title = False
+
+
 
         self.replace = replace
         self.logger = logger
@@ -386,13 +386,16 @@ TYPE_MAPPER = {
 }
 
 async def run_extraction(method_list: list[dict[str, Any]], user_id: UUID, doc_id: UUID, db: AsyncSession):
-    
+    # logg
+    session_logger = InfoLogger()
+    strategy_text = ", ".join([method["type"] for method in method_list])
+    session_logger.log_step(task="header_1",
+                         log_text=f"Starting Extraction with {len(method_list)} methods: {strategy_text}")
+    print(f"Starting Extraction with {len(method_list)} methods: {strategy_text}")
+
     for method in method_list:
-        
-        method["db"] = db
-        method["user_id"] = user_id
-        method["doc_id"] = doc_id
-        method["logger"] = InfoLogger()
+        method.update({"logger": session_logger, "user_id": user_id, "doc_id": doc_id, "db": db})
+
 
         if method["type"] == "Extractor":
             method["input_level"] = method.pop("from")

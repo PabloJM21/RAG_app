@@ -432,6 +432,7 @@ class Embedding(Base):
     @classmethod
     async def get_all(
             cls: type[T],
+            columns: list,
             where_dict: Dict[str, Any],
             db: AsyncSession,
     ) -> tuple[list[dict[str, Any]], list[str]]:
@@ -449,7 +450,8 @@ class Embedding(Base):
         result = await db.execute(stmt)
         rows = result.scalars().all()
 
-        columns = [c.key for c in inspect(cls).mapper.column_attrs]
+        if not columns:
+            columns = [c.key for c in inspect(cls).mapper.column_attrs]
 
         data = [
             {column: getattr(row, column) for column in columns}
@@ -457,3 +459,5 @@ class Embedding(Base):
         ]
 
         return data, columns
+
+

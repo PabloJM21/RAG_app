@@ -1,6 +1,6 @@
 import ast
 import os
-
+from typing import Any, Dict, List, Optional, Iterable
 
 def parse_extra_from_line(line: str) -> dict | None:
     """
@@ -33,6 +33,7 @@ def generate_markdown_from_log(
         raise FileNotFoundError(f"Log file not found: {log_path}")
 
     md_lines = []
+    md_dict = {"conversion": [], "chunking": [], "extraction": [], "retrieval": []}
 
     with open(log_path, "r", encoding="utf-8") as f:
         for line in f:
@@ -44,13 +45,14 @@ def generate_markdown_from_log(
                 continue
 
             task = extra.get("task")
+            stage = extra.get("stage")
 
             # ---------- HEADER 1 ----------
             if task == "header_1":
                 log_text = line.split("|")[-2].strip()
                 # print("log_text: ", log_text)
                 if log_text:
-                    md_lines.append(f"## {log_text}\n")
+                    md_dict[stage].append(f"# {log_text}\n")
 
 
 
@@ -59,7 +61,7 @@ def generate_markdown_from_log(
                 log_text = line.split("|")[-2].strip()
                 # print("log_text: ", log_text)
                 if log_text:
-                    md_lines.append(f"## {log_text}\n")
+                    md_dict[stage].append(f"## {log_text}\n")
 
 
             # ---------- TEXT INFO ----------
@@ -68,18 +70,18 @@ def generate_markdown_from_log(
                 log_text = line.split("|")[-2].strip()
                 #print("log_text: ", log_text)
                 if log_text:
-                    md_lines.append(f"{log_text}\n")
+                    md_dict[stage].append(f"{log_text}\n")
 
             # ---------- VALIDATION ----------
             elif task == "validate":
-                md_lines.append("Processed new task obtaining these results:\n")
+                md_dict[stage].append("Processed new task obtaining these results:\n")
 
                 task_description = line.split("|")[-2].strip()
                 outputs = extra.get("outputs", "")
                 duration = extra.get("duration", "")
                 score = extra.get("scores", "")
 
-                md_lines.extend([
+                md_dict[stage].extend([
                     "| Field | Value |",
                     "|------|-------|",
                     f"| task description | {task_description} |",
@@ -89,39 +91,12 @@ def generate_markdown_from_log(
                     "",
                 ])
 
-            elif task == "summary_table":
+            elif task == "debug":
+                # generate markdown for low level debugging
 
-                log_text = line.split("|")[-2].strip()
-                md_lines.append(f"{log_text}\n")
-
-                outputs = extra.get("outputs", "")
+                pass
 
 
-
-                # extra is expected to be a list of dicts (rows)
-                if not isinstance(outputs, list) or not outputs or not all(isinstance(r, dict) for r in outputs):
-                    md_lines.append("_Validation data is not tabular._\n")
-                    continue
-
-                # Convert rows -> columns
-                columns = {}
-                for row in outputs:
-                    for k, v in row.items():
-                        columns.setdefault(k, []).append(v)
-
-                col_names = list(columns.keys())
-                rows = zip(*columns.values())
-
-
-                # Markdown table header
-                md_lines.append("| " + " | ".join(col_names) + " |")
-                md_lines.append("| " + " | ".join("---" for _ in col_names) + " |")
-
-                # Table rows
-                for row in rows:
-                    md_lines.append("| " + " | ".join(str(cell) for cell in row) + " |")
-
-                md_lines.append("")
 
     with open(output_md_path, "w", encoding="utf-8") as out:
         out.write("\n".join(md_lines))
@@ -170,3 +145,17 @@ def find_session_id(log_path: str) -> str | None:
 
 
 
+# ------------------ USAGE ------------------
+
+async def export_logs(log_path, output_md) -> List[Dict[str, Any]]:
+    
+
+    # Write file to disk
+
+    session_id = find_session_id(log_path)
+
+    generate_markdown_from_log(
+        log_path=log_path,
+        output_md_path=output_md,
+        session_id=session_id,
+    )

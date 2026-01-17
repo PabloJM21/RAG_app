@@ -221,6 +221,24 @@ async def add_index_results(
     }
 
 
+# Markdown Results
+
+
+@router.get("/{doc_id}/markdown", response_model=List[Dict[str, Any]])
+async def read_index_results(
+    doc_id: UUID,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+
+    results = await load_markdown_results(user_id=user.id, doc_id=doc_id, db=db)
+
+
+
+    return results
+
+
+
 # ---------- ALL DOCs ----------
 @router.post("/run")
 async def run_index_pipeline(
@@ -232,5 +250,10 @@ async def run_index_pipeline(
     new_document_df = pd.DataFrame(rows, columns=columns)
 
     doc_ids =  new_document_df["doc_id"].tolist()
+
+
+
+
+
 
 

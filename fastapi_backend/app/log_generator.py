@@ -5,42 +5,46 @@ import sys
 import uuid
 import ast
 
-#logger
-from loguru import logger
-import random
-from datetime import datetime
 
+from loguru import logger as base_logger
 
-# Allow overriding log level via env var (default = INFO)
-#LOG_LEVEL = os.getenv("LOG_LEVEL", "DEBUG").upper()   # add level=LOG_LEVEL if other than INFO wanted
 
 class InfoLogger:
-    def __init__(self):
-
-
-
-        # -----------------------------------
-        # path definition
-        # -----------------------------------
-        log_dir = os.path.abspath("./logs") #os.path.join(BASE_DIR, "logs")
-        os.makedirs(log_dir, exist_ok=True)
-        self.log_path = os.path.join(log_dir, "validate.log")
-
-        # -----------------------------------
-        # session identification
-        # -----------------------------------
-
+    def __init__(self, log_path: str, stage: str):
+        self.log_path = log_path
+        self.stage = stage
         self.session_id = self.generate_unique_session_id()
 
+        # Create an isolated logger instance for this stage
+        self.logger = base_logger.bind(stage=self.stage)
 
-        # -----------------------------------
-        # Logger initialization
-        # -----------------------------------
+        # Remove handlers ONLY from this cloned logger
+        self.logger = self.logger.opt(depth=1)
+        self.logger.remove()
 
-        logger.remove()  # clear default handlers
+        # Console sink
+        self.logger.add(
+            sys.stderr,
+            format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
+                   "<cyan>{level: <8}</cyan> | "
+                   "<yellow>{name}</yellow>:<yellow>{function}</yellow>:<yellow>{line}</yellow> - "
+                   "{message} | {extra}",
+            backtrace=True,
+            diagnose=True,
+            enqueue=True,
+        )
+
+        # File sink (unique per stage)
+        self.logger.add(
+            self.log_path,
+            rotation="2.5 MB",
+            format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {message} | {extra}",
+            enqueue=True,
+        )
+
 
         # Console sink (stderr)
-        logger.add(
+        self.logger.add(
             sink=sys.stderr,
             format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
                    "<cyan>{level: <8}</cyan> | "
@@ -52,22 +56,12 @@ class InfoLogger:
         )
 
         # Validate sink
-        logger.add(
+        self.logger.add(
             self.log_path,
             rotation="2.5 MB",
             format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {message} | {extra}",
             enqueue=True,
         )
-
-        # Old: Debug sink
-        # os.path.join(LOG_DIR, "debug.log")
-        # filter=lambda record: record["extra"].get("channel") == "debug"
-        # filter=lambda record: record["extra"].get("channel") == "validate"
-        # self.DebugLogger = logger.bind(channel="info_text")
-        # self.ValidateLogger = logger.bind(channel="validate")
-
-
-
 
 
 
@@ -131,7 +125,7 @@ class InfoLogger:
         extra_message = {
             "session_id": self.session_id,
             "task": task,
-            "stage": stage,  # The Pipeline Stage (@indexing, @extraction, retrieval)
+            "stage": stage,  # The Pipeline Stage (indexing, extraction, retrieval)
             "strategy": strategy,
             "inputs": inputs,
             "outputs": outputs,
