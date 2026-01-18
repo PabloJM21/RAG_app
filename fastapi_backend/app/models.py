@@ -9,7 +9,7 @@ import json
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.inspection import inspect
-from typing import TypeVar, Type, Dict, Any
+from typing import TypeVar, Type, Dict, Any, Optional
 from sqlalchemy.types import TypeDecorator, UserDefinedType
 
 # used for vector embeddings
@@ -62,6 +62,70 @@ class Base(DeclarativeBase):
             await db.commit()
             await db.refresh(pipeline)
 
+    @classmethod
+    async def insert_data(
+            cls: type[T],
+            data_dict: Dict[str, Any],
+            db: AsyncSession,
+    ) -> T:
+        new_row = cls(**data_dict)
+        db.add(new_row)
+
+    @classmethod
+    async def get_all(
+            cls: type[T],
+            where_dict: Dict[str, Any],
+            db: AsyncSession,
+            columns: Optional[list] = None,
+    ) -> tuple[list[dict[str, Any]], list[str]]:
+
+        filters = []
+        for key, value in where_dict.items():
+            column = getattr(cls, key)
+
+            if isinstance(value, (list, tuple, set)):
+                filters.append(column.in_(value))
+            else:
+                filters.append(column == value)
+
+        stmt = select(cls).where(and_(*filters))
+        result = await db.execute(stmt)
+        rows = result.scalars().all()
+
+        if not columns:
+            columns = [c.key for c in inspect(cls).mapper.column_attrs]
+
+        data = [
+            {column: getattr(row, column) for column in columns}
+            for row in rows
+        ]
+
+        return data, columns
+
+    @classmethod
+    async def get_pipeline(
+            cls: type[T],
+            where_dict: Dict[str, Any],
+            db: AsyncSession,
+            columns: Optional[list] = None,
+    ) -> dict[str, Any]:
+
+        filters = []
+        for key, value in where_dict.items():
+            column = getattr(cls, key)
+            filters.append(column == value)
+
+        stmt = select(cls).where(and_(*filters))
+        result = await db.execute(stmt)
+        row = result.scalars().first()
+
+        if not columns:
+            columns = [c.key for c in inspect(cls).mapper.column_attrs]
+
+        data = {column: getattr(row, column) for column in columns}
+
+        return {k: json.loads(v) for k,v in data.items()}
+
 
 
 
@@ -75,7 +139,8 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     main_pipeline = relationship("MainPipeline", back_populates="user", cascade="all, delete-orphan")
 
     # methods
-    indexing_methods = relationship("IndexPipeline", back_populates="user", cascade="all, delete-orphan")
+    conversion_methods = relationship("ConversionPipeline", back_populates="user", cascade="all, delete-orphan")
+    chunking_methods = relationship("ChunkingPipeline", back_populates="user", cascade="all, delete-orphan")
     extraction_methods = relationship("ExtractionPipeline", back_populates="user", cascade="all, delete-orphan")
     retrieval_methods = relationship("RetrievalPipeline", back_populates="user", cascade="all, delete-orphan")
 
@@ -98,32 +163,6 @@ class Doc(Base):
 
     user = relationship("User", back_populates="docs")
 
-    @classmethod
-    async def get_all(
-            cls: type[T],
-            where_dict: Dict[str, Any],
-            db: AsyncSession,
-    ) -> tuple[list[dict[str, Any]], list[str]]:
-        filters = [
-            getattr(cls, key) == value
-            for key, value in where_dict.items()
-        ]
-
-        stmt = select(cls).where(and_(*filters))
-        result = await db.execute(stmt)
-        rows = result.scalars().all()
-
-        columns = [c.key for c in inspect(cls).mapper.column_attrs]
-
-        data = [
-            {
-                column: getattr(row, column)
-                for column in columns
-            }
-            for row in rows
-        ]
-
-        return data, columns
 
 
 
@@ -147,12 +186,28 @@ class MainPipeline(Base):
 
 # Indexing
 
-class IndexPipeline(Base):
-    __tablename__ = "IndexingMethods"
+# Doc Conversion
+
+class ConversionPipeline(Base):
+    __tablename__ = "ConversionMethods"
 
     doc_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4) # doc_id
-    indexer = Column(String, nullable=True) # string representing a Dict
-    indexed = Column(Integer, nullable=True) # 0 or 1
+    method = Column(String, nullable=True) # string representing a Dict
+    converted = Column(Integer, nullable=True) # 0 or 1
+
+    user_id = Column(UUID(as_uuid=True), ForeignKey("user.id"), nullable=False)
+
+    user = relationship("User", back_populates="indexing_methods")
+
+# Chunking
+
+
+class ChunkingPipeline(Base):
+    __tablename__ = "ChunkingMethods"
+
+    doc_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4) # doc_id
+    method_list = Column(String, nullable=True) # string representing a List[Dict]
+    chunked = Column(Integer, nullable=True) # 0 or 1
 
     user_id = Column(UUID(as_uuid=True), ForeignKey("user.id"), nullable=False)
 
@@ -201,7 +256,7 @@ class Paragraph(Base):
     user = relationship("User", back_populates="paragraphs")
 
     @classmethod
-    async def insert_data(
+    async def insert_paragraphs(
             cls: type[T],
             data_dict: Dict[str, Any],
             db: AsyncSession,
@@ -227,40 +282,11 @@ class Paragraph(Base):
 
 
     @classmethod
-    async def get_all_old(
-            cls: type[T],
-            where_dict: Dict[str, Any],
-            db: AsyncSession,
-    ) -> tuple[list[dict[str, Any]], list[str]]:
-        filters = [
-            getattr(cls, key) == value
-            for key, value in where_dict.items()
-        ]
-
-        stmt = select(cls).where(and_(*filters))
-        result = await db.execute(stmt)
-        rows = result.scalars().all()
-        columns = [c.key for c in inspect(cls).mapper.column_attrs]
-
-
-        output_list = []
-        for row in rows:
-            raw_dict = {
-                column: getattr(row, column)
-                for column in columns
-            }
-
-            meta_dict = json.loads(raw_dict.pop("paragraph_metadata"))
-            output_list.append(raw_dict | meta_dict)
-
-
-        return output_list, columns
-
-    @classmethod
-    async def get_all(
+    async def get_all_paragraphs(
             cls: Type[T],
             where_dict: Dict[str, Any],
             db: AsyncSession,
+            columns: Optional[list] = None,
     ) -> tuple[list[dict[str, Any]], list[str]]:
         """
         Generic filter method that:
@@ -317,7 +343,8 @@ class Paragraph(Base):
         rows = result.scalars().all()
 
         # 7. Get the list of column names defined on the model
-        columns = [c.key for c in inspect(cls).mapper.column_attrs]
+        if not columns:
+            columns = [c.key for c in inspect(cls).mapper.column_attrs]
 
         # 8. For each row:
         #    - Build a dict of normal columns
@@ -361,44 +388,7 @@ class Retrieval(Base):
 
     user = relationship("User", back_populates="retrievals")
 
-    @classmethod
-    async def insert_data(
-            cls: type[T],
-            data_dict: Dict[str, Any],
-            db: AsyncSession,
-    ):
-        new_row = cls(**data_dict)
-        db.add(new_row)
 
-
-    @classmethod
-    async def get_all(
-            cls: type[T],
-            where_dict: Dict[str, Any],
-            db: AsyncSession,
-    ) -> tuple[list[dict[str, Any]], list[str]]:
-
-        filters = []
-        for key, value in where_dict.items():
-            column = getattr(cls, key)
-
-            if isinstance(value, (list, tuple, set)):
-                filters.append(column.in_(value))
-            else:
-                filters.append(column == value)
-
-        stmt = select(cls).where(and_(*filters))
-        result = await db.execute(stmt)
-        rows = result.scalars().all()
-
-        columns = [c.key for c in inspect(cls).mapper.column_attrs]
-
-        data = [
-            {column: getattr(row, column) for column in columns}
-            for row in rows
-        ]
-
-        return data, columns
 
 
 
@@ -419,45 +409,6 @@ class Embedding(Base):
 
 
 
-    @classmethod
-    async def insert_data(
-            cls: type[T],
-            data_dict: Dict[str, Any],
-            db: AsyncSession,
-    ) -> T:
-        new_row = cls(**data_dict)
-        db.add(new_row)
 
-
-    @classmethod
-    async def get_all(
-            cls: type[T],
-            columns: list,
-            where_dict: Dict[str, Any],
-            db: AsyncSession,
-    ) -> tuple[list[dict[str, Any]], list[str]]:
-
-        filters = []
-        for key, value in where_dict.items():
-            column = getattr(cls, key)
-
-            if isinstance(value, (list, tuple, set)):
-                filters.append(column.in_(value))
-            else:
-                filters.append(column == value)
-
-        stmt = select(cls).where(and_(*filters))
-        result = await db.execute(stmt)
-        rows = result.scalars().all()
-
-        if not columns:
-            columns = [c.key for c in inspect(cls).mapper.column_attrs]
-
-        data = [
-            {column: getattr(row, column) for column in columns}
-            for row in rows
-        ]
-
-        return data, columns
 
 

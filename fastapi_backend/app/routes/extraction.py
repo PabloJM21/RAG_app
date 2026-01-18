@@ -55,7 +55,7 @@ async def read_extraction_pipeline(
 @router.post("/{doc_id}/data")
 async def add_extraction_pipeline(
         doc_id: UUID,
-        pipeline: MethodSpec,
+        pipeline: List[MethodSpec],
         db: AsyncSession = Depends(get_async_session),
         user: User = Depends(current_active_user),
 ):

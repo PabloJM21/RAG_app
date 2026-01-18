@@ -97,66 +97,22 @@ class InfoLogger:
                 return session_id
 
 
-
-
-
-
     def log_step(
         self,
-        stage: Optional[str] = "",
-        strategy: Optional[str] = "",
         log_text: Optional[str] = "",
-        inputs: Optional[Any] = None,
-        outputs: Optional[Any] = None,
-        scores: Optional[List[float]] = None,
-        duration: Optional[str] = "",
-        task: Optional[str] = "info_text"):
+        task: Optional[str] = "info_text",
+        table_data: Optional[Dict[str, Any]] = None):
 
         """
-        Log full input/output arrays to file and console.
+        Log full arrays to file and console.
         """
-
-
-
-
-
-
 
         extra_message = {
             "session_id": self.session_id,
             "task": task,
-            "stage": stage,  # The Pipeline Stage (indexing, extraction, retrieval)
-            "strategy": strategy,
-            "inputs": inputs,
-            "outputs": outputs,
-            "scores": scores,
-            "duration": duration}
+            "table_data": table_data}
 
-
-
-
-        # --- File/Console logging ---
-
-
-        if task == "validate":
-            logger.success(log_text, extra=extra_message)
-
-        elif task == "debug":
-            logger.debug(log_text, extra=extra_message)
-
-
-
-        elif task == "summary_table":
-            extra_message = {
-                "session_id": self.session_id,
-                "task": task,
-                "outputs": outputs}
-
-            logger.info(log_text, extra=extra_message)
-
-        else:
-            # info_text, header_1, header_2
-            logger.info(log_text, extra=extra_message)
+        self.logger.info(log_text, extra=extra_message)
 
 
 

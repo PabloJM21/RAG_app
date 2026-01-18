@@ -9,6 +9,9 @@ import time
 #Orchestrators
 from app.rag_apis.chat_api import ChatOrchestrator
 
+# helpers for disc paths
+from app.rag_services.helpers import get_doc_paths, get_log_paths, get_doc_name
+
 #embeddings
 from openai import OpenAI
 from app.rag_apis.embed_api import EmbeddingOrchestrator
@@ -32,12 +35,14 @@ class BaseRetriever:
         db: AsyncSession,
         logger: InfoLogger,
         user_id: UUID,
+        doc_id: UUID,
         level: str,
         retrieval_amount: int,
     ):
         self.db = db
         self.logger = logger
         self.user_id = user_id
+        self.doc_id = doc_id
         self.level = level
         self.k = retrieval_amount
 
@@ -58,6 +63,18 @@ class BaseRetriever:
 
         return out
 
+    @staticmethod
+    def update_output_dict(retrieval_dict, output_dict):
+
+        # add the doc_ids of the retrieved chunks to the output_dict
+        output_dict["doc_id"] = []
+        for i, retrieval_id in enumerate(retrieval_dict["retrieval_id"]):
+            if retrieval_id in output_dict["retrieval_id"]:
+                output_dict["doc_id"].append(retrieval_dict["doc_id"][i])
+
+
+
+
 
 
     async def _find_source_data(self, filter_ids: Iterable = ()):
@@ -67,7 +84,7 @@ class BaseRetriever:
         """
 
         retrieval_rows, columns = await Retrieval.get_all(
-            columns=["doc_id", "level", "level_id"],
+            columns=["level", "level_id"],
             where_dict={
                 "user_id": self.user_id,
                 "retrieval_id": filter_ids,
@@ -77,18 +94,16 @@ class BaseRetriever:
 
         retrieval_dict = self.rows_to_columns(retrieval_rows)
 
-        # Extract unique values
-        input_doc_id = retrieval_dict["doc_id"][0]
+        # Extract filter level and IDs
         filter_level = retrieval_dict["level"][0]
-
         filter_level_ids = list(set(retrieval_dict["level_id"]))
 
         # Fetch paragraphs belonging to this doc + level
-        paragraph_rows, columns = await Paragraph.get_all(
+        paragraph_rows, columns = await Paragraph.get_all_paragraphs(
             columns=[f"{self.level}_id"],
             where_dict={
                 "user_id": self.user_id,
-                "doc_id": input_doc_id,
+                "doc_id": self.doc_id,
                 f"{filter_level}_id": filter_level_ids,
             },
             db=self.db,
@@ -97,9 +112,9 @@ class BaseRetriever:
         # Extract next-level ids
         level_ids = self.rows_to_columns(paragraph_rows)[f"{self.level}_id"]
 
-        return input_doc_id, level_ids
+        return level_ids
 
-    async def _get_content(self, retrieval_ids: Iterable = ()):
+    async def get_content(self, retrieval_ids: Iterable = ()):
         """
         Return a list of content strings for the given retrieval_ids.
         """
@@ -121,23 +136,41 @@ class BaseRetriever:
         document + level_ids from previous retrieval.
         """
 
-        if filter_ids:
-            doc_id, level_ids = await self._find_source_data(filter_ids)
+        columns = ["retrieval_id", "content"]
+
+        # if retriever is not router (if doc_id) and there are filter_ids
+        if filter_ids and self.doc_id:
+            level_ids = await self._find_source_data(filter_ids)
 
             where = {
                 "user_id": self.user_id,
-                "doc_id": doc_id,
+                "doc_id": self.doc_id,
                 "level_id": level_ids,
                 "level": self.level,
             }
+
+
+        # if retriever is not router but there are no filter_ids, in which case there is no router
+        elif self.doc_id:
+            where = {
+                "user_id": self.user_id,
+                "doc_id": self.doc_id,
+                "level": self.level,
+            }
+
+
+        # if retriever is router (no doc_id). In this case, there are never filter_ids
         else:
             where = {
                 "user_id": self.user_id,
                 "level": self.level,
             }
 
+            # we need the doc_id to decide which pipelines to run next
+            columns = ["doc_id", "retrieval_id", "content"]
+
         retrieval_rows, columns = await Retrieval.get_all(
-            columns=["retrieval_id", "content"],
+            columns=columns,
             where_dict=where,
             db=self.db,
         )
@@ -149,7 +182,7 @@ class BaseRetriever:
         
         # if the reranker is running, return the content of the filter_ids
         if self.level == "rerank":
-            return await self._get_content(filter_ids)
+            return await self.get_content(filter_ids)
         
         else:
             return await self._filter_content(filter_ids)
@@ -181,9 +214,9 @@ class ReasonerRetriever(BaseRetriever):
     To create an instance of the class, provide the level at which the retrieval will take place
     """
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, level: str, retrieval_amount: int, query_transformation_model: str, reasoner_model: str):
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, level: str, retrieval_amount: int, query_transformation_model: str, reasoner_model: str, doc_id: Optional[UUID] = 0):
 
-        super().__init__(db, logger, user_id, level, retrieval_amount)
+        super().__init__(db, logger, user_id, doc_id, level, retrieval_amount)
 
 
 
@@ -239,7 +272,7 @@ class ReasonerRetriever(BaseRetriever):
 
 
 
-    async def run_retrieval(self, query: str, filter_ids: Optional[Iterable] = ())-> Iterable:
+    async def run_retrieval(self, query: str, filter_ids: Optional[Iterable] = ())-> Dict[str, List]:
         start = time.time()
 
         # 
@@ -254,12 +287,16 @@ class ReasonerRetriever(BaseRetriever):
 
         end = time.time()
 
+        output_dict = {"retrieval_id": retrieval_output_ids}
 
+        # add doc_ids to the dict, in case of the router
+        if not self.doc_id:
+            self.update_output_dict(retrieval_dict, output_dict)
 
         # logg
         self.logger.log_step(task="validate", log_text="Reasoner Retrieval", inputs=query, outputs=retrieval_output_ids, duration=f"{round(end-start, 2)} seconds")
 
-        return retrieval_output_ids
+        return output_dict
 
 
 
@@ -277,18 +314,15 @@ class EmbeddingRetriever(BaseRetriever):
     Provides two methods: generate_embeddings, similarity_search
     """
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, level: str, retrieval_amount: int, query_transformation_model: str, embedding_model: str):
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, level: str, retrieval_amount: int, query_transformation_model: str, embedding_model: str, doc_id: Optional[UUID] = 0):
 
-        super().__init__(db, logger, user_id, level, retrieval_amount)  # modern Python 3 style, no super(EmbeddingRetriever, self)
+        super().__init__(db, logger, user_id, doc_id, level, retrieval_amount)  # modern Python 3 style, no super(EmbeddingRetriever, self)
 
 
         # self.client = OpenAI()
         self.embedding_model = embedding_model
 
 
-
-
-        self.generate_embeddings()
 
     # ============================================================
     # INTERNAL HELPERS
@@ -297,8 +331,6 @@ class EmbeddingRetriever(BaseRetriever):
     async def _embed(self, texts):
         orchestrator = EmbeddingOrchestrator()
         embeddings = await orchestrator.get_embedding(texts, label=self.embedding_model)  # embeddings
-        #print("Embedding shape:", embeddings.shape)
-        #print("First 5 dims:", embeddings[0][:5])
 
         return embeddings
 
@@ -460,6 +492,77 @@ class EmbeddingRetriever(BaseRetriever):
 # ============================================================
 # ORCHESTRATORS
 # ============================================================
+
+
+TYPE_MAPPER = {
+    "ReasonerRetriever": ReasonerRetriever,
+    "EmbeddingRetriever": EmbeddingRetriever,
+}
+
+
+async def run_retrieval(retrieval_dict: Dict[str, Any], user_id: UUID, db: AsyncSession):
+
+    async def run_pipeline(retrieval_ids):
+        for method in doc_pipeline:
+            method.update({"logger": session_logger, "user_id": user_id, "doc_id": doc_id, "db": db})
+
+            method_type = method.pop("type")
+            method_instance = TYPE_MAPPER[method_type](**method)
+
+            output_dict = await method_instance.run_retrieval(filter_ids=retrieval_ids)
+            retrieval_ids = output_dict["retrieval_id"]
+
+        return retrieval_ids
+
+    log_path, log_md_path = await get_log_paths(user_id, stage="retrieval")
+    session_logger = InfoLogger(log_path=log_path, stage="retrieval")
+
+    router_method = retrieval_dict.pop("router")
+
+    # if there is router
+    if router_method:
+        # log
+        session_logger.log_step(task="table", log_text=f"Using following retriever as router: ", table_data=router_method)
+
+        router_type = router_method.pop("type")
+        router_method.update({"logger": session_logger, "user_id": user_id, "db": db})
+        router_instance = TYPE_MAPPER[router_type](**router_method)
+
+        output_dict = await router_instance.run_retrieval()
+        retrieval_ids = output_dict["retrieval_id"]
+        # use filter ids for further retrieval, in case there are any
+        if retrieval_dict:
+            doc_ids = output_dict["doc_id"]
+            output_ids = []
+            for doc_id in doc_ids:
+
+                # log
+                doc_name = await get_doc_name(user_id, doc_id, db=db)
+                session_logger.log_step(task="header_1", log_text=f"Starting Retrieval for document: {doc_name}")
+
+                doc_pipeline = retrieval_dict[doc_id]
+                filter_ids = await run_pipeline(retrieval_ids)
+                output_ids += filter_ids
+
+            # Instead of "get_content", define new function that returns the content chunks and metadata
+            output_content = await get_content(filter_ids)
+        else:
+            output_content = await get_content(retrieval_ids)
+
+    # if there is no router
+    elif retrieval_dict:
+        output_ids = []
+        # run all pipelines with no filter IDs
+        for doc_id, doc_pipeline in retrieval_dict.items():
+            filter_ids = await run_pipeline([])
+            output_ids += filter_ids
+
+        output_content = await get_content(filter_ids)
+
+
+    return output_content
+
+
 
 
 

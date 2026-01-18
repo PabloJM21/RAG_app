@@ -42,7 +42,7 @@ from docling.document_converter import TextFormatOption
 
 # helpers for disc paths
 
-from app.rag_services.helpers import get_paths
+from app.rag_services.helpers import get_doc_paths, get_log_paths, get_doc_name
 
 
 #logs
@@ -877,9 +877,14 @@ CONVERSION_TYPE_MAPPER = {
 
 async def run_conversion(indexer_dict: Dict[str, Any], user_id: UUID, doc_id: UUID, db: AsyncSession):
 
-    input_path, output_path, log_path, log_md_path = await get_paths(user_id, doc_id, stage="conversion", db=db)
-    session_logger = InfoLogger(log_path, "conversion")
+    input_path, output_path = await get_doc_paths(user_id, doc_id, db=db)
+    log_path, log_md_path = await get_log_paths(user_id, stage="conversion")
+    session_logger = InfoLogger(log_path=log_path, stage="conversion")
 
+    # logg
+    doc_name = await get_doc_name(user_id, doc_id, db=db)
+    session_logger.log_step(task="header_1", log_text=f"Starting conversion to Markdown for document: {doc_name}")
+    session_logger.log_step(task="table", log_text=f"Using following method: ", table_data=indexer_dict)
 
     indexer_dict.update({"db": db, "user_id": user_id, "doc_id": doc_id, "input_path": input_path, "output_path": output_path, "logger": session_logger})
     indexer_type = indexer_dict.pop("type")
@@ -912,9 +917,15 @@ CHUNKING_TYPE_MAPPER = {
 
 
 async def run_chunking(method_list: list[dict[str, Any]], user_id: UUID, doc_id: UUID, db: AsyncSession):
-    source_path, input_path, log_path, log_md_path = await get_paths(user_id, doc_id, stage="chunking", db=db)
 
-    session_logger = InfoLogger(log_path, "chunking")
+    source_path, input_path = await get_doc_paths(user_id, doc_id, db=db)
+    log_path, log_md_path = await get_log_paths(user_id, stage="chunking")
+    session_logger = InfoLogger(log_path=log_path, stage="chunking")
+
+    # log
+    doc_name = await get_doc_name(user_id, doc_id, db=db)
+    session_logger.log_step(task="header_1", log_text=f"Starting Chunking for document: {doc_name}")
+    session_logger.log_step(task="table", log_text=f"Using following methods: ", table_data=method_list)
 
 
     # LIMIT Chunking iterations
@@ -967,14 +978,10 @@ async def run_chunking(method_list: list[dict[str, Any]], user_id: UUID, doc_id:
     await Paragraph.delete_data({"user_id": user_id, "doc_id": doc_id}, db)
 
     for chunk_dict in new_chunk_array:
-        await Paragraph.insert_data(data_dict=chunk_dict, db=db)
+        await Paragraph.insert_paragraphs(data_dict=chunk_dict, db=db)
 
 
-    # Finally we label this doc as "chunked"
-    await Doc.update_data(data_dict={"chunked": 1}, where_dict={"user_id": user_id, "doc_id": doc_id},
-                          db=db)
-
-    # And after that export the logs to md
+    # Finally we export the logs to md
 
     export_logs(log_path, log_md_path)
             
@@ -986,23 +993,23 @@ async def run_chunking(method_list: list[dict[str, Any]], user_id: UUID, doc_id:
 # Levels
 
 
-async def load_indexing_levels(user_id: UUID, doc_id: UUID, db: AsyncSession)-> List[str]:
+async def load_chunking_levels(user_id: UUID, doc_id: UUID, db: AsyncSession)-> List[str]:
 
 
 
     rows, columns = await Retrieval.get_all(where_dict={"user_id": user_id, "doc_id": doc_id}, db=db)
     retrieval_df = pd.DataFrame(rows, columns=columns)
 
-    indexed_levels = list(set(retrieval_df["level"]))
+    chunking_levels = list(set(retrieval_df["level"]))
 
-    return indexed_levels
+    return chunking_levels
 
 
 
 # Results
 
 
-async def load_indexing_results(user_id: UUID, doc_id: UUID, db: AsyncSession)-> List[Dict[str, Any]]:
+async def load_chunking_results(user_id: UUID, doc_id: UUID, db: AsyncSession)-> List[Dict[str, Any]]:
 
 
 
@@ -1023,7 +1030,7 @@ async def load_indexing_results(user_id: UUID, doc_id: UUID, db: AsyncSession)->
 
 
 
-async def update_indexing_results(user_id: UUID, db: AsyncSession, result_list: List[Dict[str, Any]]):
+async def update_chunking_results(user_id: UUID, db: AsyncSession, result_list: List[Dict[str, Any]]):
 
 
     df0 = pd.DataFrame(result_list).explode("items", ignore_index=True)

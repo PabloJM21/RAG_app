@@ -19,14 +19,14 @@ import os
 import pandas as pd
 
 # Indexing service
-from app.rag_services.indexing_service import run_indexing, load_indexing_results, update_indexing_results, load_indexing_levels
+from app.rag_services.indexing_service import run_conversion, load_indexing_results, update_indexing_results, load_indexing_levels
 
 # Markdown generator
 from app.generate_markdown import generate_markdown_from_log, find_session_id
 
 
 
-router = APIRouter(tags=["indexing"])
+router = APIRouter(tags=["conversion"])
 
 
 

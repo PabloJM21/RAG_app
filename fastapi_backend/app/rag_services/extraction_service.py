@@ -11,7 +11,8 @@ import os
 #Orchestrators
 from app.rag_apis.chat_api import ChatOrchestrator
 
-
+# helpers for disc paths
+from app.rag_services.helpers import get_doc_paths, get_log_paths, get_doc_name
 
 #loggs
 from app.log_generator import InfoLogger
@@ -67,7 +68,7 @@ class Extractor:
 
         # loggs
 
-        rows, columns = await Paragraph.get_all(where_dict={"user_id": self.user_id, "doc_id": self.doc_id}, db=self.db)
+        rows, columns = await Paragraph.get_all_paragraphs(where_dict={"user_id": self.user_id, "doc_id": self.doc_id}, db=self.db)
         paragraphs_df = pd.DataFrame(rows, columns=columns)
 
         rows, columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.input_level}, db=self.db)
@@ -346,7 +347,7 @@ class Reset:
 
         await Retrieval.delete_data({"user_id": self.user_id, "doc_id": self.doc_id, "level": self.level}, self.db)
 
-        rows, columns = await Paragraph.get_all({"user_id": self.user_id, "doc_id": self.doc_id}, self.db)
+        rows, columns = await Paragraph.get_all_paragraphs({"user_id": self.user_id, "doc_id": self.doc_id}, self.db)
 
         self.paragraph_df = pd.DataFrame(rows, columns=columns).sort_values(
             by="paragraph_id")  # ensures that paragraphs are in the right order
@@ -386,12 +387,15 @@ TYPE_MAPPER = {
 }
 
 async def run_extraction(method_list: list[dict[str, Any]], user_id: UUID, doc_id: UUID, db: AsyncSession):
+
+    log_path, log_md_path = await get_log_paths(user_id, stage="extraction")
+    session_logger = InfoLogger(log_path=log_path, stage="extraction")
+
     # logg
-    session_logger = InfoLogger()
-    strategy_text = ", ".join([method["type"] for method in method_list])
-    session_logger.log_step(task="header_1",
-                         log_text=f"Starting Extraction with {len(method_list)} methods: {strategy_text}")
-    print(f"Starting Extraction with {len(method_list)} methods: {strategy_text}")
+    doc_name = await get_doc_name(user_id, doc_id, db=db)
+    session_logger.log_step(task="header_1", log_text=f"Starting Extraction for document: {doc_name}")
+    session_logger.log_step(task="table", log_text=f"Using following methods: ", table_data=method_list)
+
 
     for method in method_list:
         method.update({"logger": session_logger, "user_id": user_id, "doc_id": doc_id, "db": db})

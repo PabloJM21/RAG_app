@@ -24,16 +24,25 @@ def parse_extra_from_line(line: str) -> dict | None:
         return None
 
 
+def rows_to_columns(rows):
+
+    if not rows:
+        return {}
+    cols = rows[0].keys()
+    out = {c: [] for c in cols}
+    for row in rows:
+        for c in cols:
+            out[c].append(row[c])
+
+    return out
+
+
 def generate_markdown_from_log(
     log_path: str,
     output_md_path: str,
     session_id: str,
 ):
-    if not os.path.exists(log_path):
-        raise FileNotFoundError(f"Log file not found: {log_path}")
-
     md_lines = []
-    md_dict = {"conversion": [], "chunking": [], "extraction": [], "retrieval": []}
 
     with open(log_path, "r", encoding="utf-8") as f:
         for line in f:
@@ -45,51 +54,48 @@ def generate_markdown_from_log(
                 continue
 
             task = extra.get("task")
-            stage = extra.get("stage")
 
             # ---------- HEADER 1 ----------
             if task == "header_1":
                 log_text = line.split("|")[-2].strip()
-                # print("log_text: ", log_text)
                 if log_text:
-                    md_dict[stage].append(f"# {log_text}\n")
+                    md_lines.append(f"# {log_text}\n")
 
 
 
             # ---------- HEADER 2 ----------
             if task == "header_2":
                 log_text = line.split("|")[-2].strip()
-                # print("log_text: ", log_text)
                 if log_text:
-                    md_dict[stage].append(f"## {log_text}\n")
+                    md_lines.append(f"## {log_text}\n")
 
 
             # ---------- TEXT INFO ----------
             elif task == "info_text":
-                #print("detected info_text")
                 log_text = line.split("|")[-2].strip()
-                #print("log_text: ", log_text)
                 if log_text:
-                    md_dict[stage].append(f"{log_text}\n")
+                    md_lines.append(f"{log_text}\n")
 
             # ---------- VALIDATION ----------
-            elif task == "validate":
-                md_dict[stage].append("Processed new task obtaining these results:\n")
+            elif task == "table":
+                log_text = line.split("|")[-2].strip()
+                md_lines.append(f"{log_text}\n")
 
-                task_description = line.split("|")[-2].strip()
-                outputs = extra.get("outputs", "")
-                duration = extra.get("duration", "")
-                score = extra.get("scores", "")
 
-                md_dict[stage].extend([
-                    "| Field | Value |",
-                    "|------|-------|",
-                    f"| task description | {task_description} |",
-                    f"| output | {outputs} |",
-                    f"| duration | {duration} |",
-                    f"| score | {score} |",
-                    "",
-                ])
+                columns = rows_to_columns(extra.get("table_data"))
+
+                col_names = list(columns.keys())
+                rows = zip(*columns.values())
+
+                # Markdown table header
+                md_lines.append("| " + " | ".join(col_names) + " |")
+                md_lines.append("| " + " | ".join("---" for _ in col_names) + " |")
+
+                # Table rows
+                for row in rows:
+                    md_lines.append("| " + " | ".join(str(cell) for cell in row) + " |")
+
+                md_lines.append("")
 
             elif task == "debug":
                 # generate markdown for low level debugging
