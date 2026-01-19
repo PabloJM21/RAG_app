@@ -1,8 +1,9 @@
 "use client";
 
 import {useEffect, useState} from "react";
-import {addRetrievalPipeline, fetchRetrievalPipeline} from "@/app/rag/api/docs/[doc_id]/retrieval/retrieval-action";
-import { fetchLevels } from "@/app/rag/api/docs/[doc_id]/indexing/indexing-action";
+import {addRetrievalPipeline, fetchRetrievalPipeline, runExport} from "@/app/rag/api/docs/[doc_id]/retrieval/retrieval-action";
+import { fetchLevels } from "@/app/rag/api/docs/[doc_id]/chunking/chunking-action";
+
 
 
 type MethodSpec = Record<string, any>;
@@ -339,7 +340,16 @@ export function RetrievalEditor({
         )}
       </div>
 
-
+      <div style={{ marginTop: 12 }}>
+        {isCompleteMethod(pipeline) && (
+          <button
+            onClick={() => runExport(doc_id)}
+            style={{ marginLeft: 8 }}
+          >
+            Export Pipeline
+          </button>
+        )}
+      </div>
 
     </section>
   );

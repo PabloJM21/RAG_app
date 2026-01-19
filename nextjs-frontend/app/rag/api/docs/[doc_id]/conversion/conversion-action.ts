@@ -3,13 +3,13 @@
 
 import {cookies} from "next/headers";
 import {revalidatePath} from "next/cache";
-import {createPipeline, PipelineSpec, readPipeline, runPipeline, readLevels} from "./sdk.gen";
+import {createPipeline, PipelineSpec, readPipeline, runPipeline} from "./sdk.gen";
 
 
 
 
 
-export async function runIndexing(doc_id: string) {
+export async function runConversion(doc_id: string) {
 
   const cookieStore = await cookies();
   const token = cookieStore.get("accessToken")?.value;
@@ -36,7 +36,7 @@ export async function runIndexing(doc_id: string) {
 
 
 
-export async function addIndexPipeline(formData: FormData) {
+export async function addConversionPipeline(formData: FormData) {
 
   const doc_id = formData.get("doc_id") as string;
   const pipeline = JSON.parse(formData.get("pipeline") as string) as PipelineSpec;
@@ -68,7 +68,7 @@ export async function addIndexPipeline(formData: FormData) {
 
 
 
-export async function fetchIndexPipeline(doc_id: string): Promise<PipelineSpec> {
+export async function fetchConversionPipeline(doc_id: string): Promise<PipelineSpec> {
   const cookieStore = await cookies();
   const token = cookieStore.get("accessToken")?.value;
   console.log("doc_id from prop:", doc_id);
@@ -94,29 +94,3 @@ export async function fetchIndexPipeline(doc_id: string): Promise<PipelineSpec> 
 }
 
 
-
-
-
-export async function fetchLevels(doc_id: string): Promise<string[]> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("accessToken")?.value;
-
-  if (!token) {
-    throw new Error("No access token found");
-  }
-
-  const result = await readLevels({
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    path:{
-      doc_id: doc_id,
-    },
-  });
-
-  if (result.error) {
-    throw result.error;
-  }
-
-  return result.data;
-}

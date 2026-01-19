@@ -8,7 +8,7 @@ from sqlalchemy.future import select
 from sqlalchemy import Column, String, Integer, ForeignKey
 from sqlalchemy.orm import DeclarativeBase, relationship
 
-from app.models import ChunkingPipeline, ExtractionPipeline, Doc
+from app.models import DocPipelines
 from app.database import User, get_async_session
 from app.users import current_active_user
 
@@ -43,18 +43,14 @@ async def read_chunking_pipeline(
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
-    stmt = select(ChunkingPipeline).filter(
-        ChunkingPipeline.doc_id == doc_id,
-        ChunkingPipeline.user_id == user.id,
-    )
-    result = await db.execute(stmt)
-    pipeline = result.scalars().first()
+    row = await DocPipelines.get_row(where_dict={"user_id": user.id, "doc_id": doc_id}, db=db)
+    chunking_pipeline = json.loads(row.chunking_pipeline)
 
-    if pipeline is None:
+    if chunking_pipeline is None:
         # Return default empty pipeline if none exists
         return {}
 
-    return json.loads(pipeline.method_list)
+    return chunking_pipeline
 
 
 
@@ -67,27 +63,11 @@ async def add_chunking_pipeline(
     user: User = Depends(current_active_user),
 ):
 
-    # First we delete current pipeline if it's set
-    stmt = select(ChunkingPipeline).filter(
-        ChunkingPipeline.doc_id == doc_id,
-        ChunkingPipeline.user_id == user.id,
-    )
-
-    result = await db.execute(stmt)
-
-    existing_chunking_pipeline = result.scalars().first()
-
-    if existing_chunking_pipeline:
-        existing_chunking_pipeline.method_list = json.dumps(pipeline)
-    else:
-        existing_chunking_pipeline = ChunkingPipeline(
-            method_list=json.dumps(pipeline),
-        )
-
-        db.add(existing_chunking_pipeline)
+    row = await DocPipelines.get_row(where_dict={"user_id": user.id, "doc_id": doc_id}, db=db)
+    row.chunking_pipeline = json.dumps(pipeline)
 
     await db.commit()
-    await db.refresh(existing_chunking_pipeline)
+    await db.refresh(row)
 
     return {
         "status": "ok"
@@ -102,19 +82,8 @@ async def run_chunking_pipeline(
     user: User = Depends(current_active_user),
 ):
     # 1. filter: this endpoint is only triggered when a pipeline is fetched or created from the UI
-    stmt = select(ChunkingPipeline).filter(
-        ChunkingPipeline.doc_id == doc_id,
-        ChunkingPipeline.user_id == user.id,
-    )
-
-    result = await db.execute(stmt)
-
-    chunking_pipeline = result.scalars().first()
-
-    # 2. filter: output error if the pipeline is created but not saved, and there is no previous pipeline
-    if not chunking_pipeline:
-        raise HTTPException(status_code=404, detail="No pipeline was saved")
-
+    row = await DocPipelines.get_row(where_dict={"user_id": user.id, "doc_id": doc_id}, db=db)
+    chunking_pipeline = json.loads(row.chunking_pipeline)
 
     # ---------------
     # Avoid chunked=1 to be chunked again. This restriction should only apply to global chunking
@@ -124,51 +93,27 @@ async def run_chunking_pipeline(
         #return {}
     # ------------
 
+    # 2. filter: output error if the pipeline is created but not saved, and there is no previous pipeline
+    if not chunking_pipeline:
+        raise HTTPException(status_code=404, detail="No pipeline was saved")
+
     # Run Chunking
-    method_list = json.loads(chunking_pipeline.method_list)
-    await run_chunking(method_list, user.id, [doc_id], db)
+    await run_chunking(chunking_pipeline, user.id, doc_id, db)
 
     # After Chunking
 
     # Set chunked=1
-    chunking_pipeline.chunked = 1
-
+    row.chunked = 1
 
     # Set extracted=0
+    row.extracted = 0
 
-    stmt = select(ExtractionPipeline).filter(
-        ExtractionPipeline.id == doc_id,
-        ExtractionPipeline.user_id == user.id,
-    )
+    # NEXT: Set exported=0
+    row.exported = 0
 
-    result = await db.execute(stmt)
-
-    extraction_pipeline = result.scalars().first()
-
-    if extraction_pipeline:
-        extraction_pipeline.extracted = 0
-
-    # NEXT: Set embedded=0
-
-    # Generate markdown files that make the logged data available
-
-    # Compute path (server-owned logic)
-    base_path = Path("shared-data/logs")
-    log_dir = base_path / str(user.id) / str(doc_id)
-    log_dir.mkdir(parents=True, exist_ok=True)
-    LOG_FILE = log_dir / "validate.log"
-
-    # in future more markdown files should capture logs at different surface levels
-    OUTPUT_MD = log_dir / "indexing_report.md"
+    await db.commit()
 
 
-    SESSION_ID = find_session_id(LOG_FILE)
-
-    generate_markdown_from_log(
-        log_path=LOG_FILE,
-        output_md_path=OUTPUT_MD,
-        session_id=SESSION_ID,
-    )
 
     return {
         "status": "ok"
@@ -176,12 +121,12 @@ async def run_chunking_pipeline(
 
 
 @router.get("/{doc_id}/levels", response_model=list[str])
-async def read_index_levels(
+async def read_chunking_levels(
     doc_id: UUID,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
-    levels = await load_indexing_levels(user_id=user.id, doc_id=doc_id, db=db)
+    levels = await load_chunking_levels(user_id=user.id, doc_id=doc_id, db=db)
 
     return levels
 
@@ -194,7 +139,7 @@ async def read_chunking_results(
     user: User = Depends(current_active_user),
 ):
 
-    results = await load_indexing_results(user_id=user.id, doc_id=doc_id, db=db)
+    results = await load_chunking_results(user_id=user.id, doc_id=doc_id, db=db)
 
 
 
@@ -209,9 +154,9 @@ async def add_chunking_results(
     user: User = Depends(current_active_user),
 ):
     if result_list:
-        await update_indexing_results(user_id=user.id, result_list=result_list, db=db)
+        await update_chunking_results(user_id=user.id, result_list=result_list, db=db)
 
-        # NEXT: Set embedded=0 for (doc_id=doc_id, level=level) for each level in result_list
+
 
     return {
         "status": "ok"
@@ -220,36 +165,56 @@ async def add_chunking_results(
 
 # Markdown Results
 
+# trigger generation of markdown file
 
 @router.get("/{doc_id}/markdown", response_model=List[Dict[str, Any]])
-async def read_index_results(
+async def read_markdown_results(
     doc_id: UUID,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
 
-    results = await load_markdown_results(user_id=user.id, doc_id=doc_id, db=db)
-
-
-
-    return results
+   pass
 
 
 
 # ---------- ALL DOCs ----------
 @router.post("/run")
-async def run_index_pipeline(
+async def run_chunking_pipeline(
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
 
-    rows, columns = await Doc.get_all(where_dict={"user_id": user.id, "indexed": 0}, db=db)
-    new_document_df = pd.DataFrame(rows, columns=columns)
-
-    doc_ids =  new_document_df["doc_id"].tolist()
+    # Avoid chunked=1 to be chunked again.
+    rows, _ = await DocPipelines.get_all(columns=["doc_id"], where_dict={"user_id": user.id, "chunked": 0}, db=db)
 
 
+    doc_ids = [row["doc_id"] for row in rows]
 
+    for doc_id in doc_ids:
+        row = await DocPipelines.get_row(where_dict={"user_id": user.id, "doc_id": doc_id}, db=db)
+        chunking_pipeline = json.loads(row.chunking_pipeline)
+
+        if chunking_pipeline:
+            # Run Chunking
+            await run_chunking(chunking_pipeline, user.id, doc_id, db)
+
+            # After Chunking
+
+            # Set chunked=1
+            row.chunked = 1
+
+            # Set extracted=0
+            row.extracted = 0
+
+            # Set exported=0
+            row.exported = 0
+
+    await db.commit()
+
+    return {
+        "status": "ok"
+    }
 
 
 

@@ -6,13 +6,13 @@ from typing import Optional, List
 from uuid import UUID
 import json
 
-from app.database import get_async_session
-from app.users import current_active_user
-from app.models import User
 
-# These are YOUR internal services
-from app.rag_services.retrieval_service import retrieve_chunks
-from app.models import MainPipeline, ChunkingPipeline, RetrievalPipeline
+from app.models import MainPipeline, DocPipelines
+from app.database import User, get_async_session
+from app.users import current_active_user
+
+
+from app.rag_services.retrieval_service import run_retrieval
 
 
 from typing import List, Dict, Any
@@ -23,7 +23,6 @@ router = APIRouter(prefix="/mcp", tags=["mcp"])
 
 
 class MCPQueryRequest(BaseModel):
-    pipeline_id: str
     query: str
 
 
@@ -58,23 +57,18 @@ async def query_pipeline(
     Executes the full RAG pipeline and returns a final answer.
     """
 
-    # Extract doc_ids of docs that have been chunked
-    doc_ids = await ChunkingPipeline.get_all(where_dict={"user_id": user.id, "chunked": 1}, columns=["doc_id"], db=db)
-
-    # extract retrieval pipelines of those docs and store them into a dict
-    retrieval_dict = {}
-    for doc_id in doc_ids:
-        pipeline_dict = await RetrievalPipeline.get_pipeline(where_dict={"user_id": user.id, "doc_id": doc_id}, columns=["method-list"], db=db)
-        method_list = pipeline_dict["method-list"]
-        if method_list:
-            retrieval_dict[doc_id] = method_list
-
-    # Finally, add router and run retrieval
 
     # load main_pipeline configuration
-    main_pipeline = await MainPipeline.get_pipeline(where_dict={"user_id": user.id}, db=db)
-    router_method = main_pipeline["router"]
-    retrieval_dict["router"] = router_method
+    row = await MainPipeline.get_row(where_dict={"user_id": user.id}, db=db)
+
+
+    retrieval_dict = json.loads(row.doc_pipelines)
+    retrieval_dict["router"] = json.loads(row.router)
+
+    output_content = await run_retrieval(query=payload.query, retrieval_dict=retrieval_dict, user_id=user.id, db=db)
+
+    return output_content
+
 
 
 

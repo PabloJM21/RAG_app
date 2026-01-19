@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { addIndexPipeline, fetchIndexPipeline, runIndexing } from "@/app/rag/api/docs/[doc_id]/indexing/indexing-action";
+import { addConversionPipeline, fetchConversionPipeline, runConversion } from "@/app/rag/api/docs/[doc_id]/conversion/conversion-action";
 
 
 /* ---------- Domain options ---------- */
@@ -228,7 +228,7 @@ export function ConversionEditor({
 
       <div style={{ marginTop: 12 }}>
         {isCompleteMethod(methodSpec) && (
-          <form action={addIndexPipeline}>
+          <form action={addConversionPipeline}>
             <input
               type="hidden"
               name="doc_id"
@@ -277,7 +277,7 @@ export default function IndexingPageSide({ doc_id }: { doc_id: string }) {
   useEffect(() => {
     async function loadPipeline() {
       try {
-        const data = await fetchConversionMethod(doc_id);
+        const data = await fetchConversionPipeline(doc_id);
         setPipeline(data ?? {});
       } catch (err: any) {
         setError(err.message ?? "Unknown error");

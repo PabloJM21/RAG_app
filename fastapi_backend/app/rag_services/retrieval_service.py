@@ -24,7 +24,9 @@ from app.log_generator import InfoLogger
 # Database ops
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models import Doc, Paragraph, Retrieval, Embedding
+from app.models import DocPipelines, MainPipeline, Paragraph, Retrieval, Embedding
+
+
 
 
 
@@ -425,19 +427,20 @@ class EmbeddingRetriever(BaseRetriever):
         retrieval_dict = await self.get_retrieval_content(filter_ids)
 
 
-        # 3. Load embeddings for these IDs if they exist
+        # 3. Load embeddings for these IDs, if they exist
 
         retrieval_ids = retrieval_dict["retrieval_id"]
-        embedding_rows, columns = await Embedding.get_all(where_dict={"user_id": self.user_id, "retrieval_id": retrieval_ids}, db=self.db)
-        embedding_df = pd.DataFrame(embedding_rows, columns=columns)
+        embedding_rows, columns = await Embedding.get_all(columns=["retrieval_id", "embedding"], where_dict={"user_id": self.user_id, "retrieval_id": retrieval_ids}, db=self.db)
+
+
+        embedding_columns = self.rows_to_columns(embedding_rows)
 
 
         # 4. Compute cosine similarity using the static method
 
-        raw = list(set(embedding_df["embedding"]))
 
         # Convert BLOBs back to float32 vectors
-        vectors = [np.frombuffer(b, dtype=np.float32) for b in raw]
+        vectors = [np.frombuffer(b, dtype=np.float32) for b in embedding_columns["embedding"]]
 
         # Make a matrix shaped (N, dim)
         emb_matrix = np.vstack(vectors)
@@ -446,28 +449,30 @@ class EmbeddingRetriever(BaseRetriever):
         query_embedding = np.array((await self._embed([query]))[0], dtype="float32")
 
         # compute score
-
-        embedding_df["cosine_similarity"] = self._cosine_similarity(query_embedding, emb_matrix)
+        embedding_columns["cosine_similarity"] = self._cosine_similarity(query_embedding, emb_matrix)
 
         # 5. Sort top-k
-        embedding_df = embedding_df.sort_values("cosine_similarity", ascending=False).head(self.k)
-
+        top_k_embedding_columns = self.top_k_numpy(embedding_columns, "cosine_similarity", self.k)
         # extract retrieval_ids from the Retrievals table
 
-
-        retrieval_output_ids = embedding_df["retrieval_id"].tolist()
+        # convert nnumpy array back to list
+        retrieval_output_ids = top_k_embedding_columns["retrieval_id"].tolist()
 
         end = time.time()
 
         # loggs
 
+        output_dict = {"retrieval_id": retrieval_output_ids}
+
+        # add doc_ids to the dict, in case of the router
+        if not self.doc_id:
+            self.update_output_dict(retrieval_dict, output_dict)
+
+        self.logger.log_step(task="validate", log_text=f"Embedding Retrieval", inputs=query, outputs=retrieval_output_ids, scores=embedding_columns["cosine_similarity"].tolist(), duration=f"{round(end-start, 2)} seconds")
 
 
-        self.logger.log_step(task="validate", log_text=f"Embedding Retrieval", inputs=query, outputs=retrieval_output_ids, scores=embedding_df["cosine_similarity"].tolist(), duration=f"{round(end-start, 2)} seconds")
 
-
-
-        return retrieval_output_ids
+        return output_dict
 
     @staticmethod
     def _cosine_similarity(query_embedding, emb_matrix):
@@ -486,12 +491,60 @@ class EmbeddingRetriever(BaseRetriever):
         sims = (emb_matrix @ query_embedding) / (emb_norms * query_norm)
         return sims
 
+    @staticmethod
+    def top_k_numpy(col_dict, sort_col, k):
 
+        #values = np.array(col_dict[sort_col]) # convert to np array
+
+        values = col_dict[sort_col]  # already np.ndarray
+
+        # Partition to get top-k unsorted
+        idx = np.argpartition(values, -k)[-k:]
+
+        # Now sort only those k
+        sorted_idx = idx[np.argsort(values[idx])[::-1]]
+
+        return {
+            col: np.array(col_dict[col])[sorted_idx].tolist()
+            for col in col_dict
+        }
 
 
 # ============================================================
-# ORCHESTRATORS
+# RUN Retrieval
 # ============================================================
+
+async def get_content(db: AsyncSession, user_id: UUID, retrieval_ids: Iterable = ()):
+    """
+    Return a list of content strings for the given retrieval_ids.
+    """
+    def rows_to_columns(rows):
+
+        if not rows:
+            return {}
+        cols = rows[0].keys()
+        out = {c: [] for c in cols}
+        for row in rows:
+            for c in cols:
+                out[c].append(row[c])
+
+        return out
+
+
+    where = {"user_id": user_id, "retrieval_id": retrieval_ids}
+
+    retrieval_rows, columns = await Retrieval.get_all(
+        columns=["retrieval_id", "content"],
+        where_dict=where,
+        db=db,
+    )
+
+
+    return rows_to_columns(retrieval_rows)
+
+
+
+
 
 
 TYPE_MAPPER = {
@@ -500,7 +553,7 @@ TYPE_MAPPER = {
 }
 
 
-async def run_retrieval(retrieval_dict: Dict[str, Any], user_id: UUID, db: AsyncSession):
+async def run_retrieval(query: str, retrieval_dict: Dict[str, Any], user_id: UUID, db: AsyncSession):
 
     async def run_pipeline(retrieval_ids):
         for method in doc_pipeline:
@@ -509,7 +562,7 @@ async def run_retrieval(retrieval_dict: Dict[str, Any], user_id: UUID, db: Async
             method_type = method.pop("type")
             method_instance = TYPE_MAPPER[method_type](**method)
 
-            output_dict = await method_instance.run_retrieval(filter_ids=retrieval_ids)
+            output_dict = await method_instance.run_retrieval(query=query, filter_ids=retrieval_ids)
             retrieval_ids = output_dict["retrieval_id"]
 
         return retrieval_ids
@@ -545,9 +598,9 @@ async def run_retrieval(retrieval_dict: Dict[str, Any], user_id: UUID, db: Async
                 output_ids += filter_ids
 
             # Instead of "get_content", define new function that returns the content chunks and metadata
-            output_content = await get_content(filter_ids)
+            output_content = await get_content(user_id=user_id, retrieval_ids=filter_ids, db=db)
         else:
-            output_content = await get_content(retrieval_ids)
+            output_content = await get_content(user_id=user_id, retrieval_ids=retrieval_ids, db=db)
 
     # if there is no router
     elif retrieval_dict:
@@ -557,12 +610,63 @@ async def run_retrieval(retrieval_dict: Dict[str, Any], user_id: UUID, db: Async
             filter_ids = await run_pipeline([])
             output_ids += filter_ids
 
-        output_content = await get_content(filter_ids)
+        output_content = await get_content(user_id=user_id, retrieval_ids=filter_ids, db=db)
 
 
     return output_content
 
 
+# ============================================================
+# RUN Export, Embeddings
+# ============================================================
+
+TYPE_MAPPER = {
+    "EmbeddingRetriever": EmbeddingRetriever,
+}
+
+async def run_embeddings(method_list: list[dict[str, Any]], user_id: UUID, doc_id: UUID, db: AsyncSession):
+    log_path, log_md_path = await get_log_paths(user_id, stage="retrieval")
+    session_logger = InfoLogger(log_path=log_path, stage="retrieval")
+
+    # logg
+    doc_name = await get_doc_name(user_id, doc_id, db=db)
+    session_logger.log_step(task="header_1", log_text=f"Generating Embeddings for document: {doc_name}")
+    session_logger.log_step(task="table", log_text=f"Using following methods: ", table_data=method_list)
+
+    for method in method_list:
+        method_type = method.pop("type")
+        method.update({"logger": session_logger, "user_id": user_id, "doc_id": doc_id, "db": db})
 
 
+        method_instance = TYPE_MAPPER[method_type](**method)
+        await method_instance.generate_embeddings()
+
+
+
+
+
+
+
+
+
+async def export_doc_pipeline(retrieval_pipeline, user_id, doc_id, db: AsyncSession):
+
+
+    # First, we run embeddings if needed
+
+    embedding_methods = [method for method in retrieval_pipeline if method["type"] == "EmbeddingRetriever"]
+
+    if embedding_methods:
+        await run_embeddings(embedding_methods, user_id, doc_id, db)
+
+    # Finally, we export the pipeline to the MainPipeline table
+
+    main_pipeline = await MainPipeline.get_row(where_dict={"user_id": user_id}, db=db)
+    doc_pipelines = json.loads(main_pipeline.doc_pipelines)
+    if doc_pipelines:
+        doc_pipelines[doc_id] = retrieval_pipeline
+    else:
+        doc_pipelines = {doc_id: retrieval_pipeline}
+
+    main_pipeline.doc_pipelines = json.dumps(doc_pipelines)
 

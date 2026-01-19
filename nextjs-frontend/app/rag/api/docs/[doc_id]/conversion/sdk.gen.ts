@@ -5,8 +5,7 @@ import {
   urlSearchParamsBodySerializer, createClient, createConfig,
 } from "@/app/openapi-client/client";
 
-import {cookies} from "next/headers";
-import {revalidatePath} from "next/cache";
+
 
 
 export const client = createClient(
@@ -44,16 +43,11 @@ export type HttpValidationError = {
   detail?: Array<ValidationError>;
 };
 
-
-
-export type PipelineSpec = Array<Record<string, any>>;
-
 export type Errors = {
   422: HttpValidationError;
 };
 
-
-
+export type PipelineSpec = Record<string, any>;
 
 
 /**
@@ -66,14 +60,12 @@ export type runPipelineData = {
     doc_id: string;
   };
   query?: never;
-  url: "/retrieval/{doc_id}/data";
+  url: "/conversion/{doc_id}/run";
 };
 
 export type runPipelineResponses = {
   200: unknown;
 };
-
-
 
 
 
@@ -92,19 +84,10 @@ export const runPipeline = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/retrieval/{doc_id}/run",
+    url: "/conversion/{doc_id}/run",
     ...options,
   });
 };
-
-
-
-
-
-
-
-
-
 
 /**
  * Create Pipeline
@@ -115,7 +98,7 @@ export type CreatePipelineData = {
     doc_id: string;
   };
   query?: never;
-  url: "/retrieval/{doc_id}/data";
+  url: "/conversion/{doc_id}/data";
 };
 
 export type CreatePipelineResponses = {
@@ -141,10 +124,16 @@ export const createPipeline = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/retrieval/{doc_id}/data",
+    url: "/conversion/{doc_id}/data",
     ...options,
   });
 };
+
+
+
+
+
+
 
 
 /**
@@ -158,7 +147,7 @@ export type ReadPipelineData = {
     doc_id: string;
   };
   query?: never;
-  url: "/retrieval/{doc_id}/data";
+  url: "/conversion/{doc_id}/data";
 };
 
 
@@ -185,8 +174,9 @@ export const readPipeline = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/retrieval/{doc_id}/data",
+    url: "/conversion/{doc_id}/data",
     ...options,
   });
 };
+
 

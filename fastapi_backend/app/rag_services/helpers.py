@@ -4,23 +4,21 @@ from pathlib import Path
 # Database ops
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models import Doc
+from app.models import DocPipelines
 
 
 async def get_doc_paths(user_id: UUID, doc_id: UUID, db: AsyncSession):
-    rows, columns = await Doc.get_all(columns=["path"], where_dict={"user_id": user_id, "doc_id": doc_id}, db=db)
-    first_row = rows[0]
-    source_path = first_row["path"]
+    row = await DocPipelines.get_row(where_dict={"user_id": user_id, "doc_id": doc_id}, db=db)
+    source_path = row.path
     processed_path = os.path.join(os.path.dirname(source_path), "processed_markdown.md")
 
 
     return source_path, processed_path
 
 async def get_doc_name(user_id: UUID, doc_id: UUID, db: AsyncSession):
-    rows, columns = await Doc.get_all(columns=["name"], where_dict={"user_id": user_id, "doc_id": doc_id}, db=db)
-    first_row = rows[0]
+    row = await DocPipelines.get_row(where_dict={"user_id": user_id, "doc_id": doc_id}, db=db)
 
-    return first_row["name"]
+    return row.name
 
 
 async def get_log_paths(user_id: UUID, stage: str):

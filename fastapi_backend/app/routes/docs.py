@@ -11,7 +11,7 @@ from sqlalchemy.orm import DeclarativeBase, relationship
 
 from app.database import User, get_async_session, create_db_and_tables
 from app.users import current_active_user
-from app.models import Doc
+from app.models import DocPipelines
 
 from typing import List
 from uuid import uuid4
@@ -36,17 +36,10 @@ async def create_doc(
     user: User = Depends(current_active_user),
 ):
 
-
-    db_doc = Doc(
-        name=doc.name,
-        user_id=user.id,
-        path=None,
-    )
-
-    db.add(db_doc)
+    db_doc = DocPipelines.insert_data(data_dict={"name": doc.name, "user_id": user.id}, db=db) #"path": None
 
     await db.commit()
-    await db.refresh(db_doc)
+
 
     return {
         "name": db_doc.name,
@@ -64,14 +57,8 @@ async def upload_doc_file(
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
-    # 1️⃣ Fetch doc with ownership constraint
-    stmt = select(Doc).filter(
-        Doc.doc_id == doc_id,
-        Doc.user_id == user.id,
-    )
 
-    result = await db.execute(stmt)
-    doc = result.scalars().first()
+    doc = DocPipelines.insert_data(data_dict={"doc_id": doc_id, "user_id": user.id}, db=db) #"path": None
 
     if doc is None:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -113,14 +100,8 @@ async def delete_doc(
 ):
 
 
-    stmt = select(Doc).filter(
-        Doc.doc_id == doc_id,
-        Doc.user_id == user.id,
-    )
+    doc = DocPipelines.get_row(where_dict={"doc_id": doc_id, "user_id": user.id}, db=db) #"path": None
 
-    result = await db.execute(stmt)
-
-    doc = result.scalars().first()
 
     if not doc:
         raise HTTPException(status_code=404, detail="Doc not found or not authorized")
@@ -151,17 +132,12 @@ async def read_doc_list(
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
-    stmt = select(Doc).where(
-        Doc.user_id == user.id,
-    )
-
-    result = await db.execute(stmt)
-    docs = result.scalars().all()
+    docs, _ = DocPipelines.get_all(columns=["name", "doc_id"], where_dict={"user_id": user.id}, db=db) #"path": None
 
     return [
         DocResponse(
-            name=doc.name,
-            doc_id=doc.doc_id,
+            name=doc["name"],
+            doc_id=doc["doc_id"],
         )
         for doc in docs
     ]

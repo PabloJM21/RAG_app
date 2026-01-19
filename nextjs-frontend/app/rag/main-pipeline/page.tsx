@@ -1,6 +1,6 @@
 "use client";
 
-import { fetchPipeline, addPipeline } from "@/app/rag/api/main-pipeline/pipeline-action";
+import { fetchPipeline, addPipeline, run } from "@/app/rag/api/main-pipeline/pipeline-action";
 import { useState, useEffect } from "react";
 
 /* ---------- Types ---------- */
@@ -346,19 +346,13 @@ export function MainPipelineEditor({
         </tbody>
       </table>
 
-      {/*
-      <div style={{ marginTop: 16 }}>
-        <button onClick={() => run("@indexing")}>
-          runIndexing
-        </button>{" "}
-        <button onClick={() => run("@extraction")}>
-          runExtraction
-        </button>{" "}
-        <button onClick={() => run("embeddings")}>
-          runEmbeddings
-        </button>
+
+      <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
+        <button onClick={() => run("conversion")}>Run Conversion</button>
+        <button onClick={() => run("chunking")}>Run Chunking</button>
+        <button onClick={() => run("extraction")}>Run Extraction</button>
+        <button onClick={() => run("retrieval")}>Run Export</button>
       </div>
-      */}
 
     </section>
   );

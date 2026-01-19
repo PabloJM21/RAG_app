@@ -3,11 +3,35 @@
 
 import {cookies} from "next/headers";
 import {revalidatePath} from "next/cache";
-import {createPipeline, PipelineSpec, readPipeline} from "./sdk.gen";
+import {createPipeline, PipelineSpec, readPipeline, runPipeline} from "./sdk.gen";
 
 
 
 
+export async function runExport(doc_id: string) {
+
+  const cookieStore = await cookies();
+  const token = cookieStore.get("accessToken")?.value;
+
+  if (!token) {
+    throw new Error("No access token found");
+  }
+
+  const result = await runPipeline({
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    path:{
+      doc_id: doc_id,
+    },
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  revalidatePath(`rag/docs/${doc_id}`);
+}
 
 
 

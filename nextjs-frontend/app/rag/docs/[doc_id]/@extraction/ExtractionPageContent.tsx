@@ -2,7 +2,7 @@
 
 import {useEffect, useState} from "react";
 import {addExtractionPipeline, fetchExtractionPipeline, runExtraction} from "@/app/rag/api/docs/[doc_id]/extraction/extraction-action";
-import { fetchLevels } from "@/app/rag/api/docs/[doc_id]/indexing/indexing-action";
+import { fetchLevels } from "@/app/rag/api/docs/[doc_id]/chunking/chunking-action";
 
 
 

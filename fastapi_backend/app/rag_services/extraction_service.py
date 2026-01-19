@@ -17,13 +17,11 @@ from app.rag_services.helpers import get_doc_paths, get_log_paths, get_doc_name
 #loggs
 from app.log_generator import InfoLogger
 
-#helpers
-from app.rag_services.retrieval_service import Retriever
 
 # Database ops
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models import Doc, Paragraph, Retrieval
+from app.models import DocPipelines, Paragraph, Retrieval
 
 
 

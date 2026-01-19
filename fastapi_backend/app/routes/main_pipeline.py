@@ -37,11 +37,8 @@ async def read_pipeline(
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
-    stmt = select(MainPipeline).filter(
-        MainPipeline.user_id == user.id,
-    )
-    result = await db.execute(stmt)
-    pipeline = result.scalars().first()
+
+    pipeline = MainPipeline.get_row(where_dict={"user_id": user.id}, db=db)
 
     if pipeline is None:
         # Return default empty pipeline if none exists
@@ -67,14 +64,8 @@ async def add_pipeline(
     user: User = Depends(current_active_user),
 ):
 
-    # First we delete current pipeline if it's set
-    stmt = select(MainPipeline).filter(
-        MainPipeline.user_id == user.id,
-    )
+    existing_pipeline = MainPipeline.get_row(where_dict={"user_id": user.id}, db=db)
 
-    result = await db.execute(stmt)
-
-    existing_pipeline = result.scalars().first()
 
     if existing_pipeline:
         existing_pipeline.router = json.dumps(pipeline.router)

@@ -48,7 +48,7 @@ export type Errors = {
   422: HttpValidationError;
 };
 
-export type PipelineSpec = Record<string, any>;
+export type PipelineSpec = Array<Record<string, any>>;
 
 
 /**
@@ -61,7 +61,7 @@ export type runPipelineData = {
     doc_id: string;
   };
   query?: never;
-  url: "/indexing/{doc_id}/run";
+  url: "/chunking/{doc_id}/run";
 };
 
 export type runPipelineResponses = {
@@ -85,7 +85,7 @@ export const runPipeline = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/indexing/{doc_id}/run",
+    url: "/chunking/{doc_id}/run",
     ...options,
   });
 };
@@ -99,7 +99,7 @@ export type CreatePipelineData = {
     doc_id: string;
   };
   query?: never;
-  url: "/indexing/{doc_id}/data";
+  url: "/chunking/{doc_id}/data";
 };
 
 export type CreatePipelineResponses = {
@@ -125,7 +125,7 @@ export const createPipeline = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/indexing/{doc_id}/data",
+    url: "/chunking/{doc_id}/data",
     ...options,
   });
 };
@@ -148,7 +148,7 @@ export type ReadPipelineData = {
     doc_id: string;
   };
   query?: never;
-  url: "/indexing/{doc_id}/data";
+  url: "/chunking/{doc_id}/data";
 };
 
 
@@ -175,7 +175,7 @@ export const readPipeline = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/indexing/{doc_id}/data",
+    url: "/chunking/{doc_id}/data",
     ...options,
   });
 };
@@ -192,7 +192,7 @@ export type ReadLevelsData = {
     doc_id: string;
   };
   query?: never;
-  url: "/indexing/{doc_id}/levels";
+  url: "/chunking/{doc_id}/levels";
 };
 
 
@@ -216,7 +216,7 @@ export const readLevels = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/indexing/{doc_id}/levels",
+    url: "/chunking/{doc_id}/levels",
     ...options,
   });
 };

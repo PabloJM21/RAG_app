@@ -1,7 +1,8 @@
 "use client";
 
 import {useEffect, useState} from "react";
-import {addIndexPipeline, fetchIndexPipeline, runIndexing} from "@/app/rag/api/docs/[doc_id]/indexing/indexing-action";
+import {addChunkingPipeline, fetchChunkingPipeline, runChunking} from "@/app/rag/api/docs/[doc_id]/chunking/chunking-action";
+
 
 
 
@@ -67,7 +68,7 @@ function templateFor(
   return structuredClone(TEMPLATE_MAP[type]);
 }
 
-export function IndexingEditor({
+export function ChunkingEditor({
   doc_id,
   methods
 }: {
@@ -141,14 +142,15 @@ export function IndexingEditor({
         <select
           value={String(value)}
           onChange={(e) =>
-            update(key, e.target.value === "true")
+            updatePipeline(
+              index,
+              key,
+              e.target.value === "true"
+            )
           }
         >
-          {BOOLEAN_OPTIONS.map((v) => (
-            <option key={v} value={v}>
-              {v}
-            </option>
-          ))}
+          <option value="true">true</option>
+          <option value="false">false</option>
         </select>
       );
     }
@@ -299,7 +301,7 @@ export function IndexingEditor({
 
       <div style={{ marginTop: 12 }}>
         {isCompleteMethod(pipeline) && (
-          <form action={addIndexPipeline}>
+          <form action={addChunkingPipeline}>
 
             <input
               type="hidden"
@@ -322,10 +324,10 @@ export function IndexingEditor({
       <div style={{ marginTop: 12 }}>
         {isCompleteMethod(pipeline) && (
           <button
-            onClick={() => runIndexing(doc_id)}
+            onClick={() => runChunking(doc_id)}
             style={{ marginLeft: 8 }}
           >
-            Run Indexing
+            Run Chunking
           </button>
         )}
       </div>
@@ -334,10 +336,7 @@ export function IndexingEditor({
 }
 
 
-
-
-
-
+/* ---------- Page ---------- */
 
 export default function IndexingPageContent({ doc_id }: { doc_id: string }) {
 
@@ -352,7 +351,7 @@ export default function IndexingPageContent({ doc_id }: { doc_id: string }) {
   useEffect(() => {
     async function loadPipeline() {
       try {
-        const pipeline_data = await fetchIndexPipeline(doc_id);
+        const pipeline_data = await fetchChunkingPipeline(doc_id);
         setPipeline(pipeline_data ?? []);
 
       } catch (err: any) {
@@ -376,7 +375,7 @@ export default function IndexingPageContent({ doc_id }: { doc_id: string }) {
 
 
   return (
-    <IndexingEditor
+    <ChunkingEditor
       doc_id={doc_id}
       methods={pipeline}
     />

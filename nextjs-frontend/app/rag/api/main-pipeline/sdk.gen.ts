@@ -44,12 +44,61 @@ export type HttpValidationError = {
   detail?: Array<ValidationError>;
 };
 
+
+
 type MethodSpec = Record<string, any>;
 
 export type PipelineSpec = {
   router: MethodSpec;
   reranker: MethodSpec;
   generator: MethodSpec;
+};
+
+export type Errors = {
+  422: HttpValidationError;
+};
+
+
+
+/**
+ * Run Pipeline
+ */
+
+export type runPipelineData = {
+  body?: never;
+  path: {
+    stage: string;
+  };
+  query?: never;
+  url: "/{stage}/run";
+};
+
+export type runPipelineResponses = {
+  200: unknown;
+};
+
+
+
+
+
+export const runPipeline = <ThrowOnError extends boolean = false>(
+  options?: Options<runPipelineData, ThrowOnError>,
+) => {
+  return (options?.client ?? client).post<
+    runPipelineResponses,
+    Errors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/{stage}/run",
+    ...options,
+  });
 };
 
 
@@ -67,9 +116,7 @@ export type CreatePipelineResponses = {
   200: unknown;
 };
 
-export type CreatePipelineErrors = {
-  422: HttpValidationError;
-};
+
 
 
 
@@ -78,7 +125,7 @@ export const createPipeline = <ThrowOnError extends boolean = false>(
 ) => {
   return (options?.client ?? client).post<
     CreatePipelineResponses,
-    CreatePipelineErrors,
+    Errors,
     ThrowOnError
   >({
     responseType: "json",
@@ -112,10 +159,6 @@ export type ReadPipelineData = {
   url: "/main-pipeline/pipeline/data";
 };
 
-export type ReadPipelineErrors = {
-  422: HttpValidationError;
-};
-
 
 
 
@@ -128,7 +171,7 @@ export const readPipeline = <ThrowOnError extends boolean = false>(
 ) => {
   return (options?.client ?? client).get<
     ReadPipelineResponses,
-    ReadPipelineErrors,
+    Errors,
     ThrowOnError
   >({
     responseType: "json",

@@ -8,7 +8,7 @@ from sqlalchemy.future import select
 from sqlalchemy import Column, String, Integer, ForeignKey
 from sqlalchemy.orm import DeclarativeBase, relationship
 
-from app.models import ExtractionPipeline, IndexPipeline
+from app.models import DocPipelines
 from app.database import User, get_async_session
 from app.users import current_active_user
 
@@ -38,18 +38,14 @@ async def read_extraction_pipeline(
         db: AsyncSession = Depends(get_async_session),
         user: User = Depends(current_active_user),
 ):
-    stmt = select(ExtractionPipeline).filter(
-        ExtractionPipeline.doc_id== doc_id,
-        ExtractionPipeline.user_id == user.id,
-    )
-    result = await db.execute(stmt)
-    pipeline = result.scalars().first()
+    row = await DocPipelines.get_row(where_dict={"user_id": user.id, "doc_id": doc_id}, db=db)
+    extraction_pipeline = json.loads(row.extraction_pipeline)
 
-    if pipeline is None:
+    if extraction_pipeline is None:
         # Return default empty pipeline if none exists
-        return []
+        return {}
 
-    return json.loads(pipeline.method_list)
+    return extraction_pipeline
 
 
 @router.post("/{doc_id}/data")
@@ -59,27 +55,11 @@ async def add_extraction_pipeline(
         db: AsyncSession = Depends(get_async_session),
         user: User = Depends(current_active_user),
 ):
-    # First we delete current pipeline if it's set
-    stmt = select(ExtractionPipeline).filter(
-        ExtractionPipeline.doc_id== doc_id,
-        ExtractionPipeline.user_id == user.id,
-    )
-
-    result = await db.execute(stmt)
-
-    existing_extraction_pipeline = result.scalars().first()
-
-    if existing_extraction_pipeline:
-        existing_extraction_pipeline.method_list = json.dumps(pipeline)
-    else:
-        existing_extraction_pipeline = ExtractionPipeline(
-            method_list=json.dumps(pipeline),
-        )
-
-        db.add(existing_extraction_pipeline)
+    row = await DocPipelines.get_row(where_dict={"user_id": user.id, "doc_id": doc_id}, db=db)
+    row.extraction_pipeline = json.dumps(pipeline)
 
     await db.commit()
-    await db.refresh(existing_extraction_pipeline)
+    await db.refresh(row)
 
     return {
         "status": "ok"
@@ -93,59 +73,71 @@ async def run_extraction_pipeline(
         user: User = Depends(current_active_user),
 ):
     # 1. filter: this endpoint is only triggered when a pipeline is fetched or created from the UI
-    stmt = select(ExtractionPipeline).filter(
-        ExtractionPipeline.doc_id== doc_id,
-        ExtractionPipeline.user_id == user.id,
-    )
+    row = await DocPipelines.get_row(where_dict={"user_id": user.id, "doc_id": doc_id}, db=db)
+    extraction_pipeline = json.loads(row.extraction_pipeline)
+    
+    
 
-    result = await db.execute(stmt)
-
-    extraction_pipeline = result.scalars().first()
 
     # 2. filter: output error if the pipeline is created but not saved, and there is no previous pipeline
     if not extraction_pipeline:
         raise HTTPException(status_code=404, detail="No pipeline was saved")
 
-    # ---------------
-    # Avoid extracted=1 to be extracted again. This restriction should only apply to global @extraction
-    # ---------------
+    # Run extraction
+    await run_extraction(extraction_pipeline, user.id, doc_id, db)
 
-    # 3. filter: output error if the pipeline's "extracted" status is not zero,
-    #if int(extraction_pipeline.extracted):
-        #return {}
-
-    # ---------------
-
-    # Run Extraction
-    method_list = json.loads(extraction_pipeline.method_list)
-    await run_extraction(method_list, user.id, doc_id, db)
-
-    # After @extraction
+    # After extraction
 
     # Set extracted=1
-    extraction_pipeline.extracted = 1
+    row.extracted = 1
 
-    # NEXT: Set embedded=0
 
-    # Generate markdown files that present the logged data
+    # NEXT: Set exported=0
+    row.exported = 0
 
-    # Compute path (server-owned logic)
-    base_path = Path("shared-data/logs")
-    log_dir = base_path / str(user.id) / str(doc_id)
-    log_dir.mkdir(parents=True, exist_ok=True)
-    LOG_FILE = log_dir / "validate.log"
+    await db.commit()
 
-    # in future more markdown files should capture logs at different surface levels
-    OUTPUT_MD = log_dir / "extraction_report.md"
-
-    SESSION_ID = find_session_id(LOG_FILE)
-
-    generate_markdown_from_log(
-        log_path=LOG_FILE,
-        output_md_path=OUTPUT_MD,
-        session_id=SESSION_ID,
-    )
 
     return {
         "status": "ok"
     }
+
+
+# ---------- ALL DOCs ----------
+@router.post("/run")
+async def extract_all(
+        db: AsyncSession = Depends(get_async_session),
+        user: User = Depends(current_active_user),
+):
+
+    # Avoid extracted=1 to be extracted again.
+
+    rows, columns = await DocPipelines.get_all(columns=["doc_id"], where_dict={"user_id": user.id, "extracted": 0}, db=db)
+
+    doc_ids = [row["doc_id"] for row in rows]
+
+    for doc_id in doc_ids:
+        row = await DocPipelines.get_row(where_dict={"user_id": user.id, "doc_id": doc_id}, db=db)
+        extraction_pipeline = json.loads(row.extraction_pipeline)
+
+        if extraction_pipeline:
+            # Run extraction
+            await run_extraction(extraction_pipeline, user.id, doc_id, db)
+
+            # After extraction
+
+            # Set extracted=1
+            row.extracted = 1
+
+            # NEXT: Set exported=0
+            row.exported = 0
+
+    await db.commit()
+
+
+    return {
+        "status": "ok"
+    }
+
+
+

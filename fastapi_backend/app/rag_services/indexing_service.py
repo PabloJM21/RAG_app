@@ -37,8 +37,8 @@ from docling.document_converter import PdfFormatOption
 
 # from python string
 
-from docling.datamodel.pipeline_options import TextPipelineOptions
-from docling.document_converter import TextFormatOption
+
+
 
 # helpers for disc paths
 
@@ -52,7 +52,7 @@ from app.generate_markdown import export_logs
 # Database ops
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models import Doc, Paragraph, Retrieval
+from app.models import DocPipelines, Paragraph, Retrieval
 
 
 
@@ -783,24 +783,17 @@ class DoclingChunker(BaseChunker):
 
         self.chunker = "" # expected from child class
 
-
     @staticmethod
     def convert_text(input_text: str):
-        # Configure text pipeline
-        pipeline_options = TextPipelineOptions()
+        converter = DocumentConverter()
 
-        # Create converter for TEXT input
-        doc_converter = DocumentConverter(
-            format_options={
-                InputFormat.TEXT: TextFormatOption(pipeline_options=pipeline_options)
-            }
+        result = converter.convert_string(
+            content=input_text.replace("\r\n", "\n"),
+            format=InputFormat.MD,
+            name="input.md"
         )
 
-        # Convert the raw string into a dl_doc
-        dl_doc = doc_converter.convert(source=input_text).document
-        return dl_doc
-
-
+        return result.document
 
     def chunk_text(self, input_chunk: str):
 
@@ -893,7 +886,7 @@ async def run_conversion(indexer_dict: Dict[str, Any], user_id: UUID, doc_id: UU
     await indexer.run_indexing()
 
     # Finally we label this doc as "converted"
-    await Doc.update_data(data_dict={"converted": 1}, where_dict={"user_id": user_id, "doc_id": doc_id},
+    await DocPipelines.update_data(data_dict={"converted": 1}, where_dict={"user_id": user_id, "doc_id": doc_id},
                           db=db)
 
     # And after that export the logs to md
@@ -955,11 +948,8 @@ async def run_chunking(method_list: list[dict[str, Any]], user_id: UUID, doc_id:
     
     for i, method in enumerate(method_list):
         # New Chunking Method
-        method["db"] = db
-        method["user_id"] = user_id
-        method["doc_id"] = doc_id
-        method["logger"] = session_logger
         method_type = method.pop("type")
+        method.update({"logger": session_logger, "user_id": user_id, "doc_id": doc_id, "db": db})
 
         # Instance new method
         method_instance = CHUNKING_TYPE_MAPPER[method_type](**method)
