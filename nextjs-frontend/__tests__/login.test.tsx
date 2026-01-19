@@ -1,4 +1,4 @@
-import { login } from "@/components/actions/login-action";
+import { login } from "@/app/api/login/login-action";
 import { authJwtLogin } from "@/app/clientService";
 import { cookies } from "next/headers";
 

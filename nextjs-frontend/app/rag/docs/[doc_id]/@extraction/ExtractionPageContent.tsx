@@ -1,8 +1,8 @@
 "use client";
 
 import {useEffect, useState} from "react";
-import {addExtractionPipeline, fetchExtractionPipeline, runExtraction} from "@/app/rag/api/docs/[doc_id]/extraction/extraction-action";
-import { fetchLevels } from "@/app/rag/api/docs/[doc_id]/chunking/chunking-action";
+import {addExtractionPipeline, fetchExtractionPipeline, runExtraction} from "@/app/api/rag/docs/[doc_id]/extraction/extraction-action";
+import { fetchLevels } from "@/app/api/rag/docs/[doc_id]/chunking/chunking-action";
 
 
 

@@ -39,11 +39,13 @@ async def read_extraction_pipeline(
         user: User = Depends(current_active_user),
 ):
     row = await DocPipelines.get_row(where_dict={"user_id": user.id, "doc_id": doc_id}, db=db)
-    extraction_pipeline = json.loads(row.extraction_pipeline)
 
-    if extraction_pipeline is None:
+
+    if row.extraction_pipeline is None:
         # Return default empty pipeline if none exists
-        return {}
+        return []
+
+    extraction_pipeline = json.loads(row.extraction_pipeline)
 
     return extraction_pipeline
 

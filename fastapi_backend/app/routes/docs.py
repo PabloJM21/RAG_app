@@ -36,9 +36,10 @@ async def create_doc(
     user: User = Depends(current_active_user),
 ):
 
-    db_doc = DocPipelines.insert_data(data_dict={"name": doc.name, "user_id": user.id}, db=db) #"path": None
+    db_doc = await DocPipelines.insert_data(data_dict={"name": doc.name, "user_id": user.id}, db=db) #"path": None
 
     await db.commit()
+    await db.refresh(db_doc)
 
 
     return {
@@ -58,17 +59,17 @@ async def upload_doc_file(
     user: User = Depends(current_active_user),
 ):
 
-    doc = DocPipelines.insert_data(data_dict={"doc_id": doc_id, "user_id": user.id}, db=db) #"path": None
+    row = await DocPipelines.get_row(where_dict={"doc_id": doc_id, "user_id": user.id}, db=db) #"path": None
 
-    if doc is None:
+    if row is None:
         raise HTTPException(status_code=404, detail="Document not found")
 
     # 2️⃣ Compute path (server-owned logic)
     base_path = Path("shared-data/uploads")
-    doc_dir = base_path / str(doc.user_id) / str(doc.doc_id)
+    doc_dir = base_path / str(row.user_id) / str(row.doc_id)
     doc_dir.mkdir(parents=True, exist_ok=True)
 
-    file_path = doc_dir / doc.name
+    file_path = doc_dir / row.name
 
     # 3️⃣ Write file to disk
     with file_path.open("wb") as buffer:
@@ -76,10 +77,10 @@ async def upload_doc_file(
             buffer.write(chunk)
 
     # 4️⃣ Persist path atomically
-    doc.path = str(file_path)
+    row.path = str(file_path)
 
     await db.commit()
-    await db.refresh(doc)
+    await db.refresh(row)
 
     return {
         "status": "ok"
@@ -100,21 +101,21 @@ async def delete_doc(
 ):
 
 
-    doc = DocPipelines.get_row(where_dict={"doc_id": doc_id, "user_id": user.id}, db=db) #"path": None
+    row = await DocPipelines.get_row(where_dict={"doc_id": doc_id, "user_id": user.id}, db=db) #"path": None
 
 
-    if not doc:
+    if not row:
         raise HTTPException(status_code=404, detail="Doc not found or not authorized")
 
     # delete file first
-    file_path = Path(doc.path).resolve()
+    file_path = Path(row.path).resolve()
     if file_path.exists():
         file_path.unlink()
     parent = file_path.parent
     parent.rmdir()
 
 
-    await db.delete(doc)
+    await db.delete(row)
     await db.commit()
 
     return {"message": "Doc successfully deleted"}
@@ -132,12 +133,12 @@ async def read_doc_list(
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
-    docs, _ = DocPipelines.get_all(columns=["name", "doc_id"], where_dict={"user_id": user.id}, db=db) #"path": None
+    rows, _ = await DocPipelines.get_all(columns=["name", "doc_id"], where_dict={"user_id": user.id}, db=db) #"path": None
 
     return [
         DocResponse(
-            name=doc["name"],
-            doc_id=doc["doc_id"],
+            name=row["name"],
+            doc_id=row["doc_id"],
         )
-        for doc in docs
+        for row in rows
     ]

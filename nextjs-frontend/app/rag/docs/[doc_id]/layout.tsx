@@ -1,3 +1,6 @@
+import { GridContainer } from "@/components/custom-ui/GridContainer";
+import { Cell } from "@/components/custom-ui/Cell";
+
 
 export default function DocLayout({
   indexing_results,
@@ -12,29 +15,12 @@ export default function DocLayout({
   params: { doc_id: string };
 }) {
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(4, 1fr)",
-        height: "100vh",
-      }}
-    >
-      <section style={{ borderRight: "1px solid #ddd", padding: 12, overflow: "auto" }}>
-        {indexing_results}
-      </section>
-
-      <section style={{ borderRight: "1px solid #ddd", padding: 12, overflow: "auto" }}>
-        {indexing}
-      </section>
-
-      <section style={{ borderRight: "1px solid #ddd", padding: 12, overflow: "auto" }}>
-        {extraction}
-      </section>
-
-      <section style={{ padding: 12, overflow: "auto" }}>
-        {retrieval}
-      </section>
-    </div>
+    <GridContainer>
+      <Cell>{indexing_results}</Cell>
+      <Cell>{indexing}</Cell>
+      <Cell>{extraction}</Cell>
+      <Cell bordered={false}>{retrieval}</Cell>
+    </GridContainer>
   );
 }
 

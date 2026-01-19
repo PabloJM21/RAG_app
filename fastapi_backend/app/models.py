@@ -95,8 +95,12 @@ class Base(DeclarativeBase):
         for key, value in where_dict.items():
             filters.append(build_filter(getattr(cls, key), value))
 
+        if columns:
+            stmt = select(*(getattr(cls, col) for col in columns))
+        else:
+            stmt = select(cls)
 
-        stmt = select(cls)
+
         if filters:
             stmt = stmt.where(and_(*filters))
 
@@ -112,10 +116,7 @@ class Base(DeclarativeBase):
         if not columns:
             columns = [c.key for c in inspect(cls).mapper.column_attrs]
 
-        data = [
-            {k: row[k] for k in columns if k in row}
-            for row in rows
-        ]
+        data = [{k: row[k] for k in columns} for row in rows]
 
         return data, columns
 
@@ -161,7 +162,7 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
 # Docs
 
 class DocPipelines(Base):
-    __tablename__ = "Docs"
+    __tablename__ = "DocPipelines"
 
     doc_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     name = Column(String, nullable=True)
@@ -181,7 +182,7 @@ class DocPipelines(Base):
 
     user_id = Column(UUID(as_uuid=True), ForeignKey("user.id"), nullable=False)
 
-    user = relationship("User", back_populates="docs")
+    user = relationship("User", back_populates="doc_pipelines")
 
 
 
@@ -391,7 +392,7 @@ class Embedding(Base):
 
     user_id = Column(UUID(as_uuid=True), ForeignKey("user.id"), nullable=False)
 
-    user = relationship("User", back_populates="retrievals")
+    user = relationship("User", back_populates="embeddings")
 
 
 

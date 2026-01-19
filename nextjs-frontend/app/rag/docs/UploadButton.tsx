@@ -4,7 +4,7 @@ import { useRef, useEffect } from "react";
 import { useActionState, useState } from "react";
 
 import {SubmitButton} from "@/components/ui/submitButton";
-import {addDoc, uploadDoc} from "@/app/rag/api/docs/docs-action"
+import {addDoc, uploadDoc} from "@/app/api/rag/docs/docs-action"
 
 const initialState: {
   doc_id?: string;

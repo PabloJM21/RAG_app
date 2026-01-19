@@ -4,7 +4,7 @@ import Link from "next/link";
 import {UploadButton} from "./UploadButton";
 import { useActionState } from "react"; // if really needed
 import {DeleteButton} from "./deleteButton";
-import {fetchDocs} from "@/app/rag/api/docs/docs-action";
+import {fetchDocs} from "@/app/api/rag/docs/docs-action";
 import { useState, useEffect } from "react";
 
 

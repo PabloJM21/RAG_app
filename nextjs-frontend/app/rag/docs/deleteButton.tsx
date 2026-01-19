@@ -1,7 +1,7 @@
 "use client";
 
 import { useFormStatus } from "react-dom";
-import { removeDoc } from "@/app/rag/api/docs/docs-action";
+import { removeDoc } from "@/app/api/rag/docs/docs-action";
 import {Button} from "@/components/ui/button";
 
 interface DeleteButtonProps {

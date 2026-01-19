@@ -1,6 +1,6 @@
 "use client";
 
-import { fetchPipeline, addPipeline, run } from "@/app/rag/api/main-pipeline/pipeline-action";
+import { fetchPipeline, addPipeline, run } from "@/app/api/rag/main-pipeline/pipeline-action";
 import { useState, useEffect } from "react";
 
 /* ---------- Types ---------- */

@@ -60,6 +60,62 @@ import type {
   AddPipelineData,
   AddPipelineResponses,
   AddPipelineErrors,
+  ReadConversionPipelineData,
+  ReadConversionPipelineResponses,
+  ReadConversionPipelineErrors,
+  AddConversionPipelineData,
+  AddConversionPipelineResponses,
+  AddConversionPipelineErrors,
+  RunConversionPipelineData,
+  RunConversionPipelineResponses,
+  RunConversionPipelineErrors,
+  RunConversionPipeline2Data,
+  RunConversionPipeline2Responses,
+  ReadChunkingPipelineData,
+  ReadChunkingPipelineResponses,
+  ReadChunkingPipelineErrors,
+  AddChunkingPipelineData,
+  AddChunkingPipelineResponses,
+  AddChunkingPipelineErrors,
+  RunChunkingPipelineData,
+  RunChunkingPipelineResponses,
+  RunChunkingPipelineErrors,
+  ReadChunkingLevelsData,
+  ReadChunkingLevelsResponses,
+  ReadChunkingLevelsErrors,
+  ReadChunkingResultsData,
+  ReadChunkingResultsResponses,
+  ReadChunkingResultsErrors,
+  AddChunkingResultsData,
+  AddChunkingResultsResponses,
+  AddChunkingResultsErrors,
+  ReadMarkdownResultsData,
+  ReadMarkdownResultsResponses,
+  ReadMarkdownResultsErrors,
+  RunChunkingPipeline2Data,
+  RunChunkingPipeline2Responses,
+  ReadExtractionPipelineData,
+  ReadExtractionPipelineResponses,
+  ReadExtractionPipelineErrors,
+  AddExtractionPipelineData,
+  AddExtractionPipelineResponses,
+  AddExtractionPipelineErrors,
+  RunExtractionPipelineData,
+  RunExtractionPipelineResponses,
+  RunExtractionPipelineErrors,
+  ExtractAllData,
+  ExtractAllResponses,
+  ReadRetrievalPipelineData,
+  ReadRetrievalPipelineResponses,
+  ReadRetrievalPipelineErrors,
+  AddRetrievalPipelineData,
+  AddRetrievalPipelineResponses,
+  AddRetrievalPipelineErrors,
+  ExportPipelineData,
+  ExportPipelineResponses,
+  ExportPipelineErrors,
+  ExportAllData,
+  ExportAllResponses,
 } from "./types.gen";
 import { client } from "./client.gen";
 
@@ -500,5 +556,487 @@ export const addPipeline = <ThrowOnError extends boolean = false>(
       "Content-Type": "application/json",
       ...options.headers,
     },
+  });
+};
+
+/**
+ * Read Conversion Pipeline
+ */
+export const readConversionPipeline = <ThrowOnError extends boolean = false>(
+  options: Options<ReadConversionPipelineData, ThrowOnError>,
+) => {
+  return (options.client ?? client).get<
+    ReadConversionPipelineResponses,
+    ReadConversionPipelineErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/conversion/{doc_id}/data",
+    ...options,
+  });
+};
+
+/**
+ * Add Conversion Pipeline
+ */
+export const addConversionPipeline = <ThrowOnError extends boolean = false>(
+  options: Options<AddConversionPipelineData, ThrowOnError>,
+) => {
+  return (options.client ?? client).post<
+    AddConversionPipelineResponses,
+    AddConversionPipelineErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/conversion/{doc_id}/data",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Run Conversion Pipeline
+ */
+export const runConversionPipeline = <ThrowOnError extends boolean = false>(
+  options: Options<RunConversionPipelineData, ThrowOnError>,
+) => {
+  return (options.client ?? client).post<
+    RunConversionPipelineResponses,
+    RunConversionPipelineErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/conversion/{doc_id}/run",
+    ...options,
+  });
+};
+
+/**
+ * Run Conversion Pipeline
+ */
+export const runConversionPipeline2 = <ThrowOnError extends boolean = false>(
+  options?: Options<RunConversionPipeline2Data, ThrowOnError>,
+) => {
+  return (options?.client ?? client).post<
+    RunConversionPipeline2Responses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/conversion/run",
+    ...options,
+  });
+};
+
+/**
+ * Read Chunking Pipeline
+ */
+export const readChunkingPipeline = <ThrowOnError extends boolean = false>(
+  options: Options<ReadChunkingPipelineData, ThrowOnError>,
+) => {
+  return (options.client ?? client).get<
+    ReadChunkingPipelineResponses,
+    ReadChunkingPipelineErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/chunking/{doc_id}/data",
+    ...options,
+  });
+};
+
+/**
+ * Add Chunking Pipeline
+ */
+export const addChunkingPipeline = <ThrowOnError extends boolean = false>(
+  options: Options<AddChunkingPipelineData, ThrowOnError>,
+) => {
+  return (options.client ?? client).post<
+    AddChunkingPipelineResponses,
+    AddChunkingPipelineErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/chunking/{doc_id}/data",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Run Chunking Pipeline
+ */
+export const runChunkingPipeline = <ThrowOnError extends boolean = false>(
+  options: Options<RunChunkingPipelineData, ThrowOnError>,
+) => {
+  return (options.client ?? client).post<
+    RunChunkingPipelineResponses,
+    RunChunkingPipelineErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/chunking/{doc_id}/run",
+    ...options,
+  });
+};
+
+/**
+ * Read Chunking Levels
+ */
+export const readChunkingLevels = <ThrowOnError extends boolean = false>(
+  options: Options<ReadChunkingLevelsData, ThrowOnError>,
+) => {
+  return (options.client ?? client).get<
+    ReadChunkingLevelsResponses,
+    ReadChunkingLevelsErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/chunking/{doc_id}/levels",
+    ...options,
+  });
+};
+
+/**
+ * Read Chunking Results
+ */
+export const readChunkingResults = <ThrowOnError extends boolean = false>(
+  options: Options<ReadChunkingResultsData, ThrowOnError>,
+) => {
+  return (options.client ?? client).get<
+    ReadChunkingResultsResponses,
+    ReadChunkingResultsErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/chunking/{doc_id}/results",
+    ...options,
+  });
+};
+
+/**
+ * Add Chunking Results
+ */
+export const addChunkingResults = <ThrowOnError extends boolean = false>(
+  options: Options<AddChunkingResultsData, ThrowOnError>,
+) => {
+  return (options.client ?? client).post<
+    AddChunkingResultsResponses,
+    AddChunkingResultsErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/chunking/{doc_id}/results",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Read Markdown Results
+ */
+export const readMarkdownResults = <ThrowOnError extends boolean = false>(
+  options: Options<ReadMarkdownResultsData, ThrowOnError>,
+) => {
+  return (options.client ?? client).get<
+    ReadMarkdownResultsResponses,
+    ReadMarkdownResultsErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/chunking/{doc_id}/markdown",
+    ...options,
+  });
+};
+
+/**
+ * Run Chunking Pipeline
+ */
+export const runChunkingPipeline2 = <ThrowOnError extends boolean = false>(
+  options?: Options<RunChunkingPipeline2Data, ThrowOnError>,
+) => {
+  return (options?.client ?? client).post<
+    RunChunkingPipeline2Responses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/chunking/run",
+    ...options,
+  });
+};
+
+/**
+ * Read Extraction Pipeline
+ */
+export const readExtractionPipeline = <ThrowOnError extends boolean = false>(
+  options: Options<ReadExtractionPipelineData, ThrowOnError>,
+) => {
+  return (options.client ?? client).get<
+    ReadExtractionPipelineResponses,
+    ReadExtractionPipelineErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/extraction/{doc_id}/data",
+    ...options,
+  });
+};
+
+/**
+ * Add Extraction Pipeline
+ */
+export const addExtractionPipeline = <ThrowOnError extends boolean = false>(
+  options: Options<AddExtractionPipelineData, ThrowOnError>,
+) => {
+  return (options.client ?? client).post<
+    AddExtractionPipelineResponses,
+    AddExtractionPipelineErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/extraction/{doc_id}/data",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Run Extraction Pipeline
+ */
+export const runExtractionPipeline = <ThrowOnError extends boolean = false>(
+  options: Options<RunExtractionPipelineData, ThrowOnError>,
+) => {
+  return (options.client ?? client).post<
+    RunExtractionPipelineResponses,
+    RunExtractionPipelineErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/extraction/{doc_id}/run",
+    ...options,
+  });
+};
+
+/**
+ * Extract All
+ */
+export const extractAll = <ThrowOnError extends boolean = false>(
+  options?: Options<ExtractAllData, ThrowOnError>,
+) => {
+  return (options?.client ?? client).post<
+    ExtractAllResponses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/extraction/run",
+    ...options,
+  });
+};
+
+/**
+ * Read Retrieval Pipeline
+ */
+export const readRetrievalPipeline = <ThrowOnError extends boolean = false>(
+  options: Options<ReadRetrievalPipelineData, ThrowOnError>,
+) => {
+  return (options.client ?? client).get<
+    ReadRetrievalPipelineResponses,
+    ReadRetrievalPipelineErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/retrieval/{doc_id}/data",
+    ...options,
+  });
+};
+
+/**
+ * Add Retrieval Pipeline
+ */
+export const addRetrievalPipeline = <ThrowOnError extends boolean = false>(
+  options: Options<AddRetrievalPipelineData, ThrowOnError>,
+) => {
+  return (options.client ?? client).post<
+    AddRetrievalPipelineResponses,
+    AddRetrievalPipelineErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/retrieval/{doc_id}/data",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Export Pipeline
+ */
+export const exportPipeline = <ThrowOnError extends boolean = false>(
+  options: Options<ExportPipelineData, ThrowOnError>,
+) => {
+  return (options.client ?? client).post<
+    ExportPipelineResponses,
+    ExportPipelineErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/retrieval/{doc_id}/export",
+    ...options,
+  });
+};
+
+/**
+ * Export All
+ * 1. Runs Embeddings for each doc_id where exported=0
+ * 2. Bundles all retrieval pipelines and exports them to the MainPipeline table
+ */
+export const exportAll = <ThrowOnError extends boolean = false>(
+  options?: Options<ExportAllData, ThrowOnError>,
+) => {
+  return (options?.client ?? client).post<
+    ExportAllResponses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/retrieval/run",
+    ...options,
   });
 };

@@ -1,7 +1,7 @@
 "use client";
 
 import {useEffect, useState} from "react";
-import {addChunkingPipeline, fetchChunkingPipeline, runChunking} from "@/app/rag/api/docs/[doc_id]/chunking/chunking-action";
+import {addChunkingPipeline, fetchChunkingPipeline, runChunking} from "@/app/api/rag/docs/[doc_id]/chunking/chunking-action";
 
 
 

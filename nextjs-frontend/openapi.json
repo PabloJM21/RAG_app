@@ -919,13 +919,13 @@
         ]
       }
     },
-    "/indexing/{doc_id}/data": {
+    "/conversion/{doc_id}/data": {
       "get": {
         "tags": [
-          "indexing"
+          "conversion"
         ],
-        "summary": "Read Index Pipeline",
-        "operationId": "read_index_pipeline",
+        "summary": "Read Conversion Pipeline",
+        "operationId": "read_conversion_pipeline",
         "security": [
           {
             "OAuth2PasswordBearer": []
@@ -950,7 +950,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "title": "Response Indexing-Read Index Pipeline"
+                  "title": "Response Conversion-Read Conversion Pipeline"
                 }
               }
             }
@@ -969,10 +969,10 @@
       },
       "post": {
         "tags": [
-          "indexing"
+          "conversion"
         ],
-        "summary": "Add Index Pipeline",
-        "operationId": "add_index_pipeline",
+        "summary": "Add Conversion Pipeline",
+        "operationId": "add_conversion_pipeline",
         "security": [
           {
             "OAuth2PasswordBearer": []
@@ -1023,13 +1023,13 @@
         }
       }
     },
-    "/indexing/{doc_id}/run": {
+    "/conversion/{doc_id}/run": {
       "post": {
         "tags": [
-          "indexing"
+          "conversion"
         ],
-        "summary": "Run Index Pipeline",
-        "operationId": "run_index_pipeline",
+        "summary": "Run Conversion Pipeline",
+        "operationId": "run_conversion_pipeline",
         "security": [
           {
             "OAuth2PasswordBearer": []
@@ -1069,65 +1069,37 @@
         }
       }
     },
-    "/indexing/{doc_id}/levels": {
-      "get": {
+    "/conversion/run": {
+      "post": {
         "tags": [
-          "indexing"
+          "conversion"
         ],
-        "summary": "Read Index Levels",
-        "operationId": "read_index_levels",
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "doc_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Doc Id"
-            }
-          }
-        ],
+        "summary": "Run Conversion Pipeline",
+        "operationId": "run_conversion_pipeline",
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  },
-                  "title": "Response Indexing-Read Index Levels"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
+                "schema": {}
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
       }
     },
-    "/indexing/{doc_id}/results": {
+    "/chunking/{doc_id}/data": {
       "get": {
         "tags": [
-          "indexing"
+          "chunking"
         ],
-        "summary": "Read Index Results",
-        "operationId": "read_index_results",
+        "summary": "Read Chunking Pipeline",
+        "operationId": "read_chunking_pipeline",
         "security": [
           {
             "OAuth2PasswordBearer": []
@@ -1155,7 +1127,7 @@
                   "items": {
                     "type": "object"
                   },
-                  "title": "Response Indexing-Read Index Results"
+                  "title": "Response Chunking-Read Chunking Pipeline"
                 }
               }
             }
@@ -1174,10 +1146,218 @@
       },
       "post": {
         "tags": [
-          "indexing"
+          "chunking"
         ],
-        "summary": "Add Index Results",
-        "operationId": "add_index_results",
+        "summary": "Add Chunking Pipeline",
+        "operationId": "add_chunking_pipeline",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "doc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Doc Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                },
+                "title": "Pipeline"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/chunking/{doc_id}/run": {
+      "post": {
+        "tags": [
+          "chunking"
+        ],
+        "summary": "Run Chunking Pipeline",
+        "operationId": "run_chunking_pipeline",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "doc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Doc Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/chunking/{doc_id}/levels": {
+      "get": {
+        "tags": [
+          "chunking"
+        ],
+        "summary": "Read Chunking Levels",
+        "operationId": "read_chunking_levels",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "doc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Doc Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Response Chunking-Read Chunking Levels"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/chunking/{doc_id}/results": {
+      "get": {
+        "tags": [
+          "chunking"
+        ],
+        "summary": "Read Chunking Results",
+        "operationId": "read_chunking_results",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "doc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Doc Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  },
+                  "title": "Response Chunking-Read Chunking Results"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "chunking"
+        ],
+        "summary": "Add Chunking Results",
+        "operationId": "add_chunking_results",
         "security": [
           {
             "OAuth2PasswordBearer": []
@@ -1229,6 +1409,82 @@
             }
           }
         }
+      }
+    },
+    "/chunking/{doc_id}/markdown": {
+      "get": {
+        "tags": [
+          "chunking"
+        ],
+        "summary": "Read Markdown Results",
+        "operationId": "read_markdown_results",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "doc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Doc Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  },
+                  "title": "Response Chunking-Read Markdown Results"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/chunking/run": {
+      "post": {
+        "tags": [
+          "chunking"
+        ],
+        "summary": "Run Chunking Pipeline",
+        "operationId": "run_chunking_pipeline",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
       }
     },
     "/extraction/{doc_id}/data": {
@@ -1310,7 +1566,10 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
+                "type": "array",
+                "items": {
+                  "type": "object"
+                },
                 "title": "Pipeline"
               }
             }
@@ -1382,6 +1641,211 @@
             }
           }
         }
+      }
+    },
+    "/extraction/run": {
+      "post": {
+        "tags": [
+          "extraction"
+        ],
+        "summary": "Extract All",
+        "operationId": "extract_all",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/retrieval/{doc_id}/data": {
+      "get": {
+        "tags": [
+          "retrieval"
+        ],
+        "summary": "Read Retrieval Pipeline",
+        "operationId": "read_retrieval_pipeline",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "doc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Doc Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  },
+                  "title": "Response Retrieval-Read Retrieval Pipeline"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "retrieval"
+        ],
+        "summary": "Add Retrieval Pipeline",
+        "operationId": "add_retrieval_pipeline",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "doc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Doc Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                },
+                "title": "Pipeline"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/retrieval/{doc_id}/export": {
+      "post": {
+        "tags": [
+          "retrieval"
+        ],
+        "summary": "Export Pipeline",
+        "operationId": "export_pipeline",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "doc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Doc Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/retrieval/run": {
+      "post": {
+        "tags": [
+          "retrieval"
+        ],
+        "summary": "Export All",
+        "description": "1. Runs Embeddings for each doc_id where exported=0\n2. Bundles all retrieval pipelines and exports them to the MainPipeline table",
+        "operationId": "export_all",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
       }
     }
   },

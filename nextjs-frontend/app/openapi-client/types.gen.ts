@@ -786,6 +786,591 @@ export type AddPipelineResponses = {
   200: unknown;
 };
 
+export type ReadConversionPipelineData = {
+  body?: never;
+  path: {
+    /**
+     * Doc Id
+     */
+    doc_id: string;
+  };
+  query?: never;
+  url: "/conversion/{doc_id}/data";
+};
+
+export type ReadConversionPipelineErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ReadConversionPipelineError =
+  ReadConversionPipelineErrors[keyof ReadConversionPipelineErrors];
+
+export type ReadConversionPipelineResponses = {
+  /**
+   * Response Conversion-Read Conversion Pipeline
+   * Successful Response
+   */
+  200: {
+    [key: string]: unknown;
+  };
+};
+
+export type ReadConversionPipelineResponse =
+  ReadConversionPipelineResponses[keyof ReadConversionPipelineResponses];
+
+export type AddConversionPipelineData = {
+  /**
+   * Pipeline
+   */
+  body: {
+    [key: string]: unknown;
+  };
+  path: {
+    /**
+     * Doc Id
+     */
+    doc_id: string;
+  };
+  query?: never;
+  url: "/conversion/{doc_id}/data";
+};
+
+export type AddConversionPipelineErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type AddConversionPipelineError =
+  AddConversionPipelineErrors[keyof AddConversionPipelineErrors];
+
+export type AddConversionPipelineResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type RunConversionPipelineData = {
+  body?: never;
+  path: {
+    /**
+     * Doc Id
+     */
+    doc_id: string;
+  };
+  query?: never;
+  url: "/conversion/{doc_id}/run";
+};
+
+export type RunConversionPipelineErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type RunConversionPipelineError =
+  RunConversionPipelineErrors[keyof RunConversionPipelineErrors];
+
+export type RunConversionPipelineResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type RunConversionPipeline2Data = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/conversion/run";
+};
+
+export type RunConversionPipeline2Responses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type ReadChunkingPipelineData = {
+  body?: never;
+  path: {
+    /**
+     * Doc Id
+     */
+    doc_id: string;
+  };
+  query?: never;
+  url: "/chunking/{doc_id}/data";
+};
+
+export type ReadChunkingPipelineErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ReadChunkingPipelineError =
+  ReadChunkingPipelineErrors[keyof ReadChunkingPipelineErrors];
+
+export type ReadChunkingPipelineResponses = {
+  /**
+   * Response Chunking-Read Chunking Pipeline
+   * Successful Response
+   */
+  200: Array<{
+    [key: string]: unknown;
+  }>;
+};
+
+export type ReadChunkingPipelineResponse =
+  ReadChunkingPipelineResponses[keyof ReadChunkingPipelineResponses];
+
+export type AddChunkingPipelineData = {
+  /**
+   * Pipeline
+   */
+  body: Array<{
+    [key: string]: unknown;
+  }>;
+  path: {
+    /**
+     * Doc Id
+     */
+    doc_id: string;
+  };
+  query?: never;
+  url: "/chunking/{doc_id}/data";
+};
+
+export type AddChunkingPipelineErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type AddChunkingPipelineError =
+  AddChunkingPipelineErrors[keyof AddChunkingPipelineErrors];
+
+export type AddChunkingPipelineResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type RunChunkingPipelineData = {
+  body?: never;
+  path: {
+    /**
+     * Doc Id
+     */
+    doc_id: string;
+  };
+  query?: never;
+  url: "/chunking/{doc_id}/run";
+};
+
+export type RunChunkingPipelineErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type RunChunkingPipelineError =
+  RunChunkingPipelineErrors[keyof RunChunkingPipelineErrors];
+
+export type RunChunkingPipelineResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type ReadChunkingLevelsData = {
+  body?: never;
+  path: {
+    /**
+     * Doc Id
+     */
+    doc_id: string;
+  };
+  query?: never;
+  url: "/chunking/{doc_id}/levels";
+};
+
+export type ReadChunkingLevelsErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ReadChunkingLevelsError =
+  ReadChunkingLevelsErrors[keyof ReadChunkingLevelsErrors];
+
+export type ReadChunkingLevelsResponses = {
+  /**
+   * Response Chunking-Read Chunking Levels
+   * Successful Response
+   */
+  200: Array<string>;
+};
+
+export type ReadChunkingLevelsResponse =
+  ReadChunkingLevelsResponses[keyof ReadChunkingLevelsResponses];
+
+export type ReadChunkingResultsData = {
+  body?: never;
+  path: {
+    /**
+     * Doc Id
+     */
+    doc_id: string;
+  };
+  query?: never;
+  url: "/chunking/{doc_id}/results";
+};
+
+export type ReadChunkingResultsErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ReadChunkingResultsError =
+  ReadChunkingResultsErrors[keyof ReadChunkingResultsErrors];
+
+export type ReadChunkingResultsResponses = {
+  /**
+   * Response Chunking-Read Chunking Results
+   * Successful Response
+   */
+  200: Array<{
+    [key: string]: unknown;
+  }>;
+};
+
+export type ReadChunkingResultsResponse =
+  ReadChunkingResultsResponses[keyof ReadChunkingResultsResponses];
+
+export type AddChunkingResultsData = {
+  /**
+   * Result List
+   */
+  body: Array<{
+    [key: string]: unknown;
+  }>;
+  path: {
+    /**
+     * Doc Id
+     */
+    doc_id: string;
+  };
+  query?: never;
+  url: "/chunking/{doc_id}/results";
+};
+
+export type AddChunkingResultsErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type AddChunkingResultsError =
+  AddChunkingResultsErrors[keyof AddChunkingResultsErrors];
+
+export type AddChunkingResultsResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type ReadMarkdownResultsData = {
+  body?: never;
+  path: {
+    /**
+     * Doc Id
+     */
+    doc_id: string;
+  };
+  query?: never;
+  url: "/chunking/{doc_id}/markdown";
+};
+
+export type ReadMarkdownResultsErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ReadMarkdownResultsError =
+  ReadMarkdownResultsErrors[keyof ReadMarkdownResultsErrors];
+
+export type ReadMarkdownResultsResponses = {
+  /**
+   * Response Chunking-Read Markdown Results
+   * Successful Response
+   */
+  200: Array<{
+    [key: string]: unknown;
+  }>;
+};
+
+export type ReadMarkdownResultsResponse =
+  ReadMarkdownResultsResponses[keyof ReadMarkdownResultsResponses];
+
+export type RunChunkingPipeline2Data = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/chunking/run";
+};
+
+export type RunChunkingPipeline2Responses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type ReadExtractionPipelineData = {
+  body?: never;
+  path: {
+    /**
+     * Doc Id
+     */
+    doc_id: string;
+  };
+  query?: never;
+  url: "/extraction/{doc_id}/data";
+};
+
+export type ReadExtractionPipelineErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ReadExtractionPipelineError =
+  ReadExtractionPipelineErrors[keyof ReadExtractionPipelineErrors];
+
+export type ReadExtractionPipelineResponses = {
+  /**
+   * Response Extraction-Read Extraction Pipeline
+   * Successful Response
+   */
+  200: Array<{
+    [key: string]: unknown;
+  }>;
+};
+
+export type ReadExtractionPipelineResponse =
+  ReadExtractionPipelineResponses[keyof ReadExtractionPipelineResponses];
+
+export type AddExtractionPipelineData = {
+  /**
+   * Pipeline
+   */
+  body: Array<{
+    [key: string]: unknown;
+  }>;
+  path: {
+    /**
+     * Doc Id
+     */
+    doc_id: string;
+  };
+  query?: never;
+  url: "/extraction/{doc_id}/data";
+};
+
+export type AddExtractionPipelineErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type AddExtractionPipelineError =
+  AddExtractionPipelineErrors[keyof AddExtractionPipelineErrors];
+
+export type AddExtractionPipelineResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type RunExtractionPipelineData = {
+  body?: never;
+  path: {
+    /**
+     * Doc Id
+     */
+    doc_id: string;
+  };
+  query?: never;
+  url: "/extraction/{doc_id}/run";
+};
+
+export type RunExtractionPipelineErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type RunExtractionPipelineError =
+  RunExtractionPipelineErrors[keyof RunExtractionPipelineErrors];
+
+export type RunExtractionPipelineResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type ExtractAllData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/extraction/run";
+};
+
+export type ExtractAllResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type ReadRetrievalPipelineData = {
+  body?: never;
+  path: {
+    /**
+     * Doc Id
+     */
+    doc_id: string;
+  };
+  query?: never;
+  url: "/retrieval/{doc_id}/data";
+};
+
+export type ReadRetrievalPipelineErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ReadRetrievalPipelineError =
+  ReadRetrievalPipelineErrors[keyof ReadRetrievalPipelineErrors];
+
+export type ReadRetrievalPipelineResponses = {
+  /**
+   * Response Retrieval-Read Retrieval Pipeline
+   * Successful Response
+   */
+  200: Array<{
+    [key: string]: unknown;
+  }>;
+};
+
+export type ReadRetrievalPipelineResponse =
+  ReadRetrievalPipelineResponses[keyof ReadRetrievalPipelineResponses];
+
+export type AddRetrievalPipelineData = {
+  /**
+   * Pipeline
+   */
+  body: Array<{
+    [key: string]: unknown;
+  }>;
+  path: {
+    /**
+     * Doc Id
+     */
+    doc_id: string;
+  };
+  query?: never;
+  url: "/retrieval/{doc_id}/data";
+};
+
+export type AddRetrievalPipelineErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type AddRetrievalPipelineError =
+  AddRetrievalPipelineErrors[keyof AddRetrievalPipelineErrors];
+
+export type AddRetrievalPipelineResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type ExportPipelineData = {
+  body?: never;
+  path: {
+    /**
+     * Doc Id
+     */
+    doc_id: string;
+  };
+  query?: never;
+  url: "/retrieval/{doc_id}/export";
+};
+
+export type ExportPipelineErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ExportPipelineError =
+  ExportPipelineErrors[keyof ExportPipelineErrors];
+
+export type ExportPipelineResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type ExportAllData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/retrieval/run";
+};
+
+export type ExportAllResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
 export type ClientOptions = {
   baseURL: `${string}://openapi.json` | (string & {});
 };

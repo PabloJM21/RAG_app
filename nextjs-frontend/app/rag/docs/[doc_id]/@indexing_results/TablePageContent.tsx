@@ -1,7 +1,7 @@
 "use client";
 
 import {useEffect, useState} from "react";
-import {fetchResults, addResults} from "@/app/rag/api/docs/[doc_id]/indexing_results/table-action";
+import {fetchResults, addResults} from "@/app/api/rag/docs/[doc_id]/indexing_results/table-action";
 
 
 type Item = {

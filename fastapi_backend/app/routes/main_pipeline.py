@@ -38,7 +38,7 @@ async def read_pipeline(
     user: User = Depends(current_active_user),
 ):
 
-    pipeline = MainPipeline.get_row(where_dict={"user_id": user.id}, db=db)
+    pipeline = await MainPipeline.get_row(where_dict={"user_id": user.id}, db=db)
 
     if pipeline is None:
         # Return default empty pipeline if none exists
@@ -64,7 +64,7 @@ async def add_pipeline(
     user: User = Depends(current_active_user),
 ):
 
-    existing_pipeline = MainPipeline.get_row(where_dict={"user_id": user.id}, db=db)
+    existing_pipeline = await MainPipeline.get_row(where_dict={"user_id": user.id}, db=db)
 
 
     if existing_pipeline:

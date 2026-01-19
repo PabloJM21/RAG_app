@@ -10,7 +10,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-import { passwordReset } from "@/components/actions/password-reset-action";
+import { passwordReset } from "@/app/api/password-recovery/password-reset-action";
 import { useActionState } from "react";
 import { SubmitButton } from "@/components/ui/submitButton";
 import Link from "next/link";

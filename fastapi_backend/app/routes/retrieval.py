@@ -37,11 +37,13 @@ async def read_retrieval_pipeline(
         user: User = Depends(current_active_user),
 ):
     row = await DocPipelines.get_row(where_dict={"user_id": user.id, "doc_id": doc_id}, db=db)
-    retrieval_pipeline = json.loads(row.retrieval_pipeline)
 
-    if retrieval_pipeline is None:
+
+    if row.retrieval_pipeline is None:
         # Return default empty pipeline if none exists
-        return {}
+        return []
+
+    retrieval_pipeline = json.loads(row.retrieval_pipeline)
 
     return retrieval_pipeline
 

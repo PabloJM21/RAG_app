@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { addConversionPipeline, fetchConversionPipeline, runConversion } from "@/app/rag/api/docs/[doc_id]/conversion/conversion-action";
+import { addConversionPipeline, fetchConversionPipeline, runConversion } from "@/app/api/rag/docs/[doc_id]/conversion/conversion-action";
 
 
 /* ---------- Domain options ---------- */
