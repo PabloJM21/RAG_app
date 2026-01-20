@@ -85,7 +85,7 @@ async def run_conversion_pipeline(
 ):
     # 1. filter: this endpoint is only triggered when a pipeline is fetched or created from the UI
     row = await DocPipelines.get_row(where_dict={"user_id": user.id, "doc_id": doc_id}, db=db)
-    conversion_pipeline = json.loads(row.conversion_pipeline)
+
 
     # ---------------
     # Avoid converted=1 to be converted again. This restriction should only apply to global conversion
@@ -96,10 +96,11 @@ async def run_conversion_pipeline(
     # ------------
 
     # 2. filter: output error if the pipeline is created but not saved, and there is no previous pipeline
-    if not conversion_pipeline:
+    if not row.conversion_pipeline:
         raise HTTPException(status_code=404, detail="No pipeline was saved")
 
     # Run conversion
+    conversion_pipeline = json.loads(row.conversion_pipeline)
 
     await run_conversion(conversion_pipeline, user.id, doc_id, db)
 
@@ -108,24 +109,14 @@ async def run_conversion_pipeline(
     # Set converted=1
     row.converted = 1
 
-    # Set chunked=0 (if chunking_pipeline exists)
-    chunking_pipeline = json.loads(row.chunking_pipeline)
 
-    if chunking_pipeline:
-        row.chunked = 0
-
-    # Set extracted=0 (if extraction_pipeline exists)
-    extraction_pipeline = json.loads(row.extraction_pipeline)
-
-    if extraction_pipeline:
-        row.extracted = 0
+    row.chunked = 0
 
 
-    # NEXT: Set embeddings_required=1
-    retrieval_pipeline = json.loads(row.retrieval_pipeline)
-    method_types = [method["type"] for method in retrieval_pipeline]
-    if "EmbeddingRetriever" in method_types:
-        row.embeddings_required = 1
+    row.extracted = 0
+
+    # NEXT: Set exported=0
+    row.exported = 0
 
     await db.commit()
 
@@ -151,9 +142,10 @@ async def run_conversion_pipeline(
 
     for doc_id in doc_ids:
         row = await DocPipelines.get_row(where_dict={"user_id": user.id, "doc_id": doc_id}, db=db)
-        conversion_pipeline = json.loads(row.conversion_pipeline)
 
-        if conversion_pipeline:
+        if row.conversion_pipeline:
+            conversion_pipeline = json.loads(row.conversion_pipeline)
+
             await run_conversion(conversion_pipeline, user.id, doc_id, db)
 
             # After conversion

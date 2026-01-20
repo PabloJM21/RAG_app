@@ -40,6 +40,7 @@ class BaseRetriever:
         doc_id: UUID,
         level: str,
         retrieval_amount: int,
+        query_transformation_model: str,
     ):
         self.db = db
         self.logger = logger
@@ -47,6 +48,8 @@ class BaseRetriever:
         self.doc_id = doc_id
         self.level = level
         self.k = retrieval_amount
+
+        self.transformation_model = query_transformation_model
 
     # ---------------------------------------------------------
     # Internal helpers
@@ -193,10 +196,6 @@ class BaseRetriever:
 
 
 
-
-
-
-
 # ---------------------------------------------
 
 # ----------------CHUNKERS --------------------
@@ -218,10 +217,10 @@ class ReasonerRetriever(BaseRetriever):
 
     def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, level: str, retrieval_amount: int, query_transformation_model: str, reasoner_model: str, doc_id: Optional[UUID] = 0):
 
-        super().__init__(db, logger, user_id, doc_id, level, retrieval_amount)
+        super().__init__(db=db, logger=logger, user_id=user_id, doc_id=doc_id, level=level, retrieval_amount=retrieval_amount, query_transformation_model=query_transformation_model)
 
 
-
+        self.reasoner_model = reasoner_model
 
 
     def _retrieve_ids(self, query: str, retrieval_input_chunks: str) -> List:
@@ -263,7 +262,7 @@ class ReasonerRetriever(BaseRetriever):
 
         chat_orchestrator = ChatOrchestrator()
 
-        output_dict = json.loads(chat_orchestrator.call("thinker", system_prompt, user_prompt))
+        output_dict = json.loads(chat_orchestrator.call(self.reasoner_model, system_prompt, user_prompt))
 
         print("printing Chat Output: ", output_dict)
 
@@ -318,7 +317,7 @@ class EmbeddingRetriever(BaseRetriever):
 
     def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, level: str, retrieval_amount: int, query_transformation_model: str, embedding_model: str, doc_id: Optional[UUID] = 0):
 
-        super().__init__(db, logger, user_id, doc_id, level, retrieval_amount)  # modern Python 3 style, no super(EmbeddingRetriever, self)
+        super().__init__(db=db, logger=logger, user_id=user_id, doc_id=doc_id, level=level, retrieval_amount=retrieval_amount, query_transformation_model=query_transformation_model)  # modern Python 3 style, no super(EmbeddingRetriever, self)
 
 
         # self.client = OpenAI()

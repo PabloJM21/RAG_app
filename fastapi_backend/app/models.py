@@ -396,6 +396,20 @@ class Embedding(Base):
 
 
 
+# -------API KEYS------
+
+
+class ApiKeys(Base):
+    __tablename__ = "api_keys"
+
+    key_id = Column(Integer, primary_key=True)
+    base_api = Column(String, nullable=False)  # e.g. "DOCLING", "OPENAI"
+    encrypted_key = Column(Text, nullable=False)
+    user_id = Column(ForeignKey("users.id"), nullable=False, index=True)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "base_api"),
+    )
 
 
 

@@ -4,6 +4,8 @@ import Link from "next/link";
 import {UploadButton} from "./UploadButton";
 import { useActionState } from "react"; // if really needed
 import {DeleteButton} from "./deleteButton";
+import { Button } from "@/components/ui/button";
+
 import {fetchDocs} from "@/app/api/rag/docs/docs-action";
 import { useState, useEffect } from "react";
 
@@ -22,18 +24,18 @@ export default function DocsPage() {
 
   useEffect(() => {
     async function loadDocs() {
-        try {
-            const data = await fetchDocs();
+      try {
+        const data = await fetchDocs();
 
-            // If fetchDocs returns null, set empty array
-            setDocs(data ?? []);
+        // If fetchDocs returns null, set empty array
+        setDocs(data ?? []);
 
-        } catch (err: any) {
-            console.error("Failed to fetch docs", err);
-            setError(err.message ?? "Unknown error");
-        } finally {
-            setLoading(false);
-        }
+      } catch (err: any) {
+          console.error("Failed to fetch docs", err);
+          setError(err.message ?? "Unknown error");
+      } finally {
+          setLoading(false);
+      }
     }
     loadDocs();
   }, []);
@@ -88,6 +90,18 @@ export default function DocsPage() {
       <div style={{ marginTop: 12 }}>
           <UploadButton />
       </div>
+
+      <div className="mt-4">
+        <Link href="/rag/user_keys" className="block w-full">
+          <Button
+            variant="outline"
+            className="w-full text-lg py-3"
+          >
+            API Keys
+          </Button>
+        </Link>
+      </div>
+
     </section>
   );
 }

@@ -2,6 +2,7 @@
 
 import { fetchPipeline, addPipeline, run } from "@/app/api/rag/main-pipeline/pipeline-action";
 import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
 
 /* ---------- Types ---------- */
 
@@ -214,7 +215,7 @@ export function MainPipelineEditor({
   /* ---------- Render ---------- */
 
   return (
-    <section>
+    <section className="w-full">
       <h2>Main Pipeline</h2>
 
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -347,11 +348,40 @@ export function MainPipelineEditor({
       </table>
 
 
-      <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
-        <button onClick={() => run("conversion")}>Run Conversion</button>
-        <button onClick={() => run("chunking")}>Run Chunking</button>
-        <button onClick={() => run("extraction")}>Run Extraction</button>
-        <button onClick={() => run("retrieval")}>Run Export</button>
+      <div className="mt-6 w-full">
+        <div className="grid grid-cols-4 gap-3 w-full">
+          <Button
+            variant="outline"
+            className="w-full text-lg py-4"
+            onClick={() => run("conversion")}
+          >
+            Run Conversion
+          </Button>
+
+          <Button
+            variant="outline"
+            className="w-full text-lg py-4"
+            onClick={() => run("chunking")}
+          >
+            Run Chunking
+          </Button>
+
+          <Button
+            variant="outline"
+            className="w-full text-lg py-4"
+            onClick={() => run("extraction")}
+          >
+            Run Extraction
+          </Button>
+
+          <Button
+            variant="outline"
+            className="w-full text-lg py-4"
+            onClick={() => run("retrieval")}
+          >
+            Run Export
+          </Button>
+        </div>
       </div>
 
     </section>

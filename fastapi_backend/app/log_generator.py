@@ -70,21 +70,21 @@ class InfoLogger:
 
 
         session_ids = set()
+        if os.path.exists(self.log_path):
+            with open(self.log_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    if "|" not in line:
+                        continue
 
-        with open(self.log_path, "r", encoding="utf-8") as f:
-            for line in f:
-                if "|" not in line:
-                    continue
-
-                try:
-                    extra_part = line.rsplit("|", 1)[-1].strip()
-                    extra_dict = ast.literal_eval(extra_part)
-                    sid = extra_dict.get("session_id")
-                    if sid:
-                        session_ids.add(sid)
-                except Exception:
-                    # malformed line → ignore safely
-                    continue
+                    try:
+                        extra_part = line.rsplit("|", 1)[-1].strip()
+                        extra_dict = ast.literal_eval(extra_part)
+                        sid = extra_dict.get("session_id")
+                        if sid:
+                            session_ids.add(sid)
+                    except Exception:
+                        # malformed line → ignore safely
+                        continue
 
         return session_ids
 

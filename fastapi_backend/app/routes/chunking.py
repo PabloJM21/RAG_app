@@ -84,7 +84,7 @@ async def run_chunking_pipeline(
 ):
     # 1. filter: this endpoint is only triggered when a pipeline is fetched or created from the UI
     row = await DocPipelines.get_row(where_dict={"user_id": user.id, "doc_id": doc_id}, db=db)
-    chunking_pipeline = json.loads(row.chunking_pipeline)
+
 
     # ---------------
     # Avoid chunked=1 to be chunked again. This restriction should only apply to global chunking
@@ -95,8 +95,10 @@ async def run_chunking_pipeline(
     # ------------
 
     # 2. filter: output error if the pipeline is created but not saved, and there is no previous pipeline
-    if not chunking_pipeline:
+    if not row.chunking_pipeline:
         raise HTTPException(status_code=404, detail="No pipeline was saved")
+
+    chunking_pipeline = json.loads(row.chunking_pipeline)
 
     # Run Chunking
     await run_chunking(chunking_pipeline, user.id, doc_id, db)
@@ -194,10 +196,12 @@ async def run_chunking_pipeline(
 
     for doc_id in doc_ids:
         row = await DocPipelines.get_row(where_dict={"user_id": user.id, "doc_id": doc_id}, db=db)
-        chunking_pipeline = json.loads(row.chunking_pipeline)
 
-        if chunking_pipeline:
+
+        if row.chunking_pipeline:
             # Run Chunking
+            chunking_pipeline = json.loads(row.chunking_pipeline)
+
             await run_chunking(chunking_pipeline, user.id, doc_id, db)
 
             # After Chunking

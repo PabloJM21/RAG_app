@@ -120,10 +120,12 @@ async def extract_all(
 
     for doc_id in doc_ids:
         row = await DocPipelines.get_row(where_dict={"user_id": user.id, "doc_id": doc_id}, db=db)
-        extraction_pipeline = json.loads(row.extraction_pipeline)
 
-        if extraction_pipeline:
+
+        if row.extraction_pipeline:
             # Run extraction
+
+            extraction_pipeline = json.loads(row.extraction_pipeline)
             await run_extraction(extraction_pipeline, user.id, doc_id, db)
 
             # After extraction

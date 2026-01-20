@@ -9,7 +9,8 @@ from typing import Any, Dict, Optional
 
 from loguru import logger as AgentLogger
 
-from dotenv import load_dotenv
+#from dotenv import load_dotenv
+
 
 # ───────────────────────────────────────────────
 # Enums and Config
@@ -21,8 +22,8 @@ class DoclingOutputType(Enum):
     TOKENS = "tokens"
 
 
-BASE_API = os.getenv("BASE_API", "https://chat-ai.academiccloud.de/v1")
-#TIMEOUT = httpx.Timeout(120.0, connect=15.0, read=120.0, write=15.0)
+
+
 
 TIMEOUT = httpx.Timeout(    # more timeout for bigger documents
     300.0,
@@ -31,14 +32,26 @@ TIMEOUT = httpx.Timeout(    # more timeout for bigger documents
     write=60.0
 )
 
+# ───────────────────────────────────────────────
+# USER API KEY LOADING
+# ───────────────────────────────────────────────
+
+"""
+BASE_API = os.getenv("BASE_API", "https://chat-ai.academiccloud.de/v1")
 load_dotenv()
 FIRST_API_KEY = os.getenv("API_KEY")
-
 API_KEYS = [
     FIRST_API_KEY,
     "key_2",
     "key_3",
 ]
+
+"""
+
+
+
+
+
 
 MAX_RETRIES = 5
 RATE_LIMIT_BEHAVIOR = {"minute": "sleep", "hour": "switch", "day": "switch"}
@@ -84,8 +97,9 @@ def decide_action(rate_headers):
 # Main Manager
 # ───────────────────────────────────────────────
 class DoclingClient:
-    def __init__(self):
-        self.keys = list(API_KEYS)
+    def __init__(self, base_api: str, user_key_list: list[str]):
+        self.base_api = base_api
+        self.keys = user_key_list
         self.key_failures = {k: None for k in self.keys}
         self.key_index = 0
         self.lock = asyncio.Lock()
@@ -167,7 +181,7 @@ class DoclingClient:
         extract_tables_as_images: bool,
         image_resolution_scale: float,
     ):
-        url = f"{BASE_API.rstrip('/')}/documents/convert"
+        url = f"{self.base_api.rstrip('/')}/documents/convert"
         headers = {"Authorization": f"Bearer {key}", "Accept": "application/json"}
         params = {
             "response_type": response_type.value,

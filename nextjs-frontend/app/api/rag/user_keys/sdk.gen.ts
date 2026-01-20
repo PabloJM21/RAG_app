@@ -5,10 +5,7 @@ import {
 } from "@/app/api/custom-openapi-client/client";
 
 
-
 import { client } from "@/app/api/custom-openapi-client/client.gen";
-
-
 
 export type Options<
   TData extends TDataShape = TDataShape,
@@ -41,36 +38,22 @@ export type Errors = {
   422: HttpValidationError;
 };
 
+export type KeySpec = Array<Record<string, any>>;
 
-// Types for Results specification
 
 
-type Item = {
-  retrieval_id: number;
-  title: string;
-  content: string;
-};
-
-type LevelResult = {
-  level: string;
-  items: Item[];
-};
-
-export type ResultsSpec = LevelResult[]
 
 /**
- * Create Results
+ * Create Key
  */
-export type CreateResultsData = {
-  body: ResultsSpec;
-  path: {
-    doc_id: string;
-  };
+export type CreateKeyData = {
+  body: KeySpec;
+  path?: never;
   query?: never;
-  url: "/chunking/{doc_id}/results";
+  url: "/api_keys/data";
 };
 
-export type CreateResultsResponses = {
+export type CreateKeyResponses = {
   200: unknown;
 };
 
@@ -78,11 +61,11 @@ export type CreateResultsResponses = {
 
 
 
-export const createResults = <ThrowOnError extends boolean = false>(
-  options?: Options<CreateResultsData, ThrowOnError>,
+export const createKey = <ThrowOnError extends boolean = false>(
+  options?: Options<CreateKeyData, ThrowOnError>,
 ) => {
   return (options?.client ?? client).post<
-    CreateResultsResponses,
+    CreateKeyResponses,
     Errors,
     ThrowOnError
   >({
@@ -93,43 +76,41 @@ export const createResults = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/chunking/{doc_id}/results",
+    url: "/api_keys/data",
     ...options,
   });
 };
+
+
+
 
 
 
 
 
 /**
- * Read Results
+ * Read Key
  */
 
 
-export type ReadResultsData = {
+export type ReadKeyData = {
   body?: never;
-  path: {
-    doc_id: string;
-  };
+  path?: never;
   query?: never;
-  url: "/chunking/{doc_id}/results";
+  url: "/api_keys/data";
 };
 
 
 
-
-
-
-export type ReadResultsResponses = {
-  200: ResultsSpec;
+export type ReadKeyResponses = {
+  200: KeySpec;
 };
 
-export const readResults = <ThrowOnError extends boolean = false>(
-  options?: Options<ReadResultsData, ThrowOnError>,
+export const readKey = <ThrowOnError extends boolean = false>(
+  options?: Options<ReadKeyData, ThrowOnError>,
 ) => {
   return (options?.client ?? client).get<
-    ReadResultsResponses,
+    ReadKeyResponses,
     Errors,
     ThrowOnError
   >({
@@ -140,9 +121,52 @@ export const readResults = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/chunking/{doc_id}/results",
+    url: "/api_keys/data",
     ...options,
   });
 };
 
 
+
+/**
+ * Delete Key
+ */
+
+
+export type DeleteKeyData = {
+  body?: never;
+  path: {
+    key_id: string;
+  };
+  query?: never;
+  url: "/api_keys/{key_id}";
+};
+
+
+export type DeleteKeyResponses = {
+  200: unknown;
+};
+
+export type DeleteKeyErrors = {
+  422: HttpValidationError;
+};
+
+export const deleteKey = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteKeyData, ThrowOnError>,
+) => {
+  return (options.client ?? client).delete<
+    DeleteKeyResponses,
+    DeleteKeyErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/api_keys/{key_id}",
+    ...options,
+  });
+};

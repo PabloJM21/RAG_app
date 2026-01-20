@@ -35,14 +35,12 @@ from docling.document_converter import DocumentConverter
 from docling.datamodel.pipeline_options import PdfPipelineOptions
 from docling.document_converter import PdfFormatOption
 
-# from python string
-
 
 
 
 # helpers for disc paths
 
-from app.rag_services.helpers import get_doc_paths, get_log_paths, get_doc_name
+from app.rag_services.helpers import get_doc_paths, get_log_paths, get_doc_name, get_user_api_key_list
 
 
 #logs
@@ -87,13 +85,13 @@ class TableConverter:
     treats tables as paragraphs
     """
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, convert_tables: bool, logger: InfoLogger):
+
 
         self.table_lines = [] # stores all table positions
         self.table_paragraph = "" # stores paragraph from previous iterations
-        self.convert_tables = True # set by parent
-        self.logger = InfoLogger(__name__) # set by parent
+        self.convert_tables = convert_tables
+        self.logger = logger
         
 
     def scan_paragraphs(self, lines: List[str]):
@@ -185,11 +183,10 @@ class TableConverter:
             if self.convert_tables:
                 # process table into readable text
                 output_text = self.explain_table_content(self.table_paragraph)
-                for line in output_text.split("\n"):
-                    output_text += f"{line}[PARA_SEP]"
+
     
             else:
-                output_text += f"{self.table_paragraph}[PARA_SEP]"
+                output_text += f"{self.table_paragraph}\n"
     
             self.table_paragraph = ""
 
@@ -205,11 +202,9 @@ class TableConverter:
             if self.convert_tables:
                 # process table into readable text
                 output_text = self.explain_table_content(self.table_paragraph)
-                for line in output_text.split("\n"):
-                    output_text += f"{line}[PARA_SEP]"
 
             else:
-                output_text += f"{self.table_paragraph}[PARA_SEP]"
+                output_text += f"{self.table_paragraph}\n"
 
 
 
@@ -221,8 +216,8 @@ class TableConverter:
 
 class ImageConverter:
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self):
+
 
         self.image_dict = {}
         self.image_id = 0
@@ -367,25 +362,16 @@ class ImageConverter:
     def process_images(self, line, output_text):
 
 
-
-
         def replace_with_dict(match):
             key = match.group(0)  # the full matched string, e.g. "picture-1.png"
-
             image_caption = self.image_dict.get(key, "") # fallback to "" if not found
-
 
             return image_caption
 
         if line.endswith(".png"):
-
-
-
             image_text = re.sub(r"picture-\d+\.png", replace_with_dict, line)
+            output_text += image_text
 
-            for line in image_text.split("\n"):
-
-                output_text += (f"{line}[PARA_SEP]")
 
 
 
@@ -393,7 +379,6 @@ class ImageConverter:
 class BaseConverter:
 
     def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, input_path: str, output_path: str):
-        super().__init__(db, logger, user_id, doc_id, input_path)
 
         self.db = db
         self.logger = logger
@@ -423,13 +408,12 @@ class BaseConverter:
 
 
 
-class CustomConverter(BaseConverter, ImageConverter, TableConverter):
+class CustomConverter(BaseConverter):
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, input_path: str, output_path: str, doc_id: int = 0,
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, input_path: str, output_path: str,
                  do_ocr: bool = True, tables: str = "convert"):
-        super().__init__(db, logger, user_id, doc_id, input_path, output_path)
+        super().__init__(db=db, logger=logger, user_id=user_id, doc_id=doc_id, input_path=input_path, output_path=output_path)
 
-        self.doc_id = doc_id
 
         self.do_ocr = do_ocr
 
@@ -443,6 +427,9 @@ class CustomConverter(BaseConverter, ImageConverter, TableConverter):
             self.convert_tables = True
         # --------------------
 
+        self.table_converter = TableConverter(logger=self.logger, convert_tables=self.convert_tables)
+        self.image_converter = ImageConverter()
+
 
 
 
@@ -450,24 +437,39 @@ class CustomConverter(BaseConverter, ImageConverter, TableConverter):
     async def convert_file(self, input_path: str):
 
         #
+        self.logger.log_step(log_text=f"Proceding to convert file")
 
-        client = DoclingClient()
+        user_key_list = await get_user_api_key_list(user_id=self.user_id, base_api="https://chat-ai.academiccloud.de/v1", db=self.db)
 
+        client = DoclingClient(user_key_list=user_key_list, base_api="https://chat-ai.academiccloud.de/v1")
+
+
+
+        start = time.time()
         result = await client.convert(
             file_path=input_path,
             response_type=DoclingOutputType.MARKDOWN,
             extract_tables_as_images=False,
         )
 
+        end = time.time()
+
         md_text = result.get("markdown", "")
         images = result.get("images", [])
+
+
+        self.logger.log_step(task="header_2", log_text=f"Doc converted to Markdown in {end-start} seconds")
 
 
 
 
         # convert images or delete the references
         if self.do_ocr:
-            asyncio.run(self.convert_images(images))
+            start = time.time()
+            await self.image_converter.convert_images(images)
+            end = time.time()
+
+            self.logger.log_step(log_text=f"Images converted to text in {end-start} seconds")
 
         else:
             before = len(md_text)
@@ -477,13 +479,17 @@ class CustomConverter(BaseConverter, ImageConverter, TableConverter):
 
             md_text = re.sub(r"\n{3,}", "\n\n", md_text)
 
-            self.logger.log_step(log_text=f"removed images, going from {before} lines to {after} lines")
+            self.logger.log_step(log_text=f"Removed images. {before} lines before, {after} lines now")
 
         lines = md_text.split("\n")
         # search tables, if the required chunker is provided
 
         if self.keep_tables:
-            self.scan_paragraphs(lines)
+            start = time.time()
+            self.table_converter.scan_paragraphs(lines)
+            end = time.time()
+
+            self.logger.log_step(log_text=f"Scanned tables in {end - start} seconds")
 
         # initialize the paragraph_dict. If no chunkers are provided it will only store paragraphs and record their section_id
 
@@ -492,7 +498,7 @@ class CustomConverter(BaseConverter, ImageConverter, TableConverter):
         # create new tables for this document, if they don't exist
 
         # start processing paragraphs
-
+        start = time.time()
         for i, line in enumerate(lines):
 
             line = line.strip()
@@ -501,21 +507,25 @@ class CustomConverter(BaseConverter, ImageConverter, TableConverter):
 
             # process images
             if self.do_ocr:
-                self.process_images(line, output_text)
+                self.image_converter.process_images(line, output_text)
                 continue
 
             # process tables
             if self.keep_tables:
 
-                is_table = self.process_tables(i, line, output_text)
+                is_table = self.table_converter.process_tables(i, line, output_text)
                 if is_table:
                     continue
 
-            output_text += f"{line}[PARA_SEP]"
+            output_text += f"{line}\n"
 
         # In case that the last paragraph still belongs to a table, save this table
         if self.keep_tables:
-            self.process_last_table(output_text)
+            self.table_converter.process_last_table(output_text)
+
+        end = time.time()
+
+        self.logger.log_step(log_text=f"Processed images and tables in {end - start} seconds")
 
 
         return output_text
@@ -536,8 +546,7 @@ class DoclingConverter(BaseConverter):
     def __init__(self, db: AsyncSession, logger: InfoLogger, user_id, doc_id: UUID,
                  input_path: str, output_path: str, do_ocr=True, do_tables=True):
 
-        super().__init__(db, logger, user_id, doc_id, input_path, output_path)
-
+        super().__init__(db=db, logger=logger, user_id=user_id, doc_id=doc_id, input_path=input_path, output_path=output_path)
 
         self.do_ocr = do_ocr
         self.do_table_structure = do_tables
@@ -555,9 +564,14 @@ class DoclingConverter(BaseConverter):
             }
         )
 
+        start = time.time()
         dl_doc = doc_converter.convert(source=input_path).document
+        output = dl_doc.export_to_markdown()
+        end = time.time()
 
-        return dl_doc.export_to_markdown()
+        self.logger.log_step(task="header_2", log_text=f"Doc converted to Markdown in {end - start} seconds")
+
+        return output
 
 
 
@@ -868,7 +882,7 @@ CONVERSION_TYPE_MAPPER = {
 
 
 
-async def run_conversion(indexer_dict: Dict[str, Any], user_id: UUID, doc_id: UUID, db: AsyncSession):
+async def run_conversion(converter_dict: Dict[str, Any], user_id: UUID, doc_id: UUID, db: AsyncSession):
 
     input_path, output_path = await get_doc_paths(user_id, doc_id, db=db)
     log_path, log_md_path = await get_log_paths(user_id, stage="conversion")
@@ -877,13 +891,13 @@ async def run_conversion(indexer_dict: Dict[str, Any], user_id: UUID, doc_id: UU
     # logg
     doc_name = await get_doc_name(user_id, doc_id, db=db)
     session_logger.log_step(task="header_1", log_text=f"Starting conversion to Markdown for document: {doc_name}")
-    session_logger.log_step(task="table", log_text=f"Using following method: ", table_data=indexer_dict)
+    session_logger.log_step(task="table", log_text=f"Using following method: ", table_data=converter_dict)
 
-    indexer_dict.update({"db": db, "user_id": user_id, "doc_id": doc_id, "input_path": input_path, "output_path": output_path, "logger": session_logger})
-    indexer_type = indexer_dict.pop("type")
-    indexer = CONVERSION_TYPE_MAPPER[indexer_type](**indexer_dict)
+    converter_dict.update({"db": db, "user_id": user_id, "doc_id": doc_id, "input_path": input_path, "output_path": output_path, "logger": session_logger})
+    converter_type = converter_dict.pop("type")
+    converter = CONVERSION_TYPE_MAPPER[converter_type](**converter_dict)
 
-    await indexer.run_indexing()
+    await converter.run_conversion()
 
     # Finally we label this doc as "converted"
     await DocPipelines.update_data(data_dict={"converted": 1}, where_dict={"user_id": user_id, "doc_id": doc_id},

@@ -1,27 +1,32 @@
-import { GridContainer } from "@/components/custom-ui/GridContainer";
-import { Cell } from "@/components/custom-ui/Cell";
+import type { ReactNode } from "react";
 
-
-export default function DocLayout({
-  indexing_results,
-  indexing,
-  extraction,
-  retrieval,
+export default async function DocRootLayout({
+  children,
+  params,
 }: {
-  indexing_results: React.ReactNode;
-  indexing: React.ReactNode;
-  extraction: React.ReactNode;
-  retrieval: React.ReactNode;
-  params: { doc_id: string };
+  children: ReactNode;
+  params: Promise<{ doc_id: string }>;
 }) {
+  const { doc_id } = await params;
+
   return (
-    <GridContainer>
-      <Cell>{indexing_results}</Cell>
-      <Cell>{indexing}</Cell>
-      <Cell>{extraction}</Cell>
-      <Cell bordered={false}>{retrieval}</Cell>
-    </GridContainer>
+    <div style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
+      <header
+        style={{
+          padding: "8px 12px",
+          borderBottom: "1px solid #ddd",
+          display: "flex",
+          gap: 12,
+        }}
+      >
+        <a href={`/rag/docs/${doc_id}/pipelines`}>Pipeline</a>
+        <a href={`/rag/docs/${doc_id}/evaluation`}>Evaluation</a>
+      </header>
+
+      <div style={{ flex: 1 }}>{children}</div>
+    </div>
   );
 }
+
 
 
