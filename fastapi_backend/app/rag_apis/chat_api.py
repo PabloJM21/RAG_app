@@ -51,11 +51,11 @@ from dotenv import load_dotenv
 #         ChatModels.QWEN_OMNI_INSTRUCT,
 #     ],
 # }
-
-
 # ============================================================
-# Configuration
+# API KEYS
 # ============================================================
+
+"""
 load_dotenv()
 FIRST_API_KEY = os.getenv("API_KEY")
 
@@ -66,24 +66,32 @@ API_KEYS = [k for k in [
 ] if k]
 
 BASE_API = os.getenv("BASE_API", "https://chat-ai.academiccloud.de/v1/")
+"""
+
+
+# ============================================================
+# Configuration
+# ============================================================
+
 MAX_RETRIES = 3
 
 
 # ============================================================
 # Client Builder
 # ============================================================
-def make_client(api_key: str) -> OpenAI:
-    return OpenAI(api_key=api_key, base_url=BASE_API, timeout=60.0)
+def make_client(api_key: str, base_api: str) -> OpenAI:
+    return OpenAI(api_key=api_key, base_url=base_api, timeout=60.0)
 
 
 # ============================================================
 # Chat Orchestrator
 # ============================================================
 class ChatOrchestrator:
-    def __init__(self):
-        self.key_cycle = cycle(API_KEYS)
+    def __init__(self, base_api: str, user_key_list: list[str]):
+        self.key_cycle = cycle(user_key_list)
+        self.base_api = base_api
         self.max_retries = MAX_RETRIES
-        AgentLogger.info("ChatOrchestrator initialized", extra={"available_keys": len(API_KEYS)})
+        AgentLogger.info("ChatOrchestrator initialized", extra={"available_keys": len(user_key_list)})
 
     def _safe_call(self, client, model, messages, model_queue, failure_count, retry_num=0):
         """Execute one chat completion call safely with retry and rotation handling."""
@@ -108,7 +116,7 @@ class ChatOrchestrator:
             if failure_count[client.api_key] >= 3:
                 AgentLogger.warning("Switching API key after repeated 401", extra={"api_key": client.api_key[:6]})
                 next_key = next(self.key_cycle)
-                return self._safe_call(make_client(next_key), model, messages, model_queue, failure_count)
+                return self._safe_call(make_client(next_key, self.base_api), model, messages, model_queue, failure_count)
             else:
                 AgentLogger.warning("Retrying same key once more", extra={"api_key": client.api_key[:6]})
                 time.sleep(2)
@@ -123,7 +131,7 @@ class ChatOrchestrator:
             if retry_num < self.max_retries:
                 return self._safe_call(client, model, messages, model_queue, failure_count, retry_num + 1)
             next_key = next(self.key_cycle)
-            return self._safe_call(make_client(next_key), model, messages, model_queue, failure_count)
+            return self._safe_call(make_client(next_key, self.base_api), model, messages, model_queue, failure_count)
 
         # -----------------------------
         # TIMEOUTS
@@ -135,7 +143,7 @@ class ChatOrchestrator:
                 return self._safe_call(client, model, messages, model_queue, failure_count, retry_num + 1)
             next_key = next(self.key_cycle)
             AgentLogger.warning("Switching key after repeated timeout", extra={"next_key": next_key[:6]})
-            return self._safe_call(make_client(next_key), model, messages, model_queue, failure_count)
+            return self._safe_call(make_client(next_key, self.base_api), model, messages, model_queue, failure_count)
 
         # -----------------------------
         # OTHER ERRORS
@@ -154,7 +162,7 @@ class ChatOrchestrator:
                 else:
                     raise
             elif status == 401:
-                return self._safe_call(make_client(next(self.key_cycle)), model, messages, model_queue, failure_count)
+                return self._safe_call(make_client(next(self.key_cycle), self.base_api), model, messages, model_queue, failure_count)
             else:
                 raise
 
@@ -193,7 +201,7 @@ class ChatOrchestrator:
         failure_count = {}
 
         api_key = next(self.key_cycle)
-        client = make_client(api_key)
+        client = make_client(api_key, self.base_api)
         AgentLogger.debug("Running model pipeline", extra={"label": label, "current_model": current_model.value})
         return self._safe_call(client, current_model, messages, model_queue, failure_count)
 

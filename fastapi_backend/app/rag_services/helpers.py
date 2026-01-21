@@ -39,9 +39,12 @@ async def get_log_paths(user_id: UUID, stage: str):
 from typing import Any, Dict, List, Optional, Iterable
 from cryptography.fernet import Fernet
 import json
-from app.models import ApiKeys
+from app.models import ApiKey
 # fastapi exceptions
 from fastapi import HTTPException
+from dotenv import load_dotenv
+load_dotenv()
+
 
 fernet = Fernet(os.environ["FERNET_SECRET_KEY"])
 
@@ -67,7 +70,7 @@ async def get_user_api_keys(
     Returns all decrypted API keys for a given user and base_api.
     Raises 400 if no keys are configured.
     """
-    rows, _ = await ApiKeys.get_all(
+    rows, _ = await ApiKey.get_all(
         columns=["encrypted_key"],
         where_dict={
             "user_id": user_id,
@@ -90,6 +93,10 @@ async def get_user_api_keys(
     return decrypted_keys
 
 
+
+
+
+# CALL APIS
 
 
 

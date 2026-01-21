@@ -1,4 +1,4 @@
-import { register } from "@/components/actions/register-action";
+import { register } from "@/app/api/register/register-action";
 import { redirect } from "next/navigation";
 import { registerRegister } from "@/app/clientService";
 

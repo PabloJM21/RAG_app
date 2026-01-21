@@ -8,11 +8,11 @@ from sqlalchemy.future import select
 from sqlalchemy import Column, String, Integer, ForeignKey
 from sqlalchemy.orm import DeclarativeBase, relationship
 
-from app.models import ApiKeys
+from app.models import ApiKey
 from app.database import User, get_async_session
 from app.users import current_active_user
 
-from app.rag_service.helpers import encrypt_key, decrypt_key
+from app.rag_services.helpers import encrypt_key, decrypt_key
 
 
 from typing import List, Dict, Any
@@ -21,6 +21,12 @@ import json
 import os
 import pandas as pd
 
+from dotenv import load_dotenv
+
+
+load_dotenv()
+
+
 
 router = APIRouter(tags=["api_keys"])
 
@@ -28,42 +34,62 @@ router = APIRouter(tags=["api_keys"])
 
 class KeyData(BaseModel):
     base_key: str
-    api_key_encrypted: str
+    api_key: str
 
 
 
 
 
-@router.post("/data/")
+from fastapi import Request
+
+from loguru import logger as AgentLogger
+
+@router.post("/")
 async def save_api_key(
-    input_key_list: List[KeyData],
+    request: Request,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
-    for item in input_key_list:
-        encrypted_value = encrypt_key(item.api_key_encrypted)
+    # Read raw JSON body
+    body = await request.json()
+    AgentLogger.info(f"DEBUG: raw body received: {body}")
 
-        row = await ApiKeys.get_row(
-            where_dict={
+    # Now you can validate manually
+    base_key = body.get("base_key")
+    api_key = body.get("api_key")
+    AgentLogger.info(f"DEBUG: base_key: {base_key}, api_key: {api_key}")
+
+    # Optional: validate with Pydantic manually
+    from pydantic import ValidationError
+    try:
+        key_data = KeyData(base_key=base_key, api_key=api_key)
+    except ValidationError as e:
+        AgentLogger.info(f"DEBUG: ValidationError: {e.json()}")
+        return {"error": "Invalid input", "details": e.errors()}
+
+    encrypted_value = encrypt_key(key_data.api_key)
+
+    row = await ApiKey.get_row(
+        where_dict={
+            "user_id": user.id,
+            "base_api": key_data.base_key,
+        },
+        db=db,
+    )
+
+    if row:
+        # Update existing key
+        row.encrypted_key = encrypted_value
+    else:
+        # Insert new key
+        row = await ApiKey.insert_data(
+            data_dict={
                 "user_id": user.id,
-                "base_api": item.base_key,
+                "base_api": key_data.base_key,
+                "encrypted_key": encrypted_value,
             },
             db=db,
         )
-
-        if row:
-            # Update existing key
-            row.encrypted_key = encrypted_value
-        else:
-            # Insert new key
-            row = await ApiKeys.insert_data(
-                data_dict={
-                    "user_id": user.id,
-                    "base_api": item.base_key,
-                    "encrypted_key": encrypted_value,
-                },
-                db=db,
-            )
 
     await db.commit()
 
@@ -72,12 +98,12 @@ async def save_api_key(
 
 
 
-@router.get("/data/", response_model=List[KeyData])
+@router.get("/", response_model=List[KeyData])
 async def read_api_key(
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
-    rows, _ = await ApiKeys.get_all(
+    rows, _ = await ApiKey.get_all(
         columns=["base_api", "encrypted_key"],
         where_dict={"user_id": user.id},
         db=db,
@@ -86,7 +112,7 @@ async def read_api_key(
     return [
         KeyData(
             base_key=row["base_api"],
-            api_key_encrypted=decrypt_key(row["encrypted_key"]),
+            api_key=decrypt_key(row["encrypted_key"]),
         )
         for row in rows
     ]
@@ -100,7 +126,7 @@ async def delete_api_key(
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
-    row = await ApiKeys.get_row(
+    row = await ApiKey.get_row(
         where_dict={
             "user_id": user.id,
             "key_id": key_id,

@@ -2,7 +2,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 
 import Page from "@/app/password-recovery/confirm/page";
-import { passwordResetConfirm } from "@/components/actions/password-reset-action";
+import { passwordResetConfirm } from "@/app/api/password-recovery/password-reset-action";
 import { useSearchParams, notFound } from "next/navigation";
 
 jest.mock("next/navigation", () => ({
@@ -11,7 +11,7 @@ jest.mock("next/navigation", () => ({
   notFound: jest.fn(),
 }));
 
-jest.mock("../components/actions/password-reset-action", () => ({
+jest.mock("../app/api/password-recovery/password-reset-action", () => ({
   passwordResetConfirm: jest.fn(),
 }));
 

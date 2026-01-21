@@ -49,6 +49,14 @@ async def drop_tables():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
 
+async def drop_specific_table(table_name: str):
+    async with engine.begin() as conn:
+        await conn.run_sync(
+            lambda sync_conn: Base.metadata.tables[table_name].drop(
+                sync_conn, checkfirst=True
+            )
+        )
+
 
 # --- Dependency for FastAPI ---
 async def get_async_session() -> AsyncGenerator[AsyncSession, None]:

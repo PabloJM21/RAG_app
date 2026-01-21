@@ -49,12 +49,37 @@ import type {
   CreateDocData,
   CreateDocResponses,
   CreateDocErrors,
+  ReadApiKeyData,
+  ReadApiKeyResponses,
+  SaveApiKeyData,
+  SaveApiKeyResponses,
+  DeleteApiKeyData,
+  DeleteApiKeyResponses,
+  DeleteApiKeyErrors,
   UploadDocFileData,
   UploadDocFileResponses,
   UploadDocFileErrors,
   DeleteDocData,
   DeleteDocResponses,
   DeleteDocErrors,
+  ReadDocList2Data,
+  ReadDocList2Responses,
+  CreateDoc2Data,
+  CreateDoc2Responses,
+  CreateDoc2Errors,
+  ReadApiKey2Data,
+  ReadApiKey2Responses,
+  SaveApiKey2Data,
+  SaveApiKey2Responses,
+  DeleteApiKey2Data,
+  DeleteApiKey2Responses,
+  DeleteApiKey2Errors,
+  UploadDocFile2Data,
+  UploadDocFile2Responses,
+  UploadDocFile2Errors,
+  DeleteDoc2Data,
+  DeleteDoc2Responses,
+  DeleteDoc2Errors,
   ReadPipelineData,
   ReadPipelineResponses,
   AddPipelineData,
@@ -459,6 +484,75 @@ export const createDoc = <ThrowOnError extends boolean = false>(
 };
 
 /**
+ * Read Api Key
+ */
+export const readApiKey = <ThrowOnError extends boolean = false>(
+  options?: Options<ReadApiKeyData, ThrowOnError>,
+) => {
+  return (options?.client ?? client).get<
+    ReadApiKeyResponses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/docs/api_keys/",
+    ...options,
+  });
+};
+
+/**
+ * Save Api Key
+ */
+export const saveApiKey = <ThrowOnError extends boolean = false>(
+  options?: Options<SaveApiKeyData, ThrowOnError>,
+) => {
+  return (options?.client ?? client).post<
+    SaveApiKeyResponses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/docs/api_keys/",
+    ...options,
+  });
+};
+
+/**
+ * Delete Api Key
+ */
+export const deleteApiKey = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteApiKeyData, ThrowOnError>,
+) => {
+  return (options.client ?? client).delete<
+    DeleteApiKeyResponses,
+    DeleteApiKeyErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/docs/api_keys/{key_id}",
+    ...options,
+  });
+};
+
+/**
  * Upload Doc File
  */
 export const uploadDocFile = <ThrowOnError extends boolean = false>(
@@ -505,6 +599,176 @@ export const deleteDoc = <ThrowOnError extends boolean = false>(
       },
     ],
     url: "/docs/{doc_id}",
+    ...options,
+  });
+};
+
+/**
+ * Read Doc List
+ */
+export const readDocList2 = <ThrowOnError extends boolean = false>(
+  options?: Options<ReadDocList2Data, ThrowOnError>,
+) => {
+  return (options?.client ?? client).get<
+    ReadDocList2Responses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/api_keys/",
+    ...options,
+  });
+};
+
+/**
+ * Create Doc
+ */
+export const createDoc2 = <ThrowOnError extends boolean = false>(
+  options: Options<CreateDoc2Data, ThrowOnError>,
+) => {
+  return (options.client ?? client).post<
+    CreateDoc2Responses,
+    CreateDoc2Errors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/api_keys/",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Read Api Key
+ */
+export const readApiKey2 = <ThrowOnError extends boolean = false>(
+  options?: Options<ReadApiKey2Data, ThrowOnError>,
+) => {
+  return (options?.client ?? client).get<
+    ReadApiKey2Responses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/api_keys/api_keys/",
+    ...options,
+  });
+};
+
+/**
+ * Save Api Key
+ */
+export const saveApiKey2 = <ThrowOnError extends boolean = false>(
+  options?: Options<SaveApiKey2Data, ThrowOnError>,
+) => {
+  return (options?.client ?? client).post<
+    SaveApiKey2Responses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/api_keys/api_keys/",
+    ...options,
+  });
+};
+
+/**
+ * Delete Api Key
+ */
+export const deleteApiKey2 = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteApiKey2Data, ThrowOnError>,
+) => {
+  return (options.client ?? client).delete<
+    DeleteApiKey2Responses,
+    DeleteApiKey2Errors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/api_keys/api_keys/{key_id}",
+    ...options,
+  });
+};
+
+/**
+ * Upload Doc File
+ */
+export const uploadDocFile2 = <ThrowOnError extends boolean = false>(
+  options: Options<UploadDocFile2Data, ThrowOnError>,
+) => {
+  return (options.client ?? client).post<
+    UploadDocFile2Responses,
+    UploadDocFile2Errors,
+    ThrowOnError
+  >({
+    ...formDataBodySerializer,
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/api_keys/uploads/{doc_id}",
+    ...options,
+    headers: {
+      "Content-Type": null,
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Delete Doc
+ */
+export const deleteDoc2 = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteDoc2Data, ThrowOnError>,
+) => {
+  return (options.client ?? client).delete<
+    DeleteDoc2Responses,
+    DeleteDoc2Errors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/api_keys/{doc_id}",
     ...options,
   });
 };

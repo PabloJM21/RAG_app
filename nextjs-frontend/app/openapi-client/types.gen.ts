@@ -117,6 +117,24 @@ export type HttpValidationError = {
 };
 
 /**
+ * KeyReadData
+ */
+export type KeyReadData = {
+  /**
+   * Key Id
+   */
+  key_id: string;
+  /**
+   * Base Key
+   */
+  base_key: string;
+  /**
+   * Api Key
+   */
+  api_key: string;
+};
+
+/**
  * PipelineResponse
  */
 export type PipelineResponse = {
@@ -690,6 +708,65 @@ export type CreateDocResponses = {
 
 export type CreateDocResponse = CreateDocResponses[keyof CreateDocResponses];
 
+export type ReadApiKeyData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/docs/api_keys/";
+};
+
+export type ReadApiKeyResponses = {
+  /**
+   * Response Docs-Read Api Key
+   * Successful Response
+   */
+  200: Array<KeyReadData>;
+};
+
+export type ReadApiKeyResponse = ReadApiKeyResponses[keyof ReadApiKeyResponses];
+
+export type SaveApiKeyData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/docs/api_keys/";
+};
+
+export type SaveApiKeyResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type DeleteApiKeyData = {
+  body?: never;
+  path: {
+    /**
+     * Key Id
+     */
+    key_id: string;
+  };
+  query?: never;
+  url: "/docs/api_keys/{key_id}";
+};
+
+export type DeleteApiKeyErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type DeleteApiKeyError = DeleteApiKeyErrors[keyof DeleteApiKeyErrors];
+
+export type DeleteApiKeyResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
 export type UploadDocFileData = {
   body: BodyDocsUploadDocFile;
   path: {
@@ -740,6 +817,166 @@ export type DeleteDocErrors = {
 export type DeleteDocError = DeleteDocErrors[keyof DeleteDocErrors];
 
 export type DeleteDocResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type ReadDocList2Data = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/api_keys/";
+};
+
+export type ReadDocList2Responses = {
+  /**
+   * Response Docs-Read Doc List
+   * Successful Response
+   */
+  200: Array<DocResponse>;
+};
+
+export type ReadDocList2Response =
+  ReadDocList2Responses[keyof ReadDocList2Responses];
+
+export type CreateDoc2Data = {
+  body: DocCreate;
+  path?: never;
+  query?: never;
+  url: "/api_keys/";
+};
+
+export type CreateDoc2Errors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type CreateDoc2Error = CreateDoc2Errors[keyof CreateDoc2Errors];
+
+export type CreateDoc2Responses = {
+  /**
+   * Successful Response
+   */
+  200: DocResponse;
+};
+
+export type CreateDoc2Response = CreateDoc2Responses[keyof CreateDoc2Responses];
+
+export type ReadApiKey2Data = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/api_keys/api_keys/";
+};
+
+export type ReadApiKey2Responses = {
+  /**
+   * Response Docs-Read Api Key
+   * Successful Response
+   */
+  200: Array<KeyReadData>;
+};
+
+export type ReadApiKey2Response =
+  ReadApiKey2Responses[keyof ReadApiKey2Responses];
+
+export type SaveApiKey2Data = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/api_keys/api_keys/";
+};
+
+export type SaveApiKey2Responses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type DeleteApiKey2Data = {
+  body?: never;
+  path: {
+    /**
+     * Key Id
+     */
+    key_id: string;
+  };
+  query?: never;
+  url: "/api_keys/api_keys/{key_id}";
+};
+
+export type DeleteApiKey2Errors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type DeleteApiKey2Error = DeleteApiKey2Errors[keyof DeleteApiKey2Errors];
+
+export type DeleteApiKey2Responses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type UploadDocFile2Data = {
+  body: BodyDocsUploadDocFile;
+  path: {
+    /**
+     * Doc Id
+     */
+    doc_id: string;
+  };
+  query?: never;
+  url: "/api_keys/uploads/{doc_id}";
+};
+
+export type UploadDocFile2Errors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type UploadDocFile2Error =
+  UploadDocFile2Errors[keyof UploadDocFile2Errors];
+
+export type UploadDocFile2Responses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type DeleteDoc2Data = {
+  body?: never;
+  path: {
+    /**
+     * Doc Id
+     */
+    doc_id: string;
+  };
+  query?: never;
+  url: "/api_keys/{doc_id}";
+};
+
+export type DeleteDoc2Errors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type DeleteDoc2Error = DeleteDoc2Errors[keyof DeleteDoc2Errors];
+
+export type DeleteDoc2Responses = {
   /**
    * Successful Response
    */

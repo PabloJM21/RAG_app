@@ -70,8 +70,9 @@ def decide_action(rate_headers):
 # Multi-Model Vision Client
 # ───────────────────────────────────────────────
 class MultiModalVisionClient:
-    def __init__(self):
-        self.key_cycle = cycle(API_KEYS)
+    def __init__(self, base_api: str, user_key_list: list[str]):
+        self.base_api = base_api
+        self.key_cycle = cycle(user_key_list)
         self.max_retries = MAX_RETRIES
         AgentLogger.info("MultiModalVisionClient initialized", extra={"available_keys": len(API_KEYS)})
 
@@ -87,7 +88,7 @@ class MultiModalVisionClient:
         retry_num=0,
         base64_format: str = "png", # common format of pdf images
     ):
-        url = f"{BASE_API.rstrip('/')}/chat/completions"
+        url = f"{self.base_api.rstrip('/')}/chat/completions"
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Accept": "application/json",

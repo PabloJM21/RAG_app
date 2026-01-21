@@ -6,21 +6,22 @@ import uuid
 import ast
 
 
-from loguru import logger as base_logger
+from loguru import logger
 
 
 class InfoLogger:
     def __init__(self, log_path: str, stage: str):
-        self.log_path = log_path
         self.stage = stage
+
+
+        logger.remove()  # remove previous sinks
+
+        self.log_path = log_path
+
         self.session_id = self.generate_unique_session_id()
 
-        # Create an isolated logger instance for this stage
-        self.logger = base_logger.bind(stage=self.stage)
-
-        # Remove handlers ONLY from this cloned logger
-        self.logger = self.logger.opt(depth=1)
-        self.logger.remove()
+        # Bind stage and session once
+        self.logger = logger.bind(stage=self.stage, session_id=self.session_id)
 
         # Console sink
         self.logger.add(
@@ -36,32 +37,15 @@ class InfoLogger:
 
         # File sink (unique per stage)
         self.logger.add(
-            self.log_path,
+            log_path,
             rotation="2.5 MB",
             format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {message} | {extra}",
+            filter=lambda record: record["extra"].get("stage") == self.stage,
             enqueue=True,
         )
 
 
-        # Console sink (stderr)
-        self.logger.add(
-            sink=sys.stderr,
-            format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
-                   "<cyan>{level: <8}</cyan> | "
-                   "<yellow>{name}</yellow>:<yellow>{function}</yellow>:<yellow>{line}</yellow> - "
-                   "{message} | {extra}",
-            backtrace=True,
-            diagnose=True,
-            enqueue=True,
-        )
 
-        # Validate sink
-        self.logger.add(
-            self.log_path,
-            rotation="2.5 MB",
-            format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {message} | {extra}",
-            enqueue=True,
-        )
 
 
 
@@ -97,22 +81,10 @@ class InfoLogger:
                 return session_id
 
 
-    def log_step(
-        self,
-        log_text: Optional[str] = "",
-        task: Optional[str] = "info_text",
-        table_data: Optional[Dict[str, Any]] = None):
+    def log_step(self, log_text: str = "", task: str = "info_text", table_data: dict = None):
+        # Only pass dynamic fields here
+        self.logger.bind(task=task, table_data=table_data).info(log_text)
 
-        """
-        Log full arrays to file and console.
-        """
-
-        extra_message = {
-            "session_id": self.session_id,
-            "task": task,
-            "table_data": table_data}
-
-        self.logger.info(log_text, extra=extra_message)
 
 
 

@@ -3,13 +3,15 @@
 
 import {cookies} from "next/headers";
 import {revalidatePath} from "next/cache";
-import {createKey, KeySpec, readKey, deleteKey} from "./sdk.gen";
+import {createKey, readKeyList, deleteKey, KeyRead} from "./sdk.gen";
+import { keySchema } from "@/lib/definitions";
+
+import { redirect } from "next/navigation";
+import {KeyCreate} from "./sdk.gen";
 
 
 
-
-
-export async function removeKey(id: string) {
+export async function removeKey(key_id: string) {
   const cookieStore = await cookies();
   const token = cookieStore.get("accessToken")?.value;
 
@@ -22,7 +24,7 @@ export async function removeKey(id: string) {
       Authorization: `Bearer ${token}`,
     },
     path: {
-      key_id: id,
+      key_id: key_id,
     },
   });
 
@@ -34,39 +36,60 @@ export async function removeKey(id: string) {
 
 
 
-export async function addKey(formData: FormData) {
 
-  const key_id = formData.get("key_id") as string;
-  const keydata = JSON.parse(formData.get("keydata") as string) as KeySpec;
+
+export async function addKey(prevState: {}, formData: FormData) {
 
   const cookieStore = await cookies();
   const token = cookieStore.get("accessToken")?.value;
 
   if (!token) {
-    throw new Error("No access token found");
+    return { message: "No access token found" };
   }
 
-  const result = await createKey({
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    path:{
-      key_id: key_id,
-    },
-    body: keydata,
+
+  // 1. Extract fields from FormData
+  const base_key = formData.get("base_key");
+  if (!base_key || typeof base_key !== "string") {
+    return { message: "Invalid base_key" };
+  }
+
+  const api_key = formData.get("api_key");
+  if (!api_key || typeof api_key !== "string") {
+    return { message: "Invalid api_key" };
+  }
+
+  // 4️⃣ Debug the body
+  const bodyToSend = { base_key, api_key };
+  console.log("DEBUG bodyToSend:", bodyToSend);
+  console.log("DEBUG types:", {
+    base_key: typeof base_key,
+    api_key: typeof api_key,
   });
 
-  if (result.error) {
-    throw result.error;
+
+  // Call SDK with plain object
+  const { error } = await createKey({
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json", // ✅ Force JSON
+    },
+    body: { base_key, api_key }, // ✅ Must be stringified
+  });
+
+  if (error) {
+    return { message: typeof error.detail === "string" ? error.detail : "Failed to create key" };
   }
 
-  revalidatePath(`rag/user_keys`);
+  redirect("/rag/user_keys");
 }
 
 
 
 
-export async function fetchKeys(key_id: string): Promise<KeySpec> {
+
+
+export async function fetchKeys(): Promise<KeyRead[]> {
   const cookieStore = await cookies();
   const token = cookieStore.get("accessToken")?.value;
 
@@ -74,20 +97,17 @@ export async function fetchKeys(key_id: string): Promise<KeySpec> {
     throw new Error("No access token found");
   }
 
-  const result = await readKey({
+  const response = await readKeyList({
     headers: {
       Authorization: `Bearer ${token}`,
     },
-    path:{
-      key_id: key_id,
-    },
   });
 
-  if (result.error) {
-    throw result.error;
+  if (response.error) {
+    throw response.error;
   }
 
-  return result.data;
+  return response.data;
 }
 
 

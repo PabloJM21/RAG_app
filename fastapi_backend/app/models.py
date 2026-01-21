@@ -98,7 +98,8 @@ class Base(DeclarativeBase):
         if columns:
             stmt = select(*(getattr(cls, col) for col in columns))
         else:
-            stmt = select(cls)
+            cols = inspect(cls).mapper.column_attrs
+            stmt = select(*(getattr(cls, c.key) for c in cols))
 
 
         if filters:
@@ -152,6 +153,9 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     # main page
     doc_pipelines = relationship("DocPipelines", back_populates="user", cascade="all, delete-orphan")
     main_pipeline = relationship("MainPipeline", back_populates="user", cascade="all, delete-orphan")
+
+    #api_keys
+    api_keys = relationship("ApiKey", back_populates="user", cascade="all, delete-orphan")
 
     # rag ops
     paragraphs = relationship("Paragraph", back_populates="user", cascade="all, delete-orphan")
@@ -217,7 +221,8 @@ class MainPipeline(Base):
 class Paragraph(Base):
     __tablename__ = "Paragraphs"
 
-    paragraph_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    paragraph_id = Column(Integer, primary_key=True)
+
     doc_id = Column(UUID(as_uuid=True), default=uuid4)
     paragraph = Column(Text, nullable=True)
     paragraph_metadata = Column(Text, nullable=True) # example: {"section_id": 1, "embedding_chunk_id": 2}
@@ -364,9 +369,9 @@ class Paragraph(Base):
 class Retrieval(Base):
     __tablename__ = "Retrievals"
 
-    retrieval_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4) # retrieval_id
+    retrieval_id = Column(Integer, primary_key=True) # retrieval_id
     doc_id = Column(UUID(as_uuid=True), default=uuid4)
-    level_id = Column(UUID(as_uuid=True), default=uuid4)
+    level_id = Column(Integer, nullable=True)
     level = Column(String, nullable=True)
     title = Column(Text, nullable=True)
     content = Column(Text, nullable=True)
@@ -383,9 +388,9 @@ class Retrieval(Base):
 class Embedding(Base):
     __tablename__ = "Embeddings"
 
-    embedding_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)  # retrieval_id
+    embedding_id = Column(Integer, primary_key=True)  # retrieval_id
     doc_id = Column(UUID(as_uuid=True), default=uuid4)
-    retrieval_id = Column(UUID(as_uuid=True), default=uuid4) # 1-to-1 relationship to pk
+    retrieval_id = Column(Integer, nullable=True) # 1-to-1 relationship to pk
     level = Column(String, nullable=True)
 
     embedding = Column(Vec1536, nullable=False)
@@ -399,17 +404,24 @@ class Embedding(Base):
 # -------API KEYS------
 
 
-class ApiKeys(Base):
-    __tablename__ = "api_keys"
+class ApiKey(Base):
+    __tablename__ = "ApiKeys"
 
-    key_id = Column(Integer, primary_key=True)
+    key_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     base_api = Column(String, nullable=False)  # e.g. "DOCLING", "OPENAI"
     encrypted_key = Column(Text, nullable=False)
-    user_id = Column(ForeignKey("users.id"), nullable=False, index=True)
 
-    __table_args__ = (
-        UniqueConstraint("user_id", "base_api"),
-    )
+    user_id = Column(UUID(as_uuid=True), ForeignKey("user.id"), nullable=False)
+
+    user = relationship("User", back_populates="api_keys")
 
 
+
+
+"""
+__table_args__ = (
+    #UniqueConstraint("user_id", "base_api"),
+)
+
+"""
 

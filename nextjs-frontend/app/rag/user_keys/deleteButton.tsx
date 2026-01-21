@@ -1,15 +1,15 @@
 "use client";
 
-import { removeItem } from "@/components/actions/items-action";
+import { removeKey } from "@/app/api/rag/user_keys/keys-action";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 
 interface DeleteButtonProps {
-  itemId: string;
+  key_id: string;
 }
 
-export function DeleteButton({ itemId }: DeleteButtonProps) {
+export function DeleteButton({ key_id }: DeleteButtonProps) {
   const handleDelete = async () => {
-    await removeItem(itemId);
+    await removeKey(key_id);
   };
 
   return (

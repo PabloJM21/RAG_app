@@ -17,13 +17,13 @@ import { DeleteButton } from "./deleteButton";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
-export default async function DashboardPage() {
+export default async function KeyEditorPage() {
   const keys = await fetchKeys();
 
   return (
     <div>
       <h2 className="text-2xl font-semibold mb-6">
-        Welcome to your Dashboard
+        Welcome to your KeyEditor
       </h2>
 
       <p className="text-lg mb-6">
@@ -31,7 +31,7 @@ export default async function DashboardPage() {
       </p>
 
       <div className="mb-6">
-        <Link href="/dashboard/add-key">
+        <Link href="/rag/user_keys/add-key">
           <Button variant="outline" className="text-lg px-4 py-2">
             Add New Key
           </Button>
@@ -65,7 +65,7 @@ export default async function DashboardPage() {
                   <TableCell>{key.base_key}</TableCell>
 
                   <TableCell className="font-mono">
-                    {key.api_key_encrypted}
+                    {key.api_key}
                   </TableCell>
 
                   <TableCell className="text-center">
@@ -78,7 +78,7 @@ export default async function DashboardPage() {
                         <DropdownMenuItem disabled>
                           Edit
                         </DropdownMenuItem>
-                        <DeleteButton baseKey={key.base_key} />
+                        <DeleteButton key_id={key.key_id} />
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>

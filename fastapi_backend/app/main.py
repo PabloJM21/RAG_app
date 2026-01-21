@@ -11,7 +11,35 @@ from app.routes.chunking import router as chunking_router
 from app.routes.extraction import router as extraction_router
 from app.routes.retrieval import router as retrieval_router
 from app.config import settings
-from app.database import create_db_and_tables, drop_tables
+from app.database import create_db_and_tables, drop_tables, drop_specific_table
+
+
+"""
+Docling compatibility patch.
+
+Docling (>=2.60) unconditionally calls `torch.xpu.is_available()` when
+selecting an accelerator device. This crashes on non-Intel PyTorch builds
+(CUDA-only or CPU-only), because `torch.xpu` does not exist unless PyTorch
+is built with Intel XPU support.
+
+This patch provides a minimal stub for `torch.xpu` so that:
+- `torch.xpu.is_available()` exists
+- it safely returns False
+- Docling correctly falls back to CUDA, MPS, or CPU
+
+This must run BEFORE importing any docling modules.
+Safe to remove once Docling guards access with `hasattr(torch, "xpu")`.
+"""
+
+import torch
+import types
+
+if not hasattr(torch, "xpu"):
+    torch.xpu = types.SimpleNamespace(
+        is_available=lambda: False
+    )
+
+
 
 
 app = FastAPI(
@@ -24,6 +52,7 @@ app = FastAPI(
 
 @app.on_event("startup")
 async def on_startup():
+    await drop_specific_table("Retrievals")
     await create_db_and_tables()
 
 
@@ -65,6 +94,7 @@ app.include_router(
 
 # Include routes
 app.include_router(docs_router, prefix="/docs")
+app.include_router(docs_router, prefix="/api_keys")
 app.include_router(main_pipeline_router, prefix="/main-pipeline")
 app.include_router(conversion_router, prefix="/conversion")
 app.include_router(chunking_router, prefix="/chunking")

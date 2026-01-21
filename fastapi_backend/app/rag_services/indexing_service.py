@@ -38,9 +38,14 @@ from docling.document_converter import PdfFormatOption
 
 
 
+# -----------------------------------------
+# Internal Helpers
+# -----------------------------------------
+
+
 # helpers for disc paths
 
-from app.rag_services.helpers import get_doc_paths, get_log_paths, get_doc_name, get_user_api_key_list
+from app.rag_services.helpers import get_doc_paths, get_log_paths, get_doc_name, get_user_api_keys
 
 
 #logs
@@ -85,14 +90,25 @@ class TableConverter:
     treats tables as paragraphs
     """
 
-    def __init__(self, convert_tables: bool, logger: InfoLogger):
+    def __init__(self, user_id: UUID, convert_tables: bool, logger: InfoLogger, db: AsyncSession):
 
+        self.user_id = user_id
+        self.db = db
 
         self.table_lines = [] # stores all table positions
         self.table_paragraph = "" # stores paragraph from previous iterations
         self.convert_tables = convert_tables
         self.logger = logger
-        
+
+        self.chat_orchestrator: Optional[ChatOrchestrator] = None
+
+    async def init_clients(self):
+
+        user_key_list = await get_user_api_keys(user_id=self.user_id, base_api="https://chat-ai.academiccloud.de/v1", db=self.db)
+
+        self.chat_orchestrator = ChatOrchestrator(user_key_list=user_key_list, base_api="https://chat-ai.academiccloud.de/v1")
+
+
 
     def scan_paragraphs(self, lines: List[str]):
 
@@ -151,24 +167,23 @@ class TableConverter:
 
                     """
 
-        chat_orchestrator = ChatOrchestrator()
 
         start = time.time()
-        output_dict = json.loads(chat_orchestrator.call("thinker", system_prompt, user_prompt))
+        output_dict = json.loads(self.chat_orchestrator.call("thinker", system_prompt, user_prompt))
         end = time.time()
 
         #print("printing Chat Output: ", output_dict)
 
         # start logging
 
-        self.logger.log_step(task="validate", log_text="Explain Table Content",
-                             inputs=input_table, outputs=output_dict["Output"], duration=f"{round(end - start, 2)} seconds")
+        self.logger.log_step(log_text=f"Explained Table Content in {round(end - start, 2)} seconds")
+                             #inputs=input_table, outputs=output_dict["Output"]
         # end logging
 
         return output_dict["Output"]
 
 
-    def process_tables(self, i, line, output_text):
+    def process_tables(self, i, line, output_dict):
 
 
         if i in self.table_lines:
@@ -182,11 +197,11 @@ class TableConverter:
             
             if self.convert_tables:
                 # process table into readable text
-                output_text = self.explain_table_content(self.table_paragraph)
+                output_dict["text"] = self.explain_table_content(self.table_paragraph)
 
     
             else:
-                output_text += f"{self.table_paragraph}\n"
+                output_dict["text"] += f"{self.table_paragraph}\n"
     
             self.table_paragraph = ""
 
@@ -196,16 +211,15 @@ class TableConverter:
 
 
 
-    def process_last_table(self, output_text):
+    def process_last_table(self, output_dict):
         if self.table_paragraph:
 
             if self.convert_tables:
                 # process table into readable text
-                output_text = self.explain_table_content(self.table_paragraph)
+                output_dict["text"] = self.explain_table_content(self.table_paragraph)
 
             else:
-                output_text += f"{self.table_paragraph}\n"
-
+                output_dict["text"] += f"{self.table_paragraph}\n"
 
 
 
@@ -216,11 +230,29 @@ class TableConverter:
 
 class ImageConverter:
 
-    def __init__(self):
-
+    def __init__(self, user_id: UUID, db: AsyncSession, logger: InfoLogger):
+        self.user_id = user_id
+        self.db = db
+        self.logger = logger
 
         self.image_dict = {}
         self.image_id = 0
+
+        self.chat_orchestrator: Optional[ChatOrchestrator] = None
+        self.vision_client: Optional[MultiModalVisionClient] = None
+
+
+    async def init_clients(self):
+
+        user_key_list = await get_user_api_keys(user_id=self.user_id, base_api="https://chat-ai.academiccloud.de/v1", db=self.db)
+
+        self.chat_orchestrator = ChatOrchestrator(user_key_list=user_key_list,  base_api="https://chat-ai.academiccloud.de/v1")
+
+        self.vision_client = MultiModalVisionClient(user_key_list=user_key_list,  base_api="https://chat-ai.academiccloud.de/v1")
+
+
+
+
 
     def filter_image_content(self, input_chunk):
 
@@ -256,11 +288,12 @@ class ImageConverter:
                     
                     """
 
-        chat_orchestrator = ChatOrchestrator()
 
-        output_dict = json.loads(chat_orchestrator.call("thinker", system_prompt, user_prompt))
 
-        print("printing Chat Boolean Output: ", output_dict)
+
+        output_dict = json.loads(self.chat_orchestrator.call("thinker", system_prompt, user_prompt))
+
+        #print("printing Chat Boolean Output: ", output_dict)
 
 
 
@@ -268,7 +301,7 @@ class ImageConverter:
 
 
 
-    def rewrite_image_content(self, input_chunk):
+    async def rewrite_image_content(self, input_chunk):
 
         """
         Explains table content with paragraphs describing it
@@ -301,17 +334,16 @@ class ImageConverter:
 
                     """
 
-        chat_orchestrator = ChatOrchestrator()
 
         start = time.time()
-        output_dict = json.loads(chat_orchestrator.call("thinker", system_prompt, user_prompt))
+        output_dict = json.loads(self.chat_orchestrator.call("thinker", system_prompt, user_prompt))
         end = time.time()
 
         #print("printing Chat Output: ", output_dict)
 
-        self.logger.log_step(task="validate", log_text="Rewrite Image Content",
-                             inputs=input_chunk, outputs=output_dict["Output"],
-                             duration=f"{round(end - start, 2)} seconds")
+        self.logger.log_step(log_text=f"Image Content was rewritten in {round(end - start, 2)} seconds")
+                             #inputs=input_chunk, outputs=output_dict["Output"],
+
 
         return output_dict["Output"]
 
@@ -325,12 +357,12 @@ class ImageConverter:
 
         image_df = pd.DataFrame(images)
         image_dict = {}
-        client = MultiModalVisionClient()
+
 
         for _, row in image_df.iterrows():
 
             start = time.time()
-            response = await client.describe(row['image'], question="Describe the main object and its text captions in detail.", label="vision_only")
+            response = await self.vision_client.describe(row['image'], question="Describe the main object and its text captions in detail.", label="vision_only")
             end = time.time()
 
             #print("Response:\n", response)
@@ -347,11 +379,10 @@ class ImageConverter:
 
                 is_relevant = self.filter_image_content(content)
                 if is_relevant:
-                    self.logger.log_step(task="validate", log_text="Generate Image Content", outputs=content,
-                                         duration=f"{round(end - start, 2)} seconds")
+                    self.logger.log_step(task="header_2", log_text=f"Generated Image Content in {round(end - start, 2)} seconds")
 
 
-                    image_dict[row['filename']] = self.rewrite_image_content(content)
+                    image_dict[row['filename']] = await self.rewrite_image_content(content)
 
 
         self.image_dict = image_dict
@@ -359,7 +390,7 @@ class ImageConverter:
 
 
 
-    def process_images(self, line, output_text):
+    def process_images(self, line, output_dict):
 
 
         def replace_with_dict(match):
@@ -370,7 +401,9 @@ class ImageConverter:
 
         if line.endswith(".png"):
             image_text = re.sub(r"picture-\d+\.png", replace_with_dict, line)
-            output_text += image_text
+            output_dict["text"]  += image_text
+
+
 
 
 
@@ -391,18 +424,7 @@ class BaseConverter:
 
 
 
-    async def run_conversion(self) -> None:
-        # First, check if there is any Doc_ID in the  "Docs" table that doesn't have a paragraphs table.
-        # Then, run the docling client and process the markdown text
 
-
-
-        self.logger.log_step(log_text="processing markdown")
-
-        output_text = await self.convert_file(self.input_path)
-
-        with open(self.output_path, "w", encoding="utf-8") as f:
-            f.write(output_text)
 
 
 
@@ -427,9 +449,17 @@ class CustomConverter(BaseConverter):
             self.convert_tables = True
         # --------------------
 
-        self.table_converter = TableConverter(logger=self.logger, convert_tables=self.convert_tables)
-        self.image_converter = ImageConverter()
+        self.table_converter = TableConverter(user_id=user_id, db=db, logger=self.logger, convert_tables=self.convert_tables)
+        self.image_converter = ImageConverter(user_id=user_id, db=db, logger=self.logger)
 
+        self.docling_client = ""
+
+
+    async def init_clients(self):
+
+        user_key_list = await get_user_api_keys(user_id=self.user_id, base_api="https://chat-ai.academiccloud.de/v1", db=self.db)
+
+        self.docling_client = DoclingClient(user_key_list=user_key_list, base_api="https://chat-ai.academiccloud.de/v1")
 
 
 
@@ -439,14 +469,11 @@ class CustomConverter(BaseConverter):
         #
         self.logger.log_step(log_text=f"Proceding to convert file")
 
-        user_key_list = await get_user_api_key_list(user_id=self.user_id, base_api="https://chat-ai.academiccloud.de/v1", db=self.db)
-
-        client = DoclingClient(user_key_list=user_key_list, base_api="https://chat-ai.academiccloud.de/v1")
-
+        await self.init_clients()
 
 
         start = time.time()
-        result = await client.convert(
+        result = await self.docling_client.convert(
             file_path=input_path,
             response_type=DoclingOutputType.MARKDOWN,
             extract_tables_as_images=False,
@@ -466,6 +493,7 @@ class CustomConverter(BaseConverter):
         # convert images or delete the references
         if self.do_ocr:
             start = time.time()
+            await self.image_converter.init_clients()
             await self.image_converter.convert_images(images)
             end = time.time()
 
@@ -486,6 +514,8 @@ class CustomConverter(BaseConverter):
 
         if self.keep_tables:
             start = time.time()
+            await self.table_converter.init_clients()
+
             self.table_converter.scan_paragraphs(lines)
             end = time.time()
 
@@ -493,7 +523,7 @@ class CustomConverter(BaseConverter):
 
         # initialize the paragraph_dict. If no chunkers are provided it will only store paragraphs and record their section_id
 
-        output_text = ""
+        output_dict = {"text": ""}
 
         # create new tables for this document, if they don't exist
 
@@ -507,32 +537,60 @@ class CustomConverter(BaseConverter):
 
             # process images
             if self.do_ocr:
-                self.image_converter.process_images(line, output_text)
+                self.image_converter.process_images(line, output_dict)
                 continue
 
             # process tables
             if self.keep_tables:
 
-                is_table = self.table_converter.process_tables(i, line, output_text)
+                is_table = self.table_converter.process_tables(i, line, output_dict)
                 if is_table:
                     continue
 
-            output_text += f"{line}\n"
+            output_dict["text"] += f"{line}\n"
 
         # In case that the last paragraph still belongs to a table, save this table
         if self.keep_tables:
-            self.table_converter.process_last_table(output_text)
+            self.table_converter.process_last_table(output_dict)
 
         end = time.time()
 
         self.logger.log_step(log_text=f"Processed images and tables in {end - start} seconds")
 
 
-        return output_text
+        return output_dict["text"]
+
+
+
+    async def run_conversion(self) -> None:
+        # First, check if there is any Doc_ID in the  "Docs" table that doesn't have a paragraphs table.
+        # Then, run the docling client and process the markdown text
+
+
+
+        self.logger.log_step(log_text="processing markdown")
+
+        output_text = await self.convert_file(self.input_path)
+
+        with open(self.output_path, "w", encoding="utf-8") as f:
+            f.write(output_text)
 
 
 
 
+
+
+
+"""
+
+from docling.datamodel.accelerator_options import AcceleratorDevice
+from docling.models.layout_model import LayoutModel
+from docling.utils.accelerator_utils import decide_device
+
+# Force CPU globally
+device = decide_device(AcceleratorDevice.CPU.value)
+
+"""
 
 
 
@@ -550,6 +608,10 @@ class DoclingConverter(BaseConverter):
 
         self.do_ocr = do_ocr
         self.do_table_structure = do_tables
+        # Force CPU
+
+
+
 
     def convert_file(self, input_path: str):
 
@@ -572,6 +634,22 @@ class DoclingConverter(BaseConverter):
         self.logger.log_step(task="header_2", log_text=f"Doc converted to Markdown in {end - start} seconds")
 
         return output
+
+
+    def run_conversion(self) -> None:
+        # First, check if there is any Doc_ID in the  "Docs" table that doesn't have a paragraphs table.
+        # Then, run the docling client and process the markdown text
+
+
+
+        self.logger.log_step(log_text="processing markdown")
+
+        raw_text = self.convert_file(self.input_path)
+
+        output_text = raw_text.replace("<!-- image -->", "") # remove possible image placeholders for valid markdown sections
+
+        with open(self.output_path, "w", encoding="utf-8") as f:
+            f.write(output_text)
 
 
 
@@ -601,13 +679,18 @@ class BaseChunker:
         self.paragraph_df = pd.DataFrame()
 
     @staticmethod
-    def compute_tokenizer(model: str, max_tokens: int = 512):
+    def get_tokenizer_tools(model: str, max_tokens: int = 512):
         hf_tok = AutoTokenizer.from_pretrained(model)
+        
         if not max_tokens:
             max_tokens = hf_tok.model_max_length
+        
         tokenizer: BaseTokenizer = HuggingFaceTokenizer(tokenizer=hf_tok, max_tokens=max_tokens)
 
-        return tokenizer
+        return tokenizer, max_tokens
+    
+
+        
 
     async def run_doc_chunking(self, input_path: str):
 
@@ -704,10 +787,10 @@ class ParagraphChunker(BaseChunker):
         # if tokenizer_model was given with no max_tokens
 
         elif not self.tokenizer:
-            self.tokenizer = self.compute_tokenizer(self.model, self.max_tokens)
+            self.tokenizer, self.max_tokens = self.get_tokenizer_tools(self.model, self.max_tokens)
 
         length = self.tokenizer.count_tokens(paragraph)
-        return length
+        return int(length)
 
 
 
@@ -725,6 +808,9 @@ class ParagraphChunker(BaseChunker):
                 continue
 
             p_len = self.compute_paragraph_length(p)
+
+            self.logger.log_step(log_text=f"Chunking paragraph {p}, obtained length {p_len}")
+
             if current_len + p_len > self.max_tokens:
                 chunks.append(f"{self.separator}".join(current))
                 current = [p]
@@ -758,8 +844,8 @@ class SlidingChunker(BaseChunker):
         super().__init__(db, logger, user_id, doc_id, level_name, with_title)
 
 
-        self.tokenizer = self.compute_tokenizer(tokenizer_model, max_tokens)
-        self.max_tokens = max_tokens
+        self.tokenizer, self.max_tokens = self.get_tokenizer_tools(tokenizer_model, max_tokens)
+
         self.overlap_tokens = overlap_tokens
 
 
@@ -852,7 +938,7 @@ class HybridDoclingChunker(DoclingChunker):
 
         super().__init__(db, logger, user_id, doc_id, level_name, with_title)
 
-        self.tokenizer = self.compute_tokenizer(tokenizer_model, max_tokens)
+        self.tokenizer, _ = self.get_tokenizer_tools(tokenizer_model, max_tokens)
         self.chunker = HybridChunker(tokenizer=self.tokenizer)
 
     @staticmethod
@@ -869,6 +955,13 @@ class HybridDoclingChunker(DoclingChunker):
 # ---------------- ORCHESTRATORS --------------------
 
 # ---------------------------------------------
+
+import inspect
+
+async def maybe_await(value):
+    if inspect.isawaitable(value):
+        return await value
+    return value
 
 
 
@@ -897,7 +990,7 @@ async def run_conversion(converter_dict: Dict[str, Any], user_id: UUID, doc_id: 
     converter_type = converter_dict.pop("type")
     converter = CONVERSION_TYPE_MAPPER[converter_type](**converter_dict)
 
-    await converter.run_conversion()
+    await maybe_await(converter.run_conversion())
 
     # Finally we label this doc as "converted"
     await DocPipelines.update_data(data_dict={"converted": 1}, where_dict={"user_id": user_id, "doc_id": doc_id},
@@ -905,7 +998,7 @@ async def run_conversion(converter_dict: Dict[str, Any], user_id: UUID, doc_id: 
 
     # And after that export the logs to md
 
-    export_logs(log_path, log_md_path)
+    await export_logs(log_path, log_md_path)
 
 
 
@@ -953,11 +1046,13 @@ async def run_chunking(method_list: list[dict[str, Any]], user_id: UUID, doc_id:
     
     first_method = method_list.pop(0)
     method_type = first_method.pop("type")
+    first_method.update({"logger": session_logger, "user_id": user_id, "doc_id": doc_id, "db": db})
     
     method_instance = CHUNKING_TYPE_MAPPER[method_type](**first_method)
 
     # apply first chunker to the document at this path
     old_chunk_array = await method_instance.run_doc_chunking(input_path)
+    new_chunk_array = []
 
     
     for i, method in enumerate(method_list):
@@ -987,7 +1082,7 @@ async def run_chunking(method_list: list[dict[str, Any]], user_id: UUID, doc_id:
 
     # Finally we export the logs to md
 
-    export_logs(log_path, log_md_path)
+    await export_logs(log_path, log_md_path)
             
         
             

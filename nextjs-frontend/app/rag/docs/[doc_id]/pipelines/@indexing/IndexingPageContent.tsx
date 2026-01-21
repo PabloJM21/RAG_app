@@ -157,7 +157,7 @@ export function ChunkingEditor({
     
 
     if (
-      key === "model"
+      key === "tokenizer_model"
     ) {
       return (
         <select
@@ -196,7 +196,7 @@ export function ChunkingEditor({
 
   return (
     <section>
-      <h2>Indexing</h2>
+      <h2>Chunking</h2>
 
       {/* ---------- Methods row ---------- */}
       <div

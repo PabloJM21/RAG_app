@@ -51,6 +51,139 @@ async def create_doc(
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+from app.models import ApiKey
+from app.rag_services.helpers import encrypt_key, decrypt_key
+from fastapi import Request
+from dotenv import load_dotenv
+load_dotenv()
+
+
+from loguru import logger as AgentLogger
+class KeyData(BaseModel):
+    base_key: str
+    api_key: str
+
+
+@router.post("/api_keys/")
+async def save_api_key(
+    request: Request,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+    # Read raw JSON body
+    body = await request.json()
+    AgentLogger.info(f"DEBUG: raw body received: {body}")
+
+    # Now you can validate manually
+    base_key = body.get("base_key")
+    api_key = body.get("api_key")
+    AgentLogger.info(f"DEBUG: base_key: {base_key}, api_key: {api_key}")
+
+    # Optional: validate with Pydantic manually
+    from pydantic import ValidationError
+    try:
+        key_data = KeyData(base_key=base_key, api_key=api_key)
+    except ValidationError as e:
+        AgentLogger.info(f"DEBUG: ValidationError: {e.json()}")
+        return {"error": "Invalid input", "details": e.errors()}
+
+    encrypted_value = encrypt_key(key_data.api_key)
+
+    row = await ApiKey.get_row(
+        where_dict={
+            "user_id": user.id,
+            "base_api": key_data.base_key,
+        },
+        db=db,
+    )
+
+    if row:
+        # Update existing key
+        row.encrypted_key = encrypted_value
+    else:
+        # Insert new key
+        row = await ApiKey.insert_data(
+            data_dict={
+                "user_id": user.id,
+                "base_api": key_data.base_key,
+                "encrypted_key": encrypted_value,
+            },
+            db=db,
+        )
+
+    await db.commit()
+
+    return {"status": "ok"}
+
+
+
+@router.delete("/api_keys/{key_id}")
+async def delete_api_key(
+    key_id: UUID,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+    row = await ApiKey.get_row(
+        where_dict={
+            "user_id": user.id,
+            "key_id": key_id,
+        },
+        db=db,
+    )
+
+    if not row:
+        raise HTTPException(status_code=404, detail="API key not found")
+
+    await db.delete(row)
+    await db.commit()
+
+    return {"message": "API key deleted"}
+
+
+
+class KeyReadData(BaseModel):
+    key_id: UUID
+    base_key: str
+    api_key: str
+
+@router.get("/api_keys/", response_model=List[KeyReadData])
+async def read_api_key(
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+    rows, _ = await ApiKey.get_all(
+        columns=["key_id", "base_api", "encrypted_key"],
+        where_dict={"user_id": user.id},
+        db=db,
+    )
+
+    return [
+        KeyReadData(
+            key_id=row["key_id"],
+            base_key=row["base_api"],
+            api_key=decrypt_key(row["encrypted_key"]),
+        )
+        for row in rows
+    ]
+
+
+
+
+
+
+
+
 @router.post("/uploads/{doc_id}")
 async def upload_doc_file(
     doc_id: UUID,

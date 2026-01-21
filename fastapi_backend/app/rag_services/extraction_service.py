@@ -173,20 +173,10 @@ class Enricher:
         self.model = model
         self.replace = replace
 
+        self.chat_orchestrator: Optional[ChatOrchestrator] = None
+
         # these instructions aim at replacing the content of a big chunk like "embedding_chunk" by a summary of its own input_content created previously by extracting its sections titles.
         # input_level can also refer to a child of output_level instead, which can also be a summary created previously, thus defining enrichment in a recursive manner, for example with numbered sections.
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -242,6 +232,14 @@ class Enricher:
                 """
 
         return system_prompt
+
+
+    async def init_clients(self):
+
+        user_key_list = await get_user_api_keys(user_id=self.user_id, base_api="https://chat-ai.academiccloud.de/v1", db=self.db)
+
+        self.chat_orchestrator = ChatOrchestrator(user_key_list=user_key_list,  base_api="https://chat-ai.academiccloud.de/v1")
+
 
 
 

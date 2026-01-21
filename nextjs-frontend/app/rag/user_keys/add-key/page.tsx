@@ -6,7 +6,14 @@ import { addKey } from "@/app/api/rag/user_keys/keys-action";
 import { useActionState } from "react";
 import { SubmitButton } from "@/components/ui/submitButton";
 
-const initialState = { message: "" };
+
+
+const initialState: {
+  message?: string;
+} = {};
+
+
+
 
 export default function CreateKeyPage() {
   const [state, dispatch] = useActionState(addKey, initialState);
@@ -50,16 +57,16 @@ export default function CreateKeyPage() {
             {/* API Key */}
             <div className="space-y-3">
               <Label
-                htmlFor="api_key_encrypted"
+                htmlFor="api_key"
                 className="text-gray-700 dark:text-gray-300"
               >
                 API Key
               </Label>
 
               <Input
-                id="api_key_encrypted"
-                name="api_key_encrypted"
-                type="password"
+                id="api_key"
+                name="api_key"
+                type="text"
                 placeholder="Paste your API key"
                 required
                 className="w-full border-gray-300 dark:border-gray-600"

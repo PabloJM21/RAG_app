@@ -1,4 +1,4 @@
-import { passwordResetConfirm } from "@/components/actions/password-reset-action";
+import { passwordResetConfirm } from "@/app/api/password-recovery/password-reset-action";
 import { resetResetPassword } from "@/app/clientService";
 import { redirect } from "next/navigation";
 

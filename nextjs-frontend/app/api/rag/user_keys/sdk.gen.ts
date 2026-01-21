@@ -7,6 +7,7 @@ import {
 
 import { client } from "@/app/api/custom-openapi-client/client.gen";
 
+
 export type Options<
   TData extends TDataShape = TDataShape,
   ThrowOnError extends boolean = boolean,
@@ -38,19 +39,26 @@ export type Errors = {
   422: HttpValidationError;
 };
 
-export type KeySpec = Array<Record<string, any>>;
 
 
+
+export type KeyCreate = {
+  base_key: string;
+  api_key: string;
+}
 
 
 /**
  * Create Key
  */
 export type CreateKeyData = {
-  body: KeySpec;
+  body: {
+    base_key: string;
+    api_key: string;
+  };
   path?: never;
   query?: never;
-  url: "/api_keys/data";
+  url: "/docs/api_keys/";
 };
 
 export type CreateKeyResponses = {
@@ -76,7 +84,7 @@ export const createKey = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/api_keys/data",
+    url: "/docs/api_keys/",
     ...options,
   });
 };
@@ -97,16 +105,21 @@ export type ReadKeyData = {
   body?: never;
   path?: never;
   query?: never;
-  url: "/api_keys/data";
+  url: "/docs/api_keys/";
 };
 
 
+export type KeyRead = {
+  key_id: string;
+  base_key: string;
+  api_key: string;
+}
 
 export type ReadKeyResponses = {
-  200: KeySpec;
+  200: Array<KeyRead>;
 };
 
-export const readKey = <ThrowOnError extends boolean = false>(
+export const readKeyList = <ThrowOnError extends boolean = false>(
   options?: Options<ReadKeyData, ThrowOnError>,
 ) => {
   return (options?.client ?? client).get<
@@ -121,7 +134,7 @@ export const readKey = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/api_keys/data",
+    url: "/docs/api_keys/",
     ...options,
   });
 };
@@ -139,7 +152,7 @@ export type DeleteKeyData = {
     key_id: string;
   };
   query?: never;
-  url: "/api_keys/{key_id}";
+  url: "/docs/api_keys/{key_id}";
 };
 
 
@@ -166,7 +179,7 @@ export const deleteKey = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/api_keys/{key_id}",
+    url: "/docs/api_keys/{key_id}",
     ...options,
   });
 };

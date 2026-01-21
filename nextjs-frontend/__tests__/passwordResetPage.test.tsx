@@ -2,9 +2,9 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 
 import Page from "@/app/password-recovery/page";
-import { passwordReset } from "@/components/actions/password-reset-action";
+import { passwordReset } from "@/app/api/password-recovery/password-reset-action";
 
-jest.mock("../components/actions/password-reset-action", () => ({
+jest.mock("../app/api/password-recovery/password-reset-action", () => ({
   passwordReset: jest.fn(),
 }));
 
