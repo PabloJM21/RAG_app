@@ -1,0 +1,55 @@
+Die Tabelle enthält zwei Spalten: „Organe / Bestandteile“ und „Aufgaben/Funktionen“. Die einzelnen Zeilen lauten:
+
+- **Gehirn**: Erzeugung von Nervenimpulsen zur Kommunikation und Regulation.
+- **Rückenmark**: Steuerung und Regulation sämtlicher Körperfunktionen und Bewegungen.
+- **Nerven/Nervenbahnen**: Aufnahme, Verarbeitung und Weiterleitung von Reizen.
+- **Zentrales Nervensystem**: Bewusstsein, Wahrnehmungen, Assoziationsfähigkeit, Verhaltensweisen, Emotionen, Sprache und Gedächtnis.
+- **Peripheres Nervensystem mit allen Unterstrukturen**: Schaltzentrale für Reflexe.
+- **Sinne und Sinnesorgane**: (Keine Aufgaben/Funktionen in der Tabelle angegeben).## Begriffsbeschreibungen Kreuzworträtsel
+- (1) Augen und Ohren sind …
+- (2) Das Nervensystem besitzt mehrere Grundfunktionen: Die Funktion zur Erkennung von Reizen ist die … Funktion.
+- (3) Das … Nervensystem überwacht die lebenswichtigen Körperfunktionen.
+- (4) Organ des ZNS.
+- (5) Leitungsbahn vom und zum Gehirn.
+- (6) Sämtliches Nervengewebe außerhalb des ZNS bildet das … Nervensystem.
+- (7) Teil des ANS für Aktivitäten der Erholung und der Verdauung.
+- (8) Neurone, die einen Skelettmuskel innervieren.
+## Begriffsbeschreibungen Kreuzworträtsel
+- (9) Fachbegriff Nervenzelle
+- (10) Teil der Nervenzelle zur Fortleitung von Nervenimpulsen
+- (11) Unterstützende Zellen in ZNS und PNS
+- (12) Nervenimpuls
+- (13) Tore zum Durchlass von Ionen
+- (14) ca. -70 mV
+- (15) Starke und schwache Reize werden durch die … unterschieden
+## Begriffsbeschreibungen Kreuzworträtsel
+- (16) Spezifische Gliazellen bilden eine … um die Axone.
+- (17) Schnelle Form der Signalweiterleitung im Axon
+- (18) Erkrankung, die mit Zerstörung der Myelinscheiden einhergeht: Multiple …
+- (19) Ort der Kommunikation zwischen zwei Nervenzellen
+- (20) Chemische Stoffe zur Signalübermittlung
+- (21) Das Nervensystem besitzt nur eine sehr eingeschränkte Fähigkeit zur …
+- (22) schnelle Reaktionen auf Reize ohne bewusste Wahrnehmung
+## Lösungen Kreuzworträtsel
+- (1) Sinnesorgane
+- (2) Sensorische
+- (3) Autonome
+- (4) Gehirn
+- (5) Rückenmark
+- (6) Periphere
+- (7) Parasympathikus
+- (9) Neuron
+- (10) Axon
+- (11) Gliazellen
+- (12) Aktionspotential
+- (13) Ionenkanäle
+- (14) Ruhemembranpotential
+- (15) Frequenz
+- (8) Motoneurone
+- (16) Myelinscheide
+- (17) Saltatorisch
+- (18) (Multiple) Sklerose
+- (19) Synapse
+- (20) Neurotransmitter
+- (21) Regeneration
+- (22) Reflexe

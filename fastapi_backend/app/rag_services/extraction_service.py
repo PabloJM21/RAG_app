@@ -12,10 +12,11 @@ import os
 from app.rag_apis.chat_api import ChatOrchestrator
 
 # helpers for disc paths
-from app.rag_services.helpers import get_doc_paths, get_log_paths, get_doc_name
+from app.rag_services.helpers import get_doc_paths, get_log_path, get_doc_title, get_user_api_keys
 
 #loggs
 from app.log_generator import InfoLogger
+from app.generate_markdown import export_logs
 
 
 # Database ops
@@ -66,8 +67,11 @@ class Extractor:
 
         # loggs
 
-        rows, columns = await Paragraph.get_all_paragraphs(where_dict={"user_id": self.user_id, "doc_id": self.doc_id}, db=self.db)
+        rows, columns = await Paragraph.get_all_paragraphs(columns=[f"{self.input_level}_id", f"{self.output_level}_id"], where_dict={"user_id": self.user_id, "doc_id": self.doc_id}, db=self.db)
         paragraphs_df = pd.DataFrame(rows, columns=columns)
+
+        self.logger.log_step(task="info_text", log_text=f"Extracted Paragraphs for columns: {columns}")
+        self.logger.log_step(task="info_text", log_text=f"These are as follows: {rows}")
 
         rows, columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.input_level}, db=self.db)
         input_df = pd.DataFrame(rows, columns=columns).sort_values(by="level_id")  # like the retrievals table, but one for each hierarchy level
@@ -96,6 +100,8 @@ class Extractor:
 
 
 
+
+
             # has only one element if input_ids-output_ids relationship is 1-to-1 or 1-to-* (e.g. paragraph-section, section-document)
             # otherwise it's a list (e.g. section-paragraph) and we have to iterate over all output_ids (paragraphs)
 
@@ -103,28 +109,26 @@ class Extractor:
             filtered_df = paragraphs_df[paragraphs_df[f"{self.input_level}_id"] == input_id]
 
             output_ids = list(set(filtered_df[f"{self.output_level}_id"]))
+            self.logger.log_step(task="info_text", log_text=f"Output IDs: {output_ids}")
 
             for output_id in output_ids:
 
-
-
                 # check if the content type (input or output) already exists
                 old_content = output_df.loc[output_df["level_id"] == output_id, "title"].dropna().astype(str).iloc[0]  # one row dataframe
+                self.logger.log_step(task="info_text", log_text=f"Old content of output level: {old_content}")
 
                 if old_content:
 
                     if not self.replace:
-
 
                         if self.title: # title at the top
                             updated_content = f"{new_content}\n{old_content}"
                         else: # content at the bottom
                             updated_content = f"{old_content}\n{new_content}"
 
-
                         await Retrieval.update_data(data_dict={"content": updated_content}, where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level_id": output_id, "level": self.output_level}, db=self.db)
 
-                        print(f"Updating doc_id, level_id, level: {self.doc_id, output_id, self.output_level}, with following content: {updated_content}")
+                        self.logger.log_step(task="info_text", log_text=f"Extraction: Updating doc_id, level_id, level: {self.doc_id, output_id, self.output_level}, with following content: {updated_content}")
 
                     else:
                         await Retrieval.update_data(data_dict={"content": new_content}, where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level_id": output_id, "level": self.output_level}, db=self.db)
@@ -136,7 +140,8 @@ class Extractor:
 
                     await Retrieval.insert_data(data_dict={"doc_id": self.doc_id, "level_id": output_id, "level": self.output_level, "content": new_content}, db=self.db)
 
-                    print(f"Inserting doc_id, level_id, level: {self.doc_id, output_id, self.output_level}, with following content: {new_content}")
+
+                    self.logger.log_step(task="info_text", log_text=f"Extraction: Inserting doc_id, level_id, level: {self.doc_id, output_id, self.output_level}, with following content: {new_content}")
 
         await self.db.commit()
 
@@ -221,8 +226,8 @@ class Enricher:
                 You are an assistant that must always respond in valid JSON following this schema:
 
                 {{
-                    "title": "ChunkTable",
-                    "description": "Structured Table for a document chunk.",
+                    "title": "Output",
+                    "description": "Structured Output for a document chunk.",
                     "type": "object",
                     "properties": {{
                         {specific_prompt}
@@ -249,7 +254,7 @@ class Enricher:
         # QWEN2.5_CODER_32B_INSTRUCT
 
         user_prompt = f"""
-            Please analyze following Chunk Content and generate the specified Table. Use the same language as the chunk.
+            Please analyze following Chunk Content and generate the specified Output. Use the same language as the chunk.
 
             Chunk Content:
             ---
@@ -258,21 +263,9 @@ class Enricher:
             """
 
 
+        output_dict = json.loads(self.chat_orchestrator.call(self.model, system_prompt, user_prompt))
 
-        chat_orchestrator = ChatOrchestrator()
-
-        output_dict = json.loads(chat_orchestrator.call("coder", system_prompt, user_prompt))
-
-        print("printing Chat Output: ", output_dict)
-
-        output = ""
-        for k, v in output_dict.items():
-            output += f"{k}: {v}"
-
-
-
-
-        return output
+        return output_dict["Output"]
 
 
 
@@ -282,14 +275,20 @@ class Enricher:
         # for example generate a section summary to enrich each section or provide context for all paragraphs in that section
 
         # loggs
-
+        await self.init_clients()
 
 
         rows, columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.input_level}, db=self.db)
 
+        self.logger.log_step(task="table", log_text="Enriching following chunk content: ", table_data=rows)
+
         input_df = pd.DataFrame(rows, columns=columns).sort_values(by="level_id")  # like the retrievals table, but one for each hierarchy level
 
         input_ids = list(set(input_df[f"level_id"]))
+
+
+
+        #print(f"Updating doc_id, level_id, level: {self.input_level}, ")
 
         for input_id in input_ids:
             #print(f"proceeding to enrich {input_id}")
@@ -308,9 +307,7 @@ class Enricher:
             new_content = self._enrich_chunk(system_prompt, old_content)
             end = time.time()
 
-            # start logging
-            self.logger.log_step(task="validate", log_text="enriched chunk", inputs=old_content, outputs=new_content, duration=f"{round(end - start, 2)} seconds")
-            # end logging
+
 
             if not self.replace:
 
@@ -319,12 +316,18 @@ class Enricher:
                 
                 await Retrieval.update_data(data_dict={"content": updated_content}, where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level_id": input_id, "level": self.input_level}, db=self.db)
 
-                print(f"Updating doc_id, level_id, level: {self.doc_id, input_id, self.input_level}, with following content: {updated_content}")
+
+                self.logger.log_step(task="table", table_data={"old_content": old_content, "new_content": new_content, "duration": round(end - start, 2)})
+
+
 
             else:
-                await Retrieval.update_data(data_dict={"content": new_content},
-                                            where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level_id": input_id,
-                                                        "level": self.input_level}, db=self.db)
+                await Retrieval.update_data(data_dict={"content": new_content}, where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level_id": input_id, "level": self.input_level}, db=self.db)
+
+                self.logger.log_step(task="table", table_data={"old_content": old_content, "new_content": new_content, "duration": round(end - start, 2)})
+
+
+
 
 class Reset:
 
@@ -373,9 +376,6 @@ class Reset:
         await self.db.commit()
 
 
-
-
-
 TYPE_MAPPER = {
     "Extractor": Extractor,
     "Enricher": Enricher,
@@ -384,13 +384,15 @@ TYPE_MAPPER = {
 
 async def run_extraction(method_list: list[dict[str, Any]], user_id: UUID, doc_id: UUID, db: AsyncSession):
 
-    log_path, log_md_path = await get_log_paths(user_id, stage="extraction")
+    log_path = await get_log_path(user_id, stage="extraction")
     session_logger = InfoLogger(log_path=log_path, stage="extraction")
 
     # logg
-    doc_name = await get_doc_name(user_id, doc_id, db=db)
-    session_logger.log_step(task="header_1", log_text=f"Starting Extraction for document: {doc_name}")
-    session_logger.log_step(task="table", log_text=f"Using following methods: ", table_data=method_list)
+    doc_title = await get_doc_title(user_id, doc_id, db=db)
+    session_logger.log_step(task="header_1", log_text=f"Starting Extraction for document: {doc_title}")
+    session_logger.log_step(task="info_text", log_text=f"Using following methods: ")
+    for method in method_list:
+        session_logger.log_step(task="table", table_data=method)
 
 
     for method in method_list:
@@ -398,13 +400,23 @@ async def run_extraction(method_list: list[dict[str, Any]], user_id: UUID, doc_i
 
 
         if method["type"] == "Extractor":
-            method["input_level"] = method.pop("from")
-            method["output_level"] = method.pop("to")
-    
+            input_level = method.pop("from")
+            output_level = method.pop("to")
+            method["input_level"] = input_level
+            method["output_level"] = output_level
+            session_logger.log_step(task="header_2", log_text=f"Starting Extraction from {input_level} to {output_level}")
+
+        else:
+            target_level = method["where"]
+            session_logger.log_step(task="header_2", log_text=f"Starting Enrichment at {target_level} level")
+
+
         method_type = method.pop("type")
         method_instance = TYPE_MAPPER[method_type](**method)
     
         await method_instance.run_method()
+
+    await export_logs(log_path)
 
 
 
@@ -511,7 +523,7 @@ class TableCleaner:
         end = time.time()
 
         # logg
-        self.logger.log_step(task="validate", log_text="Reasoner Retrieval", inputs=query, outputs=retrieval_output_ids, duration=f"{round(end-start, 2)} seconds")
+        self.logger.log_step(task="info_text", log_text=f"Reasoner Retrieval in {round(end-start, 2)} seconds", inputs=query, outputs=retrieval_output_ids, duration=f"")
 
 
 

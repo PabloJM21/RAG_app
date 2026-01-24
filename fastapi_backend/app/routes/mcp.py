@@ -1,8 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from uuid import UUID
 import json
 
@@ -13,14 +12,42 @@ from app.users import current_active_user
 
 
 from app.rag_services.retrieval_service import run_retrieval
+from app.mcp_tokens import create_jwt_token, decode_and_validate_mcp_token
+from fastapi import Depends, HTTPException, Request
+
+from datetime import timedelta
 
 
-from typing import List, Dict, Any
+router = APIRouter(tags=["mcp"])
 
 
 
-router = APIRouter(prefix="/mcp", tags=["mcp"])
 
+
+
+@router.post("/issue-url")
+async def issue_mcp_url(
+        user: User = Depends(current_active_user)
+):
+
+    token = create_jwt_token(
+        subject=str(user.id),
+        scope="mcp",
+        expires_delta=timedelta(minutes=30),
+    )
+
+    return {
+        "mcp_url": f"https://mcp.yourdomain.de/{token}"
+    }
+
+
+
+
+
+
+# ---------------------------------------
+# Query
+# ---------------------------------------
 
 class MCPQueryRequest(BaseModel):
     query: str
@@ -28,7 +55,7 @@ class MCPQueryRequest(BaseModel):
 
 class MCPSource(BaseModel):
     doc_id: UUID
-    chunk_id: Optional[str]
+    level_id: Optional[str]
     score: Optional[float]
 
 
@@ -44,13 +71,30 @@ class PipelineResponse(BaseModel):
     reranker: MethodSpec
     generator: MethodSpec
 
+async def current_mcp_user(
+    request: Request,
+    db: AsyncSession = Depends(get_async_session),
+) -> User:
+    auth = request.headers.get("Authorization")
+    if not auth or not auth.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing MCP token")
 
+    token = auth.removeprefix("Bearer ").strip()
+
+    payload = decode_and_validate_mcp_token(token)
+    user_id = payload["sub"]
+
+    user = await User.get(db, user_id)
+    if not user or not user.is_active:
+        raise HTTPException(status_code=401, detail="Invalid MCP user")
+
+    return user
 
 @router.post("/query", response_model=MCPQueryResponse)
 async def query_pipeline(
     payload: MCPQueryRequest,
     db: AsyncSession = Depends(get_async_session),
-    user: User = Depends(current_active_user),
+    user: User = Depends(current_mcp_user),
 ):
     """
     MCP-compatible query endpoint.

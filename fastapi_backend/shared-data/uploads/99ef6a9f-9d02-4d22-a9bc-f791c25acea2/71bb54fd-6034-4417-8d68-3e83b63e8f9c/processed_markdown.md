@@ -1,6 +1,6 @@
-<!-- image -->
 
-<!-- image -->
+
+
 
 ## GRUNDLAGEN DER BIOMEDIZIN II
 
@@ -14,9 +14,9 @@ Elisabeth Nyoungui, MD
 
 elisabeth.nyoungui@med.unigoettingen.de
 
-<!-- image -->
 
-<!-- image -->
+
+
 
 ## Lernziele der heutigen Vorlesung
 
@@ -30,27 +30,27 @@ elisabeth.nyoungui@med.unigoettingen.de
 - Sie können beispielhaft Erkrankungen des Muskelsystems nennen und kurz erläutern.
 - Sie können die dem Muskelsystem zugehörigen Organe/Bestandteile und Aufgaben nennen und beschreiben.
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
+
+
+
 
 ## Skelettsystem
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
+
+
+
+
 
 ## Knochenaufbau
 
 Innere, organische Grundsubstanz (enthält das Knochenmark)
 
-<!-- image -->
+
 
 +
 
@@ -60,7 +60,7 @@ Kompakte Außenschicht aus dichtem Knochengewebe
 
 Gelenkknorpel an den Enden, die mit einem anderen Knochen ein Gelenk bilden
 
-<!-- image -->
+
 
 +
 
@@ -71,11 +71,11 @@ Knochenhaut (versorgt den Knochen mit Nährstoffen, dient u.a. dem Ansatz von Se
 - Diese Blutgefäße werden auch von Nervenbahnen begleitet
 - Osteologie: Fachgebiet für Knochenstruktur und Behandlung von Knochenerkrankungen
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
+
+
+
 
 ## Funktionen der Knochen und des Skelettsystems
 
@@ -86,11 +86,11 @@ Knochenhaut (versorgt den Knochen mit Nährstoffen, dient u.a. dem Ansatz von Se
 - Produktion von Blutzellen : in bestimmten Knochen vom Knochenmark durchgeführt
 - Energiespeicher : Fettzellenspeicher als potentielle Energiereserve
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
+
+
+
 
 ## Knochenmark
 
@@ -105,15 +105,15 @@ Bindegewebe im Knocheninneren
 - Beim Kind in allen wachsenden Knochen vorhanden
 - Beim Erwachsenen vorrangig in Beckenknochen, Rippen, Wirbelsäule, Schädel vorhanden
 
-<!-- image -->
 
-<!-- image -->
+
+
 
 Wichtig: das sogenannte Rückenmark ist kein Knochenmark. Es besteht aus Nervenbahnen.
 
-<!-- image -->
 
-<!-- image -->
+
+
 
 ## Gelenke
 
@@ -124,11 +124,11 @@ Bindegewebige oder knöcherne Gelenke lassen sich kaum bis gar nicht bewegen (z.
 
 Freie/echte Gelenke (synoviale Gelenke / Diarthrosen) ermöglichen dagegen einen je nach Gelenkart unterschiedlich großen Bewegungsspielraum
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
+
+
+
 
 ## Aufgabe
 
@@ -136,29 +136,29 @@ Schnappen Sie sich Zettel und Stift (gerne auch in digitaler Form) und stellen S
 
 (Tipp: Es gibt sechs Arten von 'freien' Gelenken und alle davon sind bereits an Ihren Arm aufzufinden.)
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
+
+
+
+
+
 
 ## Freie Gelenke
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
+
+
+
+
+
+
 
 ## Arten von freien Gelenken
 
@@ -171,11 +171,11 @@ Es gibt sechs Arten von 'freien' Gelenken (synovialen Gelenken):
 - -Sattelgelenke (z.B. Gelenk an Daumenwurzel)
 - -Kugelgelenke (z.B. Schultergelenk, Hüftgelenk)
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
+
+
+
 
 ## Aufbau eines Gelenks
 
@@ -185,13 +185,13 @@ Es gibt sechs Arten von 'freien' Gelenken (synovialen Gelenken):
 - Gelenkflüssigkeit ermöglicht zusätzlich reibungsarmes Gleiten
 - Gelenke meist verstärkt durch Bänder
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
+
+
+
+
 
 ## Künstlicher Ersatz eines Gelenks
 
@@ -199,17 +199,17 @@ Es gibt sechs Arten von 'freien' Gelenken (synovialen Gelenken):
 - Für nahezu alle Gelenke möglich
 - Knie, Schulter und Hüfte werden am häufigsten ausgetauscht
 
-<!-- image -->
+
 
 Bild: kompletter Hüftgelenkersatz
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
+
+
+
+
 
 ## Störungen des Knochengleichgewichts und Erkrankungen des Skelettsystems
 
@@ -221,15 +221,15 @@ Bild: kompletter Hüftgelenkersatz
 - Arthrose: Oft durch Degeneration von Gelenkknorpel gekennzeichnet. An den Stellen wo Knorpel abgebaut wurde, wird Knochen nachgebildet. Dadurch Verformung der Gelenke und Einschränkung der Bewegungen.
 - Lyme-Borreliose : bakterielle Infektion führt u.a. zu Entzündungsreaktionen in den Gelenken
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
+
+
+
 
 Markieren Sie alle Begriffe, die Ihrer Meinung nach zum Skelettsystem gehören.
 
-<!-- image -->
+
 
 | Kugel- und Scharniergelenk   | Glatt, quergestreift, Herz   | Vitamin-D- Synthese       | Knochenhaut               |
 |------------------------------|------------------------------|---------------------------|---------------------------|
@@ -237,23 +237,23 @@ Markieren Sie alle Begriffe, die Ihrer Meinung nach zum Skelettsystem gehören.
 | Rheumatismus                 | Stützfunktion                | Hormon- ausschüttung      | Schutz der inneren Organe |
 | Körperhaltung                | Butzellen- produktion        | Erzeugung von Körperwärme | Erregbarkeit              |
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
+
+
+
 
 ## Lösung zum Wortsalat des Skelettsystems
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
+
+
+
 
 ## Skelettsystem - Zusammenfassung
 
-<!-- image -->
+
 
 | Organe / Bestandteile   | Aufgaben/Funktionen                                |
 |-------------------------|----------------------------------------------------|
@@ -264,21 +264,21 @@ Markieren Sie alle Begriffe, die Ihrer Meinung nach zum Skelettsystem gehören.
 |                         | Mineralstoffspeicher (z.B. Calcium, Phosphat)      |
 |                         | Energiespeicher                                    |
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
+
+
+
 
 ## Muskelsystem
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
+
+
+
+
 
 ## Muskulatur
 
@@ -290,11 +290,11 @@ Markieren Sie alle Begriffe, die Ihrer Meinung nach zum Skelettsystem gehören.
 - Ein Skelettmuskel besteht aus Muskelgewebe, Bindegewebe welches die Muskeln umgibt, Blutgefäßen und Nerven
 - Orthopädie: befasst sich mit Prävention oder Behandlung von Erkrankungen des Muskel-Skelett-Systems
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
+
+
+
 
 ## Muskelgewebsarten
 
@@ -304,11 +304,11 @@ Markieren Sie alle Begriffe, die Ihrer Meinung nach zum Skelettsystem gehören.
 - Glatte Muskulatur : zu finden hauptsächlich in den inneren Organen, z.B. in den Bronchien, in den Muskelwänden vieler Organe, den Blutgefäßen und im Auge. Kontraktion erfolgt unwillkürlich.
 - Herzmuskelgewebe : ist ein eigener Typ, eine Sonderform. Weist eine Querstreifung auf, kontrahiert jedoch unwillkürlich. Kaum regenerationsfähig.
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
+
+
+
 
 ## Funktionen des Muskelgewebes
 
@@ -318,11 +318,11 @@ Markieren Sie alle Begriffe, die Ihrer Meinung nach zum Skelettsystem gehören.
 - Regulation des Organvolumens : Organwände z.B. im Magen-Darm-Trakt müssen gleichbleibenden Druck auf Inhalt ausüben, Blutgefäßwände müssen gleichbleibenden Druck auf das Blut aufrechterhalten
 - Wärmeerzeugung : Wenn sich Muskelgewebe kontrahiert, erzeugt es Wärme. Großteil davon zur Aufrechterhaltung der Körpertemperatur verwendet.
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
+
+
+
 
 ## Eigenschaften von Muskelgewebe
 
@@ -331,11 +331,11 @@ Markieren Sie alle Begriffe, die Ihrer Meinung nach zum Skelettsystem gehören.
 - Dehnbarkeit: Fähigkeit ohne Beschädigung gedehnt zu werden. Dehnbarkeit erlaubt es, dass auch dann noch kräftig kontrahieren kann, wenn er gedehnt ist.
 - Elastizität : Fähigkeit, nach Kontraktion oder Dehnung wieder in ursprüngliche Lage und Gestalt zurückzukehren.
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
+
+
+
 
 ## Begleitstrukturen der Muskulatur
 
@@ -344,11 +344,11 @@ Markieren Sie alle Begriffe, die Ihrer Meinung nach zum Skelettsystem gehören.
 - Blutgefäße (Arterien und Venen) und winzige Blutkapillaren (mikroskopisch kleine Blutgefäße) versorgen das Muskelgewebe einerseits mit Sauerstoff und Nährstoffen. Andererseits führen sie Wärme und Abfallstoffe des Muskelstoffwechsels ab. Jede Muskelfaser steht in engem Kontakt mit einer oder mehreren Blutkapillaren.
 - Bei Kontraktion verbraucht ein Muskel beträchtliche Mengen an chemischer Energie, sowie Sauerstoff, Glucose, Fettsäuren und andere Substanzen . Diese werden dem Muskel zum Teil mit dem Blut zugeführt.
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
+
+
+
 
 ## Aufgabe
 
@@ -360,11 +360,11 @@ Halten Sie den Gegenstand so lange in dieser Position wie Sie können und messen
 
 Beschreiben Sie Ihre Erfahrungen…
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
+
+
+
 
 ## Anatomie der Skelettmuskelfaser
 
@@ -377,21 +377,21 @@ Beschreiben Sie Ihre Erfahrungen…
 - Myofibrillen = kontraktile Elemente des Skelettmuskels
 - Durch die Myofibrillen entsteht die auffällige Streifung, die diesem Gewebe den Namen ,Quergestreifte Muskulatur' eingebracht hat.
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
+
+
+
+
+
+
+
+
 
 ## Aufbau der Myofibrillen
 
@@ -403,17 +403,17 @@ Beschreiben Sie Ihre Erfahrungen…
 - Actinfilamente sind mit Z-Scheiben verbunden
 - Myosinköpfe zeigen nach außen zu den umgebenden Actinfilamenten
 
-<!-- image -->
 
-<!-- image -->
+
+
 
 Die Anordnung der Filamente im Sarkomer
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
+
+
+
 
 ## Voraussetzungen für Muskelkontraktion
 
@@ -422,19 +422,19 @@ Die Anordnung der Filamente im Sarkomer
 - Dabei wird chemische Energie in mechanische Bewegungsenergie umgewandelt.
 - Daneben gibt es noch viele weitere Strukturproteine, die das Konstrukt stabilisieren und für Elastizität und Dehnbarkeit sorgen.
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
+
+
+
 
 ## Der Filamentgleitmechanismus der Muskelkontraktion (Bild)
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
+
+
+
 
 ## Der Filamentgleitmechanismus der Muskelkontraktion (Text)
 
@@ -445,11 +445,11 @@ Die Anordnung der Filamente im Sarkomer
 - Eine Verkürzung der Sarkomere verursacht eine Verkürzung der gesamten Muskelfaser. Dies führt wiederum zur Verkürzung des gesamten Muskels.
 - Bei der Muskelkontraktion werden beträchtliche Mengen an chemischer Energie, sowie Sauerstoff, Glucose, Fettsäuren und andere Substanzen verbraucht.
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
+
+
+
 
 ## Vom Muskel zur Bewegung
 
@@ -460,13 +460,13 @@ Die Anordnung der Filamente im Sarkomer
 - Kontraktion des Antagonisten  Bewegung in die entgegengesetzte Richtung  Hierbei nun Dehnung des Agonisten
 - Muskelfasern setzen selber nicht direkt an der Knochenhaut an, sondern sind über eine Sehne mit dieser verbunden
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
+
+
+
+
 
 ## Glatte Muskulatur
 
@@ -477,13 +477,13 @@ Die Anordnung der Filamente im Sarkomer
 - Actinfilamente hier mit dichten Körpern verbunden, die den Z-Scheiben ähneln.
 - Die glatte Muskelfaser dreht sich bei Kontraktion durch den Filamentgleitmechanismus wie ein Korkenzieher zu einer Spirale, was zur Längenverkürzung führt.
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
+
+
+
+
 
 ## Herzmuskelgewebe
 
@@ -495,11 +495,11 @@ Die Anordnung der Filamente im Sarkomer
 
 Weitere Details siehe Vorlesungstermin zum Herz-Kreislaufsystem
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
+
+
+
 
 ## Erkrankungen des Muskelsystems
 
@@ -507,35 +507,35 @@ Weitere Details siehe Vorlesungstermin zum Herz-Kreislaufsystem
 - Muskeldystrophie : Gruppe ererbter muskelzerstörender Krankheiten mit fortschreitender Degeneration der Skelettmuskelfasern.
 - Abnorme Skelettmuskelkontraktionen : z.B. plötzliche, unwillkürliche Kontraktion eines einzelnen Muskels (Spasmus) oder schmerzhafte krampfhafte Kontraktion (Krampf), etc. Krampf kann verursacht werden durch ungenügende Blutzufuhr, Überbeanspruchung, Austrocknung, Verletzung, Beibehaltung einer Lage
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
+
+
+
+
 
 Markieren Sie alle Begriffe, die Ihrer Meinung nach zum Muskelsystem gehören.
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
+
+
+
+
 
 ## Lösung zum Wortsalat des Muskelsystems
 
-<!-- image -->
 
-<!-- image -->
 
-<!-- image -->
+
+
+
 
 ## Muskelsystem - Zusammenfassung
 
-<!-- image -->
+
 
 | Organe / Bestandteile   | Aufgaben/Funktionen                                        |
 |-------------------------|------------------------------------------------------------|
@@ -545,6 +545,5 @@ Markieren Sie alle Begriffe, die Ihrer Meinung nach zum Muskelsystem gehören.
 |                         | Speicherung und Bewegung von Stoffen innerhalb des Körpers |
 |                         | Regulation des Organvolumens                               |
 
-<!-- image -->
 
-<!-- image -->
+

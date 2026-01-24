@@ -1,14 +1,20 @@
-import { useFormStatus } from "react-dom";
-import { Button } from "@/components/ui/button";
+"use client"
 
-type ActionButtonProps = {
-  onClick: () => void
-}
+import { useFormStatus } from "react-dom"
+import { Button } from "@/components/ui/button"
 
-export function RunButton({ onClick }: ActionButtonProps) {
+export function RunButton({ label }: { label: string }) {
+  const { pending } = useFormStatus()
+
   return (
-    <button onClick={onClick} style={{ marginLeft: 8 }}>
-      Run Extraction
-    </button>
+    <Button
+      type="submit"
+      disabled={pending}
+      style={{ marginLeft: 8 }}
+    >
+      {pending ? `Running ${label}…` : `Run ${label}`}
+    </Button>
   )
 }
+
+

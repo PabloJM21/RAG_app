@@ -44,11 +44,6 @@ import type {
   UsersPatchUserData,
   UsersPatchUserResponses,
   UsersPatchUserErrors,
-  ReadDocListData,
-  ReadDocListResponses,
-  CreateDocData,
-  CreateDocResponses,
-  CreateDocErrors,
   ReadApiKeyData,
   ReadApiKeyResponses,
   SaveApiKeyData,
@@ -56,17 +51,17 @@ import type {
   DeleteApiKeyData,
   DeleteApiKeyResponses,
   DeleteApiKeyErrors,
+  ReadDocListData,
+  ReadDocListResponses,
+  CreateDocData,
+  CreateDocResponses,
+  CreateDocErrors,
   UploadDocFileData,
   UploadDocFileResponses,
   UploadDocFileErrors,
   DeleteDocData,
   DeleteDocResponses,
   DeleteDocErrors,
-  ReadDocList2Data,
-  ReadDocList2Responses,
-  CreateDoc2Data,
-  CreateDoc2Responses,
-  CreateDoc2Errors,
   ReadApiKey2Data,
   ReadApiKey2Responses,
   SaveApiKey2Data,
@@ -74,6 +69,11 @@ import type {
   DeleteApiKey2Data,
   DeleteApiKey2Responses,
   DeleteApiKey2Errors,
+  ReadDocList2Data,
+  ReadDocList2Responses,
+  CreateDoc2Data,
+  CreateDoc2Responses,
+  CreateDoc2Errors,
   UploadDocFile2Data,
   UploadDocFile2Responses,
   UploadDocFile2Errors,
@@ -141,6 +141,11 @@ import type {
   ExportPipelineErrors,
   ExportAllData,
   ExportAllResponses,
+  IssueMcpUrlData,
+  IssueMcpUrlResponses,
+  QueryPipelineData,
+  QueryPipelineResponses,
+  QueryPipelineErrors,
 } from "./types.gen";
 import { client } from "./client.gen";
 
@@ -434,56 +439,6 @@ export const usersPatchUser = <ThrowOnError extends boolean = false>(
 };
 
 /**
- * Read Doc List
- */
-export const readDocList = <ThrowOnError extends boolean = false>(
-  options?: Options<ReadDocListData, ThrowOnError>,
-) => {
-  return (options?.client ?? client).get<
-    ReadDocListResponses,
-    unknown,
-    ThrowOnError
-  >({
-    responseType: "json",
-    security: [
-      {
-        scheme: "bearer",
-        type: "http",
-      },
-    ],
-    url: "/docs/",
-    ...options,
-  });
-};
-
-/**
- * Create Doc
- */
-export const createDoc = <ThrowOnError extends boolean = false>(
-  options: Options<CreateDocData, ThrowOnError>,
-) => {
-  return (options.client ?? client).post<
-    CreateDocResponses,
-    CreateDocErrors,
-    ThrowOnError
-  >({
-    responseType: "json",
-    security: [
-      {
-        scheme: "bearer",
-        type: "http",
-      },
-    ],
-    url: "/docs/",
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-  });
-};
-
-/**
  * Read Api Key
  */
 export const readApiKey = <ThrowOnError extends boolean = false>(
@@ -553,6 +508,56 @@ export const deleteApiKey = <ThrowOnError extends boolean = false>(
 };
 
 /**
+ * Read Doc List
+ */
+export const readDocList = <ThrowOnError extends boolean = false>(
+  options?: Options<ReadDocListData, ThrowOnError>,
+) => {
+  return (options?.client ?? client).get<
+    ReadDocListResponses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/docs/",
+    ...options,
+  });
+};
+
+/**
+ * Create Doc
+ */
+export const createDoc = <ThrowOnError extends boolean = false>(
+  options: Options<CreateDocData, ThrowOnError>,
+) => {
+  return (options.client ?? client).post<
+    CreateDocResponses,
+    CreateDocErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/docs/",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
  * Upload Doc File
  */
 export const uploadDocFile = <ThrowOnError extends boolean = false>(
@@ -600,56 +605,6 @@ export const deleteDoc = <ThrowOnError extends boolean = false>(
     ],
     url: "/docs/{doc_id}",
     ...options,
-  });
-};
-
-/**
- * Read Doc List
- */
-export const readDocList2 = <ThrowOnError extends boolean = false>(
-  options?: Options<ReadDocList2Data, ThrowOnError>,
-) => {
-  return (options?.client ?? client).get<
-    ReadDocList2Responses,
-    unknown,
-    ThrowOnError
-  >({
-    responseType: "json",
-    security: [
-      {
-        scheme: "bearer",
-        type: "http",
-      },
-    ],
-    url: "/api_keys/",
-    ...options,
-  });
-};
-
-/**
- * Create Doc
- */
-export const createDoc2 = <ThrowOnError extends boolean = false>(
-  options: Options<CreateDoc2Data, ThrowOnError>,
-) => {
-  return (options.client ?? client).post<
-    CreateDoc2Responses,
-    CreateDoc2Errors,
-    ThrowOnError
-  >({
-    responseType: "json",
-    security: [
-      {
-        scheme: "bearer",
-        type: "http",
-      },
-    ],
-    url: "/api_keys/",
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
   });
 };
 
@@ -719,6 +674,56 @@ export const deleteApiKey2 = <ThrowOnError extends boolean = false>(
     ],
     url: "/api_keys/api_keys/{key_id}",
     ...options,
+  });
+};
+
+/**
+ * Read Doc List
+ */
+export const readDocList2 = <ThrowOnError extends boolean = false>(
+  options?: Options<ReadDocList2Data, ThrowOnError>,
+) => {
+  return (options?.client ?? client).get<
+    ReadDocList2Responses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/api_keys/",
+    ...options,
+  });
+};
+
+/**
+ * Create Doc
+ */
+export const createDoc2 = <ThrowOnError extends boolean = false>(
+  options: Options<CreateDoc2Data, ThrowOnError>,
+) => {
+  return (options.client ?? client).post<
+    CreateDoc2Responses,
+    CreateDoc2Errors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/api_keys/",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
   });
 };
 
@@ -1302,5 +1307,51 @@ export const exportAll = <ThrowOnError extends boolean = false>(
     ],
     url: "/retrieval/run",
     ...options,
+  });
+};
+
+/**
+ * Issue Mcp Url
+ */
+export const issueMcpUrl = <ThrowOnError extends boolean = false>(
+  options?: Options<IssueMcpUrlData, ThrowOnError>,
+) => {
+  return (options?.client ?? client).post<
+    IssueMcpUrlResponses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/mcp/issue-url",
+    ...options,
+  });
+};
+
+/**
+ * Query Pipeline
+ * MCP-compatible query endpoint.
+ * Executes the full RAG pipeline and returns a final answer.
+ */
+export const queryPipeline = <ThrowOnError extends boolean = false>(
+  options: Options<QueryPipelineData, ThrowOnError>,
+) => {
+  return (options.client ?? client).post<
+    QueryPipelineResponses,
+    QueryPipelineErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    url: "/mcp/query",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
   });
 };

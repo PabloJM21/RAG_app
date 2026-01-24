@@ -9,8 +9,8 @@ import {createPipeline, PipelineSpec, readPipeline, runPipeline} from "./sdk.gen
 
 
 
-export async function runConversion(doc_id: string) {
-
+export async function runConversion(formData: FormData) {
+  const doc_id = formData.get("doc_id") as string;
   const cookieStore = await cookies();
   const token = cookieStore.get("accessToken")?.value;
 

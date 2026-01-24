@@ -20,45 +20,11 @@ from uuid import uuid4
 router = APIRouter(tags=["docs"])
 
 
-class DocResponse(BaseModel):
-    name: str
-    doc_id: UUID
+
+# -----------------------------------------------------------
 
 
-class DocCreate(BaseModel):
-    name: str
-
-
-@router.post("/", response_model=DocResponse)
-async def create_doc(
-    doc: DocCreate,
-    db: AsyncSession = Depends(get_async_session),
-    user: User = Depends(current_active_user),
-):
-
-    db_doc = await DocPipelines.insert_data(data_dict={"name": doc.name, "user_id": user.id}, db=db) #"path": None
-
-    await db.commit()
-    await db.refresh(db_doc)
-
-
-    return {
-        "name": db_doc.name,
-        "doc_id": db_doc.doc_id,
-    }
-
-
-
-
-
-
-
-
-
-
-
-
-
+# API Keys
 
 
 
@@ -181,6 +147,39 @@ async def read_api_key(
 
 
 
+# -------------------------------------------------------------------
+
+# Docs
+
+
+
+
+class DocResponse(BaseModel):
+    name: str
+    doc_id: UUID
+
+
+class DocCreate(BaseModel):
+    name: str
+
+
+@router.post("/", response_model=DocResponse)
+async def create_doc(
+    doc: DocCreate,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+
+    db_doc = await DocPipelines.insert_data(data_dict={"name": doc.name, "user_id": user.id}, db=db) #"path": None
+
+    await db.commit()
+    await db.refresh(db_doc)
+
+
+    return {
+        "name": db_doc.name,
+        "doc_id": db_doc.doc_id,
+    }
 
 
 
@@ -223,7 +222,7 @@ async def upload_doc_file(
 
 
 
-
+from shutil import rmtree
 
 
 @router.delete("/{doc_id}")
@@ -232,26 +231,37 @@ async def delete_doc(
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
-
-
-    row = await DocPipelines.get_row(where_dict={"doc_id": doc_id, "user_id": user.id}, db=db) #"path": None
-
+    row = await DocPipelines.get_row(
+        where_dict={"doc_id": doc_id, "user_id": user.id},
+        db=db,
+    )
 
     if not row:
         raise HTTPException(status_code=404, detail="Doc not found or not authorized")
 
-    # delete file first
-    file_path = Path(row.path).resolve()
-    if file_path.exists():
-        file_path.unlink()
-    parent = file_path.parent
-    parent.rmdir()
+    # Delete filesystem artifacts
+    if row.path:
+        file_path = Path(row.path).resolve()
 
+        # Safety check: ensure we only delete inside uploads
+        uploads_root = Path("shared-data/uploads").resolve()
 
+        if uploads_root in file_path.parents:
+            doc_dir = file_path.parent
+            if doc_dir.exists():
+                rmtree(doc_dir)  # 🔥 removes everything safely
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid file path; refusing to delete",
+            )
+
+    # Delete DB row
     await db.delete(row)
     await db.commit()
 
     return {"message": "Doc successfully deleted"}
+
 
 
 

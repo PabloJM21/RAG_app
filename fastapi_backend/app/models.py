@@ -252,7 +252,7 @@ class Paragraph(Base):
         }
 
         # 3. the new dict consists of paragraph_dict, plus the metadata_dict stored inside the "paragraph_metadata" key
-        new_dict = paragraph_dict | {"paragraph_metadata": metadata_dict}
+        new_dict = paragraph_dict | {"paragraph_metadata": json.dumps(metadata_dict)}
         new_row = cls(**new_dict)
         db.add(new_row)
 
@@ -329,6 +329,7 @@ class Paragraph(Base):
         PARAGRAPH_KEYS = {"paragraph_id", "paragraph", "user_id", "doc_id"}
 
         if not columns:
+            # This is wrong and should be replaced
             columns = [c.key for c in inspect(cls).mapper.column_attrs]
 
         raw_columns = [c for c in columns if c in PARAGRAPH_KEYS]
@@ -360,7 +361,30 @@ class Paragraph(Base):
             stmt = stmt.where(and_(*filters))
 
         result = await db.execute(stmt)
-        return result.mappings().all(), columns
+
+
+        rows = result.mappings().all()
+
+        # ------------------------
+        # Column handling
+        # ------------------------
+
+        metadata_keys = set(columns) - PARAGRAPH_KEYS
+
+        # ------------------------
+        # Merge metadata
+        # ------------------------
+        output = []
+
+        for row in rows:
+            meta = row.get("paragraph_metadata") or {}
+            merged = {
+                **{k: row[k] for k in PARAGRAPH_KEYS if k in row},
+                **{k: v for k, v in meta.items() if k in metadata_keys},
+            }
+            output.append(merged)
+
+        return rows, columns
 
 
 

@@ -135,6 +135,48 @@ export type KeyReadData = {
 };
 
 /**
+ * MCPQueryRequest
+ */
+export type McpQueryRequest = {
+  /**
+   * Query
+   */
+  query: string;
+};
+
+/**
+ * MCPQueryResponse
+ */
+export type McpQueryResponse = {
+  /**
+   * Answer
+   */
+  answer: string;
+  /**
+   * Sources
+   */
+  sources?: Array<McpSource> | null;
+};
+
+/**
+ * MCPSource
+ */
+export type McpSource = {
+  /**
+   * Doc Id
+   */
+  doc_id: string;
+  /**
+   * Level Id
+   */
+  level_id: string | null;
+  /**
+   * Score
+   */
+  score: number | null;
+};
+
+/**
  * PipelineResponse
  */
 export type PipelineResponse = {
@@ -665,49 +707,6 @@ export type UsersPatchUserResponses = {
 export type UsersPatchUserResponse =
   UsersPatchUserResponses[keyof UsersPatchUserResponses];
 
-export type ReadDocListData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: "/docs/";
-};
-
-export type ReadDocListResponses = {
-  /**
-   * Response Docs-Read Doc List
-   * Successful Response
-   */
-  200: Array<DocResponse>;
-};
-
-export type ReadDocListResponse =
-  ReadDocListResponses[keyof ReadDocListResponses];
-
-export type CreateDocData = {
-  body: DocCreate;
-  path?: never;
-  query?: never;
-  url: "/docs/";
-};
-
-export type CreateDocErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type CreateDocError = CreateDocErrors[keyof CreateDocErrors];
-
-export type CreateDocResponses = {
-  /**
-   * Successful Response
-   */
-  200: DocResponse;
-};
-
-export type CreateDocResponse = CreateDocResponses[keyof CreateDocResponses];
-
 export type ReadApiKeyData = {
   body?: never;
   path?: never;
@@ -767,6 +766,49 @@ export type DeleteApiKeyResponses = {
   200: unknown;
 };
 
+export type ReadDocListData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/docs/";
+};
+
+export type ReadDocListResponses = {
+  /**
+   * Response Docs-Read Doc List
+   * Successful Response
+   */
+  200: Array<DocResponse>;
+};
+
+export type ReadDocListResponse =
+  ReadDocListResponses[keyof ReadDocListResponses];
+
+export type CreateDocData = {
+  body: DocCreate;
+  path?: never;
+  query?: never;
+  url: "/docs/";
+};
+
+export type CreateDocErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type CreateDocError = CreateDocErrors[keyof CreateDocErrors];
+
+export type CreateDocResponses = {
+  /**
+   * Successful Response
+   */
+  200: DocResponse;
+};
+
+export type CreateDocResponse = CreateDocResponses[keyof CreateDocResponses];
+
 export type UploadDocFileData = {
   body: BodyDocsUploadDocFile;
   path: {
@@ -822,49 +864,6 @@ export type DeleteDocResponses = {
    */
   200: unknown;
 };
-
-export type ReadDocList2Data = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: "/api_keys/";
-};
-
-export type ReadDocList2Responses = {
-  /**
-   * Response Docs-Read Doc List
-   * Successful Response
-   */
-  200: Array<DocResponse>;
-};
-
-export type ReadDocList2Response =
-  ReadDocList2Responses[keyof ReadDocList2Responses];
-
-export type CreateDoc2Data = {
-  body: DocCreate;
-  path?: never;
-  query?: never;
-  url: "/api_keys/";
-};
-
-export type CreateDoc2Errors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type CreateDoc2Error = CreateDoc2Errors[keyof CreateDoc2Errors];
-
-export type CreateDoc2Responses = {
-  /**
-   * Successful Response
-   */
-  200: DocResponse;
-};
-
-export type CreateDoc2Response = CreateDoc2Responses[keyof CreateDoc2Responses];
 
 export type ReadApiKey2Data = {
   body?: never;
@@ -925,6 +924,49 @@ export type DeleteApiKey2Responses = {
    */
   200: unknown;
 };
+
+export type ReadDocList2Data = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/api_keys/";
+};
+
+export type ReadDocList2Responses = {
+  /**
+   * Response Docs-Read Doc List
+   * Successful Response
+   */
+  200: Array<DocResponse>;
+};
+
+export type ReadDocList2Response =
+  ReadDocList2Responses[keyof ReadDocList2Responses];
+
+export type CreateDoc2Data = {
+  body: DocCreate;
+  path?: never;
+  query?: never;
+  url: "/api_keys/";
+};
+
+export type CreateDoc2Errors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type CreateDoc2Error = CreateDoc2Errors[keyof CreateDoc2Errors];
+
+export type CreateDoc2Responses = {
+  /**
+   * Successful Response
+   */
+  200: DocResponse;
+};
+
+export type CreateDoc2Response = CreateDoc2Responses[keyof CreateDoc2Responses];
 
 export type UploadDocFile2Data = {
   body: BodyDocsUploadDocFile;
@@ -1607,6 +1649,46 @@ export type ExportAllResponses = {
    */
   200: unknown;
 };
+
+export type IssueMcpUrlData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/mcp/issue-url";
+};
+
+export type IssueMcpUrlResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type QueryPipelineData = {
+  body: McpQueryRequest;
+  path?: never;
+  query?: never;
+  url: "/mcp/query";
+};
+
+export type QueryPipelineErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type QueryPipelineError = QueryPipelineErrors[keyof QueryPipelineErrors];
+
+export type QueryPipelineResponses = {
+  /**
+   * Successful Response
+   */
+  200: McpQueryResponse;
+};
+
+export type QueryPipelineResponse =
+  QueryPipelineResponses[keyof QueryPipelineResponses];
 
 export type ClientOptions = {
   baseURL: `${string}://openapi.json` | (string & {});

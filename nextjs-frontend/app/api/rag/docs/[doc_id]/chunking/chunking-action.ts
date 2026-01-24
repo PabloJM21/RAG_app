@@ -5,7 +5,8 @@ import {cookies} from "next/headers";
 import {revalidatePath} from "next/cache";
 import {createPipeline, PipelineSpec, readPipeline, runPipeline, readLevels} from "./sdk.gen";
 
-export async function runChunking(doc_id: string) {
+export async function runChunking(formData: FormData) {
+  const doc_id = formData.get("doc_id") as string;
 
   const cookieStore = await cookies();
   const token = cookieStore.get("accessToken")?.value;

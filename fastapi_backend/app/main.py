@@ -4,12 +4,14 @@ from .users import auth_backend, fastapi_users, AUTH_URL_PATH
 from .schemas import UserCreate, UserRead, UserUpdate
 from fastapi.middleware.cors import CORSMiddleware
 from .utils import simple_generate_unique_route_id
+from app.routes.api_keys import router as api_router
 from app.routes.docs import router as docs_router
 from app.routes.main_pipeline import router as main_pipeline_router
 from app.routes.conversion import router as conversion_router
 from app.routes.chunking import router as chunking_router
 from app.routes.extraction import router as extraction_router
 from app.routes.retrieval import router as retrieval_router
+from app.routes.mcp import router as mcp_router
 from app.config import settings
 from app.database import create_db_and_tables, drop_tables, drop_specific_table
 
@@ -49,10 +51,10 @@ app = FastAPI(
 
 
 #await drop_tables()
+#await drop_specific_table("Retrievals")
 
 @app.on_event("startup")
 async def on_startup():
-    await drop_specific_table("Retrievals")
     await create_db_and_tables()
 
 
@@ -100,4 +102,6 @@ app.include_router(conversion_router, prefix="/conversion")
 app.include_router(chunking_router, prefix="/chunking")
 app.include_router(extraction_router, prefix="/extraction")
 app.include_router(retrieval_router, prefix="/retrieval")
+app.include_router(mcp_router, prefix="/mcp")
+
 add_pagination(app)

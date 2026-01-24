@@ -45,7 +45,7 @@ from docling.document_converter import PdfFormatOption
 
 # helpers for disc paths
 
-from app.rag_services.helpers import get_doc_paths, get_log_paths, get_doc_name, get_user_api_keys
+from app.rag_services.helpers import get_doc_paths, get_log_path, get_doc_title, get_user_api_keys
 
 
 #logs
@@ -159,7 +159,7 @@ class TableConverter:
                 """
 
         user_prompt = f"""
-                    Analyze the content of following TABLE and generate the specified transcription. 
+                    Analyze the content of following TABLE and generate the specified transcription in the same language it is written
 
                     TABLE:
                     ---
@@ -168,17 +168,10 @@ class TableConverter:
                     """
 
 
-        start = time.time()
+
         output_dict = json.loads(self.chat_orchestrator.call("thinker", system_prompt, user_prompt))
-        end = time.time()
 
-        #print("printing Chat Output: ", output_dict)
 
-        # start logging
-
-        self.logger.log_step(log_text=f"Explained Table Content in {round(end - start, 2)} seconds")
-                             #inputs=input_table, outputs=output_dict["Output"]
-        # end logging
 
         return output_dict["Output"]
 
@@ -197,12 +190,19 @@ class TableConverter:
             
             if self.convert_tables:
                 # process table into readable text
-                output_dict["text"] = self.explain_table_content(self.table_paragraph)
+                start = time.time()
+                explained_table = self.explain_table_content(self.table_paragraph)
+                end = time.time()
+                output_dict["text"] += f"{explained_table}\n"
+
+                self.logger.log_step(task="table", log_text="Explained table content: ", table_data={"Duration": round(end - start, 2), "Input": self.table_paragraph, "Output": explained_table})
 
     
             else:
                 output_dict["text"] += f"{self.table_paragraph}\n"
-    
+
+                self.logger.log_step(task="info_text", log_text=f"Saved new table:\n {self.table_paragraph}\n")
+
             self.table_paragraph = ""
 
 
@@ -216,11 +216,19 @@ class TableConverter:
 
             if self.convert_tables:
                 # process table into readable text
-                output_dict["text"] = self.explain_table_content(self.table_paragraph)
+                start = time.time()
+                explained_table = self.explain_table_content(self.table_paragraph)
+                end = time.time()
+                output_dict["text"] += f"{explained_table}\n"
+
+                self.logger.log_step(task="table", log_text="Explained table content of last table: ",
+                                     table_data={"Duration": round(end - start, 2), "Input": self.table_paragraph,
+                                                 "Output": explained_table})
+
 
             else:
                 output_dict["text"] += f"{self.table_paragraph}\n"
-
+                self.logger.log_step(task="info_text", log_text=f"Saved last table:\n {self.table_paragraph}\n")
 
 
 
@@ -240,6 +248,9 @@ class ImageConverter:
 
         self.chat_orchestrator: Optional[ChatOrchestrator] = None
         self.vision_client: Optional[MultiModalVisionClient] = None
+        
+        #new approach
+        self.image_dict_b64 = {}
 
 
     async def init_clients(self):
@@ -271,7 +282,7 @@ class ImageConverter:
                             "properties": {
                                 "Boolean": {
                                     "title": "Boolean",
-                                    "description": "A boolean that is False if the specified chunk corresponds to a document's layout rather than its main content, and True otherwise",
+                                    "description": "A boolean that is False if the specified chunk is not scientific text, and True otherwise",
                                     "type": "Boolean"
                                 }
                             }   
@@ -292,8 +303,6 @@ class ImageConverter:
 
 
         output_dict = json.loads(self.chat_orchestrator.call("thinker", system_prompt, user_prompt))
-
-        #print("printing Chat Boolean Output: ", output_dict)
 
 
 
@@ -326,7 +335,7 @@ class ImageConverter:
                 """
 
         user_prompt = f"""
-                    Analyze the content of following CHUNK and generate the specified transcription. 
+                    Analyze the content of following CHUNK and generate the specified transcription in the same language it is written. 
 
                     CHUNK:
                     ---
@@ -341,22 +350,21 @@ class ImageConverter:
 
         #print("printing Chat Output: ", output_dict)
 
-        self.logger.log_step(log_text=f"Image Content was rewritten in {round(end - start, 2)} seconds")
+        self.logger.log_step(task="info_text", log_text=f"Image Content was rewritten in {round(end - start, 2)} seconds")
                              #inputs=input_chunk, outputs=output_dict["Output"],
 
 
         return output_dict["Output"]
 
-
-    async def convert_images(self, images):
-
+    # 1. Approach
 
 
-
+    async def init_image_dict(self, images):
 
 
         image_df = pd.DataFrame(images)
         image_dict = {}
+        
 
 
         for _, row in image_df.iterrows():
@@ -365,7 +373,7 @@ class ImageConverter:
             response = await self.vision_client.describe(row['image'], question="Describe the main object and its text captions in detail.", label="vision_only")
             end = time.time()
 
-            #print("Response:\n", response)
+
 
 
 
@@ -373,24 +381,28 @@ class ImageConverter:
             match = re.search(pattern, response, flags=re.DOTALL)
             if match:
                 content = match.group(1).strip()
-
-
+                self.logger.log_step(task="table", log_text=f"Generated Image Content: ", table_data={"Duration": round(end - start, 2), "Output": content})
 
 
                 is_relevant = self.filter_image_content(content)
                 if is_relevant:
-                    self.logger.log_step(task="header_2", log_text=f"Generated Image Content in {round(end - start, 2)} seconds")
 
+                    start = time.time()
+                    output_image_content = await self.rewrite_image_content(content)
+                    end = time.time()
 
-                    image_dict[row['filename']] = await self.rewrite_image_content(content)
+                    self.logger.log_step(task="table", log_text=f"Rewritten Image Content: ", table_data={"Duration": round(end - start, 2), "Input": content, "Output": output_image_content})
+
+                    image_dict[row['filename']] = f"{output_image_content}"
 
 
         self.image_dict = image_dict
 
 
+   
 
 
-    def process_images(self, line, output_dict):
+    def process_images(self, line):
 
 
         def replace_with_dict(match):
@@ -401,12 +413,67 @@ class ImageConverter:
 
         if line.endswith(".png"):
             image_text = re.sub(r"picture-\d+\.png", replace_with_dict, line)
-            output_dict["text"]  += image_text
+            #output_dict["text"] += image_text
+            return image_text
+
+        return False
 
 
 
+    # 2. Approach
+    
+    
+
+    def init_b64_image_dict(self, images):
+        image_dict_b64 = {}
+
+        for row in images:
+
+            image_dict_b64[row['filename']] = row['image']
+
+        self.image_dict_b64 = image_dict_b64
 
 
+
+    async def process_b64_images(self, line):
+        
+        def replace_with_dict(match):
+            key = match.group(0)  # the full matched string, e.g. "picture-1.png"
+            image_caption = self.image_dict.get(key, "")  # fallback to "" if not found
+
+            return image_caption
+
+        if line.endswith(".png"):
+            b64_image = re.sub(r"picture-\d+\.png", replace_with_dict, line)
+
+
+
+            start = time.time()
+            response = await self.vision_client.describe(b64_image, question="Describe the main object and its text captions in detail.", label="vision_only")
+            end = time.time()
+
+            pattern = r"\*\*Main Object:\*\*(.*?)\*\*Text Captions:\*\*"
+            match = re.search(pattern, response, flags=re.DOTALL)
+            if match:
+                content = match.group(1).strip()
+                self.logger.log_step(task="table", log_text=f"Generated Image Content: ", table_data={"Duration": round(end - start, 2), "Output": content})
+
+                is_relevant = self.filter_image_content(content)
+                if is_relevant:
+                    start = time.time()
+                    output_image_content = await self.rewrite_image_content(content)
+                    end = time.time()
+
+                    self.logger.log_step(task="table", log_text=f"Rewritten Image Content: ", table_data={"Duration": round(end - start, 2), "Input": content, "Output": output_image_content})
+
+                    return f"{output_image_content}"
+            
+                    #output_dict["text"] += f"{output_image_content}\n"
+
+        return False
+            
+            
+            
 
 
 class BaseConverter:
@@ -421,10 +488,6 @@ class BaseConverter:
         self.output_path = output_path
 
         self.paragraph_df = pd.DataFrame()
-
-
-
-
 
 
 
@@ -467,7 +530,7 @@ class CustomConverter(BaseConverter):
     async def convert_file(self, input_path: str):
 
         #
-        self.logger.log_step(log_text=f"Proceding to convert file")
+        self.logger.log_step(task="info_text", log_text=f"Proceding to convert file")
 
         await self.init_clients()
 
@@ -494,10 +557,11 @@ class CustomConverter(BaseConverter):
         if self.do_ocr:
             start = time.time()
             await self.image_converter.init_clients()
-            await self.image_converter.convert_images(images)
+            #await self.image_converter.init_image_dict(images)
+            self.image_converter.init_b64_image_dict(images)
             end = time.time()
 
-            self.logger.log_step(log_text=f"Images converted to text in {end-start} seconds")
+            self.logger.log_step(task="info_text", log_text=f"Images converted to text in {end-start} seconds")
 
         else:
             before = len(md_text)
@@ -507,7 +571,7 @@ class CustomConverter(BaseConverter):
 
             md_text = re.sub(r"\n{3,}", "\n\n", md_text)
 
-            self.logger.log_step(log_text=f"Removed images. {before} lines before, {after} lines now")
+            self.logger.log_step(task="info_text", log_text=f"Removed images. {before} lines before, {after} lines now")
 
         lines = md_text.split("\n")
         # search tables, if the required chunker is provided
@@ -519,7 +583,7 @@ class CustomConverter(BaseConverter):
             self.table_converter.scan_paragraphs(lines)
             end = time.time()
 
-            self.logger.log_step(log_text=f"Scanned tables in {end - start} seconds")
+            self.logger.log_step(task="info_text", log_text=f"Scanned tables in {end - start} seconds")
 
         # initialize the paragraph_dict. If no chunkers are provided it will only store paragraphs and record their section_id
 
@@ -537,8 +601,9 @@ class CustomConverter(BaseConverter):
 
             # process images
             if self.do_ocr:
-                self.image_converter.process_images(line, output_dict)
-                continue
+                line = self.image_converter.process_b64_images(line) # self.image_converter.process_images(line)
+                if not line:
+                    continue
 
             # process tables
             if self.keep_tables:
@@ -555,7 +620,7 @@ class CustomConverter(BaseConverter):
 
         end = time.time()
 
-        self.logger.log_step(log_text=f"Processed images and tables in {end - start} seconds")
+        self.logger.log_step(task="info_text", log_text=f"Processed images and tables in {end - start} seconds")
 
 
         return output_dict["text"]
@@ -568,7 +633,7 @@ class CustomConverter(BaseConverter):
 
 
 
-        self.logger.log_step(log_text="processing markdown")
+        self.logger.log_step(task="info_text", log_text="processing markdown")
 
         output_text = await self.convert_file(self.input_path)
 
@@ -642,7 +707,7 @@ class DoclingConverter(BaseConverter):
 
 
 
-        self.logger.log_step(log_text="processing markdown")
+        self.logger.log_step(task="info_text", log_text="processing markdown")
 
         raw_text = self.convert_file(self.input_path)
 
@@ -664,13 +729,14 @@ class DoclingConverter(BaseConverter):
 
 class BaseChunker:
     
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, level_name: str, with_title: bool):
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, level_name: str, doc_title: str, with_title: bool):
 
 
         self.db = db
         self.logger = logger
         self.user_id = user_id
         self.doc_id = doc_id
+        self.doc_title = doc_title
 
         self.level = level_name # name of the new level to be created
         self.level_id = 1
@@ -678,16 +744,36 @@ class BaseChunker:
 
         self.paragraph_df = pd.DataFrame()
 
-    @staticmethod
-    def get_tokenizer_tools(model: str, max_tokens: int = 512):
+
+    def get_tokenizer_tools(self, model: str, max_tokens: int = 512):
+
+
+
         hf_tok = AutoTokenizer.from_pretrained(model)
-        
+
+
         if not max_tokens:
             max_tokens = hf_tok.model_max_length
+            self.logger.log_step(task="info_text", log_text=f"Setting max_tokens={max_tokens} corresponding to {model}")
+
+        else:
+            self.logger.log_step(task="info_text", log_text=f"Keeping max_tokens={max_tokens}")
+
+
+
+        token_limit = 1000  # prevent too big embeddings given by wrong max_tokens
+
+        if max_tokens > token_limit:
+
+            self.logger.log_step(task="info_text", log_text=f"Setting max_tokens={512}, previous are > {token_limit}")
+
+            max_tokens = 512
         
         tokenizer: BaseTokenizer = HuggingFaceTokenizer(tokenizer=hf_tok, max_tokens=max_tokens)
 
-        return tokenizer, max_tokens
+
+
+        return tokenizer, int(max_tokens)
     
 
         
@@ -695,20 +781,19 @@ class BaseChunker:
     async def run_doc_chunking(self, input_path: str):
 
         # loggs
-        self.logger.log_step(task="debug", log_text=f"Processing document {self.doc_id}")
+        self.logger.log_step(task="info_text", log_text=f"Starting Doc chunking for doc {self.doc_id}, and user {self.user_id}")
         # -----
 
 
-        doc_title = os.path.basename(input_path).split(".")[0]
-        await Retrieval.insert_data( data_dict={"level": self.level, "level_id": self.level_id, "user_id": self.user_id, 
-                                            "doc_id": self.doc_id, "title": doc_title}, db=self.db)
+        await Retrieval.insert_data( data_dict={"level": "document", "level_id": 1, "user_id": self.user_id,
+                                            "doc_id": self.doc_id, "title": self.doc_title}, db=self.db)
 
         with open(input_path, "r", encoding="utf-8") as f:
             md_text = f.read()
 
 
         # This dict will contain all metadata for the final insert in the "Paragraphs" table
-        meta_dict = {"paragraph": md_text, "doc_id": self.doc_id}
+        meta_dict = {"paragraph": md_text, "user_id": self.user_id, "doc_id": self.doc_id, "document_id": 1}
 
         # call chunk_text method normally,
         meta_list = await self.run_text_chunking(meta_dict)
@@ -721,7 +806,11 @@ class BaseChunker:
         # now meta_dict holds only the parent level IDs
 
         # method of the child class
+        start = time.time()
         output_chunks = self.chunk_text(input_chunk)
+        end = time.time()
+
+        self.logger.log_step(task="info_text", log_text=f"Chunked text in {round(end - start, 2)} seconds ")
 
         # each item will correspond to a chunk, its level_id plus meta_dict
         meta_list = []
@@ -729,12 +818,14 @@ class BaseChunker:
 
             title = ""
             if self.with_title:
-                title, chunk = chunk.split("\n", 1)
+                title, chunk = (chunk.split("\n", 1) + [""])[:2]
 
 
-            await Retrieval.insert_data(data_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.level, "level_id": self.level_id, "title": title, "content": chunk}, db=self.db)
+            if title or chunk:
 
-            meta_list.append(meta_dict | {"paragraph": chunk, f"{self.level}_id": self.level_id})
+                await Retrieval.insert_data(data_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.level, "level_id": self.level_id, "title": title, "content": chunk}, db=self.db)
+
+                meta_list.append(meta_dict | {"paragraph": chunk, f"{self.level}_id": self.level_id})
 
             self.level_id += 1
 
@@ -754,16 +845,16 @@ class ParagraphChunker(BaseChunker):
 
     """
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, level_name: str,
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, level_name: str, doc_title: str,
                  with_title: bool, separator: str = "##", tokenizer_model: str = "", max_tokens: int = 0):
 
-        super().__init__(db, logger, user_id, doc_id, level_name, with_title)
+        super().__init__(db=db, logger=logger, user_id=user_id, doc_id=doc_id, level_name=level_name, with_title=with_title, doc_title=doc_title)
 
 
         self.tokenizer = ""
         self.model = tokenizer_model
 
-        self.max_tokens = max_tokens
+        self.max_tokens = int(max_tokens) if max_tokens else 0
         self.separator = separator
 
 
@@ -775,7 +866,7 @@ class ParagraphChunker(BaseChunker):
         """
         if tokenizer_model is empty, paragraph length will be computed as the number of characters
         if max_tokens is empty, the max tokens of tokenizer_model will be used
-        if tokenizer_model and max_tokens are empty, this ParagraphChunker is equivalent to regex chunking
+        if tokenizer_model and max_tokens are empty, the chunking applied is equivalent to normal splitting based on regex
         """
         if not self.model and not self.max_tokens:
             return 1 # ensures that len(paragraph) > max_tokens
@@ -792,10 +883,25 @@ class ParagraphChunker(BaseChunker):
         length = self.tokenizer.count_tokens(paragraph)
         return int(length)
 
+    @staticmethod
+    def normalize_newlines(text: str) -> str:
+        if not text:
+            return text
+
+        # 1️⃣ Normalize all newline characters
+        text = (
+            text
+            .replace("\r\n", "\n")
+            .replace("\r", "\n")
+            .replace("\u2028", "\n")
+            .replace("\u2029", "\n")
+            .replace("\u0085", "\n")
+        )
+        return text.strip()
 
 
     def chunk_text(self, input_chunk: str) -> List[str]:
-        paragraphs = input_chunk.split(self.separator)
+        paragraphs = self.normalize_newlines(input_chunk).split(self.separator)
         chunks = []
         current = []
         current_len = 0
@@ -803,16 +909,20 @@ class ParagraphChunker(BaseChunker):
 
 
         for p in paragraphs:
+
+            # Skip paragraphs that are empty or only whitespace
             p = p.strip()
             if not p:
                 continue
 
+
+
             p_len = self.compute_paragraph_length(p)
 
-            self.logger.log_step(log_text=f"Chunking paragraph {p}, obtained length {p_len}")
+            self.logger.log_step(task="info_text", log_text=f"Chunking paragraph, obtained length {p_len}")
 
             if current_len + p_len > self.max_tokens:
-                chunks.append(f"{self.separator}".join(current))
+                chunks.append(f"\n{self.separator}".join(current))
                 current = [p]
                 current_len = p_len
             else:
@@ -820,7 +930,7 @@ class ParagraphChunker(BaseChunker):
                 current_len += p_len
 
         if current:
-            chunks.append(f"{self.separator}".join(current))
+            chunks.append(f"\n{self.separator}".join(current))
 
         return chunks
 
@@ -838,15 +948,15 @@ class SlidingChunker(BaseChunker):
     tokenizer_model is mandatory
     """
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, level_name: str,
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, level_name: str, doc_title: str,
                  with_title: bool, tokenizer_model: str = "", max_tokens: int = 0, overlap_tokens: int = 0):
 
-        super().__init__(db, logger, user_id, doc_id, level_name, with_title)
+        super().__init__(db=db, logger=logger, user_id=user_id, doc_id=doc_id, level_name=level_name, with_title=with_title, doc_title=doc_title)
 
 
         self.tokenizer, self.max_tokens = self.get_tokenizer_tools(tokenizer_model, max_tokens)
 
-        self.overlap_tokens = overlap_tokens
+        self.overlap_tokens = int(overlap_tokens)
 
 
 
@@ -877,9 +987,9 @@ class DoclingChunker(BaseChunker):
 
     """
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, level_name: str, with_title: bool):
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, level_name: str, doc_title: str, with_title: bool):
 
-        super().__init__(db, logger, user_id, doc_id, level_name, with_title)
+        super().__init__(db=db, logger=logger, user_id=user_id, doc_id=doc_id, level_name=level_name, with_title=with_title, doc_title=doc_title)
 
         self.chunker = "" # expected from child class
 
@@ -908,9 +1018,9 @@ class DoclingChunker(BaseChunker):
 
 class HierarchicalDoclingChunker(DoclingChunker):
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, level_name: str,
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, level_name: str, doc_title: str,
         with_title: bool, max_tokens: int, min_tokens, overlap, merge_across_blocks):
-        super().__init__(db, logger, user_id, doc_id, level_name, with_title)
+        super().__init__(db=db, logger=logger, user_id=user_id, doc_id=doc_id, level_name=level_name, with_title=with_title, doc_title=doc_title)
 
         self.chunker = self.compute_chunker(max_tokens, min_tokens, overlap, merge_across_blocks)
 
@@ -933,10 +1043,10 @@ class HierarchicalDoclingChunker(DoclingChunker):
 
 class HybridDoclingChunker(DoclingChunker):
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, level_name: str,
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, level_name: str, doc_title: str,
         with_title: bool, tokenizer_model: str = "", max_tokens: int = 0):
 
-        super().__init__(db, logger, user_id, doc_id, level_name, with_title)
+        super().__init__(db=db, logger=logger, user_id=user_id, doc_id=doc_id, level_name=level_name, with_title=with_title, doc_title=doc_title)
 
         self.tokenizer, _ = self.get_tokenizer_tools(tokenizer_model, max_tokens)
         self.chunker = HybridChunker(tokenizer=self.tokenizer)
@@ -978,12 +1088,12 @@ CONVERSION_TYPE_MAPPER = {
 async def run_conversion(converter_dict: Dict[str, Any], user_id: UUID, doc_id: UUID, db: AsyncSession):
 
     input_path, output_path = await get_doc_paths(user_id, doc_id, db=db)
-    log_path, log_md_path = await get_log_paths(user_id, stage="conversion")
+    log_path = await get_log_path(user_id, stage="conversion")
     session_logger = InfoLogger(log_path=log_path, stage="conversion")
 
     # logg
-    doc_name = await get_doc_name(user_id, doc_id, db=db)
-    session_logger.log_step(task="header_1", log_text=f"Starting conversion to Markdown for document: {doc_name}")
+    doc_title = await get_doc_title(user_id, doc_id, db=db)
+    session_logger.log_step(task="header_1", log_text=f"Starting conversion to Markdown for document: {doc_title}")
     session_logger.log_step(task="table", log_text=f"Using following method: ", table_data=converter_dict)
 
     converter_dict.update({"db": db, "user_id": user_id, "doc_id": doc_id, "input_path": input_path, "output_path": output_path, "logger": session_logger})
@@ -998,7 +1108,7 @@ async def run_conversion(converter_dict: Dict[str, Any], user_id: UUID, doc_id: 
 
     # And after that export the logs to md
 
-    await export_logs(log_path, log_md_path)
+    await export_logs(log_path)
 
 
 
@@ -1019,12 +1129,12 @@ CHUNKING_TYPE_MAPPER = {
 async def run_chunking(method_list: list[dict[str, Any]], user_id: UUID, doc_id: UUID, db: AsyncSession):
 
     source_path, input_path = await get_doc_paths(user_id, doc_id, db=db)
-    log_path, log_md_path = await get_log_paths(user_id, stage="chunking")
+    log_path = await get_log_path(user_id, stage="chunking")
     session_logger = InfoLogger(log_path=log_path, stage="chunking")
 
     # log
-    doc_name = await get_doc_name(user_id, doc_id, db=db)
-    session_logger.log_step(task="header_1", log_text=f"Starting Chunking for document: {doc_name}")
+    doc_title = await get_doc_title(user_id, doc_id, db=db)
+    session_logger.log_step(task="header_1", log_text=f"Starting Chunking for document: {doc_title}")
     session_logger.log_step(task="table", log_text=f"Using following methods: ", table_data=method_list)
 
 
@@ -1046,8 +1156,9 @@ async def run_chunking(method_list: list[dict[str, Any]], user_id: UUID, doc_id:
     
     first_method = method_list.pop(0)
     method_type = first_method.pop("type")
-    first_method.update({"logger": session_logger, "user_id": user_id, "doc_id": doc_id, "db": db})
+    first_method.update({"logger": session_logger, "user_id": user_id, "doc_id": doc_id, "db": db, "doc_title": doc_title})
     
+    session_logger.log_step(task="info_text", log_text=f"Atempting to init first method for user: {user_id}")
     method_instance = CHUNKING_TYPE_MAPPER[method_type](**first_method)
 
     # apply first chunker to the document at this path
@@ -1058,12 +1169,12 @@ async def run_chunking(method_list: list[dict[str, Any]], user_id: UUID, doc_id:
     for i, method in enumerate(method_list):
         # New Chunking Method
         method_type = method.pop("type")
-        method.update({"logger": session_logger, "user_id": user_id, "doc_id": doc_id, "db": db})
+        method.update({"logger": session_logger, "user_id": user_id, "doc_id": doc_id, "db": db, "doc_title": doc_title})
 
         # Instance new method
         method_instance = CHUNKING_TYPE_MAPPER[method_type](**method)
         
-        # Generate offspring based on past generation
+        # Generate offspring based on past generation of chunks
         new_chunk_array = await generate_offspring(old_chunk_array)
 
 
@@ -1076,13 +1187,16 @@ async def run_chunking(method_list: list[dict[str, Any]], user_id: UUID, doc_id:
     # First delete previous occurrences of this doc in the table
     await Paragraph.delete_data({"user_id": user_id, "doc_id": doc_id}, db)
 
+    session_logger.log_step(task="info_text", log_text=f"Obtained output chunk array")
+
     for chunk_dict in new_chunk_array:
+        session_logger.log_step(task="info_text", log_text=f"Inserting dict: {chunk_dict}")
         await Paragraph.insert_paragraphs(data_dict=chunk_dict, db=db)
 
 
     # Finally we export the logs to md
 
-    await export_logs(log_path, log_md_path)
+    await export_logs(log_path)
             
         
             

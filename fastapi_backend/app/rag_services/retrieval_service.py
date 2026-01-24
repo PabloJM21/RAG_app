@@ -10,7 +10,7 @@ import time
 from app.rag_apis.chat_api import ChatOrchestrator
 
 # helpers for disc paths
-from app.rag_services.helpers import get_doc_paths, get_log_paths, get_doc_name
+from app.rag_services.helpers import get_doc_paths, get_log_path, get_doc_title
 
 #embeddings
 from openai import OpenAI
@@ -19,7 +19,7 @@ from app.rag_apis.embed_api import EmbeddingOrchestrator
 
 #loggs
 from app.log_generator import InfoLogger
-
+from app.generate_markdown import export_logs
 
 # Database ops
 from sqlalchemy.dialects.postgresql import UUID
@@ -566,7 +566,7 @@ async def run_retrieval(query: str, retrieval_dict: Dict[str, Any], user_id: UUI
 
         return retrieval_ids
 
-    log_path, log_md_path = await get_log_paths(user_id, stage="retrieval")
+    log_path = await get_log_path(user_id, stage="retrieval")
     session_logger = InfoLogger(log_path=log_path, stage="retrieval")
 
     router_method = retrieval_dict.pop("router")
@@ -589,8 +589,8 @@ async def run_retrieval(query: str, retrieval_dict: Dict[str, Any], user_id: UUI
             for doc_id in doc_ids:
 
                 # log
-                doc_name = await get_doc_name(user_id, doc_id, db=db)
-                session_logger.log_step(task="header_1", log_text=f"Starting Retrieval for document: {doc_name}")
+                doc_title = await get_doc_title(user_id, doc_id, db=db)
+                session_logger.log_step(task="header_1", log_text=f"Starting Retrieval for document: {doc_title}")
 
                 doc_pipeline = retrieval_dict[doc_id]
                 filter_ids = await run_pipeline(retrieval_ids)
@@ -611,6 +611,8 @@ async def run_retrieval(query: str, retrieval_dict: Dict[str, Any], user_id: UUI
 
         output_content = await get_content(user_id=user_id, retrieval_ids=filter_ids, db=db)
 
+    # Finally we export the logs to md
+    await export_logs(log_path)
 
     return output_content
 
@@ -624,12 +626,12 @@ TYPE_MAPPER = {
 }
 
 async def run_embeddings(method_list: list[dict[str, Any]], user_id: UUID, doc_id: UUID, db: AsyncSession):
-    log_path, log_md_path = await get_log_paths(user_id, stage="retrieval")
+    log_path = await get_log_path(user_id, stage="retrieval")
     session_logger = InfoLogger(log_path=log_path, stage="retrieval")
 
     # logg
-    doc_name = await get_doc_name(user_id, doc_id, db=db)
-    session_logger.log_step(task="header_1", log_text=f"Generating Embeddings for document: {doc_name}")
+    doc_title = await get_doc_title(user_id, doc_id, db=db)
+    session_logger.log_step(task="header_1", log_text=f"Generating Embeddings for document: {doc_title}")
     session_logger.log_step(task="table", log_text=f"Using following methods: ", table_data=method_list)
 
     for method in method_list:
@@ -639,6 +641,11 @@ async def run_embeddings(method_list: list[dict[str, Any]], user_id: UUID, doc_i
 
         method_instance = TYPE_MAPPER[method_type](**method)
         await method_instance.generate_embeddings()
+
+
+
+    # Finally we export the logs to md
+    await export_logs(log_path)
 
 
 
