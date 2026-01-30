@@ -20,6 +20,8 @@ import pandas as pd
 
 # Indexing service
 from app.rag_services.indexing_service import run_chunking, load_chunking_results, update_chunking_results, load_chunking_levels
+# Extraction service
+from app.rag_services.extraction_service import run_extraction
 
 # Markdown generator
 from app.generate_markdown import generate_markdown_from_log, find_session_id
@@ -37,7 +39,7 @@ MethodSpec = Dict[str, Any]
 
 
 
-@router.get("/{doc_id}/data", response_model=List[MethodSpec])
+@router.get("/{doc_id}/data", response_model=Dict[str, List[MethodSpec]])
 async def read_chunking_pipeline(
     doc_id: UUID,
     db: AsyncSession = Depends(get_async_session),
@@ -47,7 +49,7 @@ async def read_chunking_pipeline(
 
     if row.chunking_pipeline is None:
         # Return default empty pipeline if none exists
-        return []
+        return {}
 
     chunking_pipeline = json.loads(row.chunking_pipeline)
 
@@ -59,7 +61,7 @@ async def read_chunking_pipeline(
 @router.post("/{doc_id}/data")
 async def add_chunking_pipeline(
     doc_id: UUID,
-    pipeline: List[MethodSpec],
+    pipeline: Dict[str, List[MethodSpec]],
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
@@ -108,8 +110,6 @@ async def run_chunking_pipeline(
     # Set chunked=1
     row.chunked = 1
 
-    # Set extracted=0
-    row.extracted = 0
 
     # NEXT: Set exported=0
     row.exported = 0
@@ -166,6 +166,12 @@ async def add_chunking_results(
     }
 
 
+
+
+
+
+
+
 # Markdown Results
 
 # trigger generation of markdown file
@@ -205,12 +211,13 @@ async def run_chunking_pipeline(
             await run_chunking(chunking_pipeline, user.id, doc_id, db)
 
             # After Chunking
+            if row.extraction_pipeline:
+                extraction_pipeline = json.loads(row.extraction_pipeline)
+                await run_extraction(extraction_pipeline, user.id, doc_id, db)
 
             # Set chunked=1
             row.chunked = 1
 
-            # Set extracted=0
-            row.extracted = 0
 
             # Set exported=0
             row.exported = 0

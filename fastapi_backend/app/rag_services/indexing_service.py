@@ -13,6 +13,9 @@ from app.rag_apis.docling_api import DoclingClient, DoclingOutputType
 from app.rag_apis.image2caption_api import MultiModalVisionClient
 from app.rag_apis.chat_api import ChatOrchestrator
 
+# External methods (Enrichers and Filters)
+from app.rag_services.extraction_service import Enricher, Filter
+from app.rag_services.evaluator_service import ChunkerEvaluator, EnricherEvaluator
 # -----------------------------------------
 # Docling
 # -----------------------------------------
@@ -22,6 +25,7 @@ from app.rag_apis.chat_api import ChatOrchestrator
 from docling_core.transforms.chunker.hybrid_chunker import HybridChunker
 from docling_core.transforms.chunker.tokenizer.base import BaseTokenizer
 from docling_core.transforms.chunker.tokenizer.huggingface import HuggingFaceTokenizer
+from torch.masked import argmax
 from transformers import AutoTokenizer
 from docling_core.transforms.chunker.base import BaseChunk
 from docling_core.transforms.chunker.hierarchical_chunker import DocChunk, HierarchicalChunker
@@ -84,151 +88,12 @@ from app.models import DocPipelines, Paragraph, Retrieval
 
 
 
-class TableConverter:
-
-    """
-    treats tables as paragraphs
-    """
-
-    def __init__(self, user_id: UUID, convert_tables: bool, logger: InfoLogger, db: AsyncSession):
-
-        self.user_id = user_id
-        self.db = db
-
-        self.table_lines = [] # stores all table positions
-        self.table_paragraph = "" # stores paragraph from previous iterations
-        self.convert_tables = convert_tables
-        self.logger = logger
-
-        self.chat_orchestrator: Optional[ChatOrchestrator] = None
-
-    async def init_clients(self):
-
-        user_key_list = await get_user_api_keys(user_id=self.user_id, base_api="https://chat-ai.academiccloud.de/v1", db=self.db)
-
-        self.chat_orchestrator = ChatOrchestrator(user_key_list=user_key_list, base_api="https://chat-ai.academiccloud.de/v1")
-
-
-
-    def scan_paragraphs(self, lines: List[str]):
-
-        table_lines = set()
-
-        in_table = False
-
-        for i, line in enumerate(lines):
-            stripped = line.strip()
-
-            if not in_table:
-                if stripped.startswith("|"):
-                    in_table = True
-                    table_lines.add(i)
-            else:
-                if stripped == "":
-                    in_table = False
-                else:
-                    table_lines.add(i)
-
-        self.table_lines = table_lines
 
 
 
 
-    def explain_table_content(self, input_table):
-
-        """
-        Explains table content with paragraphs describing it
-        """
-
-        system_prompt = """
-                        You are an assistant that must always respond in valid JSON following this schema:
-
-                        {   
-                            "title": "Output",
-                            "description": "Structured Output",
-                            "type": "object",
-                            "properties": {
-                                "Output": {
-                                    "title": "Output",
-                                    "description": "A detailed transcription of the Markdown Table into readable text",
-                                    "type": "string"
-                                }
-                            }   
-                        }   
-
-                """
-
-        user_prompt = f"""
-                    Analyze the content of following TABLE and generate the specified transcription in the same language it is written
-
-                    TABLE:
-                    ---
-                    {input_table}
-
-                    """
 
 
-
-        output_dict = json.loads(self.chat_orchestrator.call("thinker", system_prompt, user_prompt))
-
-
-
-        return output_dict["Output"]
-
-
-    def process_tables(self, i, line, output_dict):
-
-
-        if i in self.table_lines:
-            print(f"[DEBUG] Paragraph {i} is inside table → skipping \n")
-            print(f"[DEBUG] It goes like this: {line}")
-            # update actual paragraph for next iteration
-            self.table_paragraph += line
-            return True
-
-        if self.table_paragraph:
-            
-            if self.convert_tables:
-                # process table into readable text
-                start = time.time()
-                explained_table = self.explain_table_content(self.table_paragraph)
-                end = time.time()
-                output_dict["text"] += f"{explained_table}\n"
-
-                self.logger.log_step(task="table", log_text="Explained table content: ", table_data={"Duration": round(end - start, 2), "Input": self.table_paragraph, "Output": explained_table})
-
-    
-            else:
-                output_dict["text"] += f"{self.table_paragraph}\n"
-
-                self.logger.log_step(task="info_text", log_text=f"Saved new table:\n {self.table_paragraph}\n")
-
-            self.table_paragraph = ""
-
-
-        return False
-
-
-
-
-    def process_last_table(self, output_dict):
-        if self.table_paragraph:
-
-            if self.convert_tables:
-                # process table into readable text
-                start = time.time()
-                explained_table = self.explain_table_content(self.table_paragraph)
-                end = time.time()
-                output_dict["text"] += f"{explained_table}\n"
-
-                self.logger.log_step(task="table", log_text="Explained table content of last table: ",
-                                     table_data={"Duration": round(end - start, 2), "Input": self.table_paragraph,
-                                                 "Output": explained_table})
-
-
-            else:
-                output_dict["text"] += f"{self.table_paragraph}\n"
-                self.logger.log_step(task="info_text", log_text=f"Saved last table:\n {self.table_paragraph}\n")
 
 
 
@@ -238,15 +103,15 @@ class TableConverter:
 
 class ImageConverter:
 
-    def __init__(self, user_id: UUID, db: AsyncSession, logger: InfoLogger):
+    def __init__(self, user_id: UUID, db: AsyncSession, logger: InfoLogger, prompt: str):
         self.user_id = user_id
         self.db = db
         self.logger = logger
 
         self.image_dict = {}
         self.image_id = 0
+        self.prompt = prompt
 
-        self.chat_orchestrator: Optional[ChatOrchestrator] = None
         self.vision_client: Optional[MultiModalVisionClient] = None
         
         #new approach
@@ -257,171 +122,9 @@ class ImageConverter:
 
         user_key_list = await get_user_api_keys(user_id=self.user_id, base_api="https://chat-ai.academiccloud.de/v1", db=self.db)
 
-        self.chat_orchestrator = ChatOrchestrator(user_key_list=user_key_list,  base_api="https://chat-ai.academiccloud.de/v1")
-
         self.vision_client = MultiModalVisionClient(user_key_list=user_key_list,  base_api="https://chat-ai.academiccloud.de/v1")
 
 
-
-
-
-    def filter_image_content(self, input_chunk):
-
-        """
-                Rewrites image content with paragraphs describing it - if it aligns with the main topic of the file. Otherwise, it removes it.
-                Should remove descriptions of logos and layout symbols
-        """
-
-        system_prompt = """
-                        You are an assistant that must always respond in valid JSON following this schema:
-
-                        {   
-                            "title": "Json",
-                            "description": "Structured Json",
-                            "type": "object",
-                            "properties": {
-                                "Boolean": {
-                                    "title": "Boolean",
-                                    "description": "A boolean that is False if the specified chunk is not scientific text, and True otherwise",
-                                    "type": "Boolean"
-                                }
-                            }   
-                        }   
-
-                """
-
-        user_prompt = f"""
-                    Analyze the content of following CHUNK and generate the specified Boolean. 
-
-                    CHUNK:
-                    ---
-                    {input_chunk}
-                    
-                    """
-
-
-
-
-        output_dict = json.loads(self.chat_orchestrator.call("thinker", system_prompt, user_prompt))
-
-
-
-        return output_dict["Boolean"]
-
-
-
-    async def rewrite_image_content(self, input_chunk):
-
-        """
-        Explains table content with paragraphs describing it
-        """
-
-        system_prompt = """
-                        You are an assistant that must always respond in valid JSON following this schema:
-
-                        {   
-                            "title": "Output",
-                            "description": "Structured Output",
-                            "type": "object",
-                            "properties": {
-                                "Output": {
-                                    "title": "Output",
-                                    "description": "A fluent transcription of this text chunk",
-                                    "type": "string"
-                                }
-                            }   
-                        }   
-
-                """
-
-        user_prompt = f"""
-                    Analyze the content of following CHUNK and generate the specified transcription in the same language it is written. 
-
-                    CHUNK:
-                    ---
-                    {input_chunk}
-
-                    """
-
-
-        start = time.time()
-        output_dict = json.loads(self.chat_orchestrator.call("thinker", system_prompt, user_prompt))
-        end = time.time()
-
-        #print("printing Chat Output: ", output_dict)
-
-        self.logger.log_step(task="info_text", log_text=f"Image Content was rewritten in {round(end - start, 2)} seconds")
-                             #inputs=input_chunk, outputs=output_dict["Output"],
-
-
-        return output_dict["Output"]
-
-    # 1. Approach
-
-
-    async def init_image_dict(self, images):
-
-
-        image_df = pd.DataFrame(images)
-        image_dict = {}
-        
-
-
-        for _, row in image_df.iterrows():
-
-            start = time.time()
-            response = await self.vision_client.describe(row['image'], question="Describe the main object and its text captions in detail.", label="vision_only")
-            end = time.time()
-
-
-
-
-
-            pattern = r"\*\*Main Object:\*\*(.*?)\*\*Text Captions:\*\*"
-            match = re.search(pattern, response, flags=re.DOTALL)
-            if match:
-                content = match.group(1).strip()
-                self.logger.log_step(task="table", log_text=f"Generated Image Content: ", table_data={"Duration": round(end - start, 2), "Output": content})
-
-
-                is_relevant = self.filter_image_content(content)
-                if is_relevant:
-
-                    start = time.time()
-                    output_image_content = await self.rewrite_image_content(content)
-                    end = time.time()
-
-                    self.logger.log_step(task="table", log_text=f"Rewritten Image Content: ", table_data={"Duration": round(end - start, 2), "Input": content, "Output": output_image_content})
-
-                    image_dict[row['filename']] = f"{output_image_content}"
-
-
-        self.image_dict = image_dict
-
-
-   
-
-
-    def process_images(self, line):
-
-
-        def replace_with_dict(match):
-            key = match.group(0)  # the full matched string, e.g. "picture-1.png"
-            image_caption = self.image_dict.get(key, "") # fallback to "" if not found
-
-            return image_caption
-
-        if line.endswith(".png"):
-            image_text = re.sub(r"picture-\d+\.png", replace_with_dict, line)
-            #output_dict["text"] += image_text
-            return image_text
-
-        return False
-
-
-
-    # 2. Approach
-    
     
 
     def init_b64_image_dict(self, images):
@@ -449,16 +152,24 @@ class ImageConverter:
 
 
             start = time.time()
-            response = await self.vision_client.describe(b64_image, question="Describe the main object and its text captions in detail.", label="vision_only")
+            response = await self.vision_client.describe(b64_image, question=self.prompt, label="vision_only")
             end = time.time()
 
             pattern = r"\*\*Main Object:\*\*(.*?)\*\*Text Captions:\*\*"
             match = re.search(pattern, response, flags=re.DOTALL)
             if match:
                 content = match.group(1).strip()
-                self.logger.log_step(task="table", log_text=f"Generated Image Content: ", table_data={"Duration": round(end - start, 2), "Output": content})
+                self.logger.log_step(task="info_text", layer=1, log_text=f"Generated following Image Content in {round(end - start, 2)} seconds:\n\n {content}")
 
-                is_relevant = self.filter_image_content(content)
+                return content
+
+        return None
+
+
+
+            
+"""
+       is_relevant = self.filter_image_content(content)
                 if is_relevant:
                     start = time.time()
                     output_image_content = await self.rewrite_image_content(content)
@@ -467,12 +178,7 @@ class ImageConverter:
                     self.logger.log_step(task="table", log_text=f"Rewritten Image Content: ", table_data={"Duration": round(end - start, 2), "Input": content, "Output": output_image_content})
 
                     return f"{output_image_content}"
-            
-                    #output_dict["text"] += f"{output_image_content}\n"
-
-        return False
-            
-            
+"""
             
 
 
@@ -496,24 +202,17 @@ class BaseConverter:
 class CustomConverter(BaseConverter):
 
     def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, input_path: str, output_path: str,
-                 do_ocr: bool = True, tables: str = "convert"):
+                 do_ocr: bool, image_starting_mark: str, image_ending_mark: str, prompt: str):
         super().__init__(db=db, logger=logger, user_id=user_id, doc_id=doc_id, input_path=input_path, output_path=output_path)
 
-
+        # --- IMAGE LOGIC ---
         self.do_ocr = do_ocr
+        self.image_starting_mark = image_starting_mark
+        self.image_ending_mark = image_ending_mark
 
-        # --- TABLE LOGIC ---
-        self.keep_tables = False
-        self.convert_tables = False
-        if tables == "keep":
-            self.keep_tables = True
-        elif tables == "convert":
-            self.keep_tables = True
-            self.convert_tables = True
+
         # --------------------
-
-        self.table_converter = TableConverter(user_id=user_id, db=db, logger=self.logger, convert_tables=self.convert_tables)
-        self.image_converter = ImageConverter(user_id=user_id, db=db, logger=self.logger)
+        self.image_converter = ImageConverter(user_id=user_id, db=db, logger=self.logger, prompt=prompt)
 
         self.docling_client = ""
 
@@ -530,7 +229,7 @@ class CustomConverter(BaseConverter):
     async def convert_file(self, input_path: str):
 
         #
-        self.logger.log_step(task="info_text", log_text=f"Proceding to convert file")
+
 
         await self.init_clients()
 
@@ -548,7 +247,7 @@ class CustomConverter(BaseConverter):
         images = result.get("images", [])
 
 
-        self.logger.log_step(task="header_2", log_text=f"Doc converted to Markdown in {end-start} seconds")
+        self.logger.log_step(task="info_text", layer=1, log_text=f"Doc converted to Markdown in {end-start} seconds")
 
 
 
@@ -561,7 +260,7 @@ class CustomConverter(BaseConverter):
             self.image_converter.init_b64_image_dict(images)
             end = time.time()
 
-            self.logger.log_step(task="info_text", log_text=f"Images converted to text in {end-start} seconds")
+            self.logger.log_step(task="info_text", layer=1, log_text=f"Images converted to text in {round(end - start, 2)} seconds")
 
         else:
             before = len(md_text)
@@ -571,20 +270,9 @@ class CustomConverter(BaseConverter):
 
             md_text = re.sub(r"\n{3,}", "\n\n", md_text)
 
-            self.logger.log_step(task="info_text", log_text=f"Removed images. {before} lines before, {after} lines now")
+            self.logger.log_step(task="info_text", layer=1, log_text=f"Removed images. {before} lines before, {after} lines now")
 
         lines = md_text.split("\n")
-        # search tables, if the required chunker is provided
-
-        if self.keep_tables:
-            start = time.time()
-            await self.table_converter.init_clients()
-
-            self.table_converter.scan_paragraphs(lines)
-            end = time.time()
-
-            self.logger.log_step(task="info_text", log_text=f"Scanned tables in {end - start} seconds")
-
         # initialize the paragraph_dict. If no chunkers are provided it will only store paragraphs and record their section_id
 
         output_dict = {"text": ""}
@@ -595,32 +283,24 @@ class CustomConverter(BaseConverter):
         start = time.time()
         for i, line in enumerate(lines):
 
-            line = line.strip()
-            if not line:
-                continue
+            #line = line.strip()
+            #if not line:
+                #continue
 
             # process images
             if self.do_ocr:
-                line = self.image_converter.process_b64_images(line) # self.image_converter.process_images(line)
+                line = await self.image_converter.process_b64_images(line) # self.image_converter.process_images(line)
                 if not line:
                     continue
+                line = f"{self.image_starting_mark}\n" + line + f"\n{self.image_ending_mark}"
 
-            # process tables
-            if self.keep_tables:
-
-                is_table = self.table_converter.process_tables(i, line, output_dict)
-                if is_table:
-                    continue
 
             output_dict["text"] += f"{line}\n"
 
-        # In case that the last paragraph still belongs to a table, save this table
-        if self.keep_tables:
-            self.table_converter.process_last_table(output_dict)
 
         end = time.time()
 
-        self.logger.log_step(task="info_text", log_text=f"Processed images and tables in {end - start} seconds")
+        self.logger.log_step(task="info_text", layer=2, log_text=f"Processed all lines and images in {round(end - start, 2)} seconds")
 
 
         return output_dict["text"]
@@ -643,23 +323,6 @@ class CustomConverter(BaseConverter):
 
 
 
-
-
-
-"""
-
-from docling.datamodel.accelerator_options import AcceleratorDevice
-from docling.models.layout_model import LayoutModel
-from docling.utils.accelerator_utils import decide_device
-
-# Force CPU globally
-device = decide_device(AcceleratorDevice.CPU.value)
-
-"""
-
-
-
-
 class DoclingConverter(BaseConverter):
     """
     Base Docling Method for Hierarchical and Hybrid variants
@@ -674,8 +337,6 @@ class DoclingConverter(BaseConverter):
         self.do_ocr = do_ocr
         self.do_table_structure = do_tables
         # Force CPU
-
-
 
 
     def convert_file(self, input_path: str):
@@ -696,7 +357,7 @@ class DoclingConverter(BaseConverter):
         output = dl_doc.export_to_markdown()
         end = time.time()
 
-        self.logger.log_step(task="header_2", log_text=f"Doc converted to Markdown in {end - start} seconds")
+        self.logger.log_step(task="header_2", log_text=f"Doc converted to Markdown in {round(end - start, 2)} seconds")
 
         return output
 
@@ -706,15 +367,549 @@ class DoclingConverter(BaseConverter):
         # Then, run the docling client and process the markdown text
 
 
-
-        self.logger.log_step(task="info_text", log_text="processing markdown")
-
         raw_text = self.convert_file(self.input_path)
 
         output_text = raw_text.replace("<!-- image -->", "") # remove possible image placeholders for valid markdown sections
 
         with open(self.output_path, "w", encoding="utf-8") as f:
             f.write(output_text)
+
+
+
+
+
+# ---------------- Orchestrator --------------------
+
+
+import inspect
+
+async def maybe_await(value):
+    if inspect.isawaitable(value):
+        return await value
+    return value
+
+
+
+# Run Conversion
+
+CONVERSION_TYPE_MAPPER = {
+    "Docling": DoclingConverter,
+    "Custom": CustomConverter,
+}
+
+
+
+
+async def run_conversion(converter_dict: Dict[str, Any], user_id: UUID, doc_id: UUID, db: AsyncSession):
+
+    input_path, output_path = await get_doc_paths(user_id, doc_id, db=db)
+    log_path = await get_log_path(user_id, stage="conversion")
+    session_logger = InfoLogger(log_path=log_path, stage="conversion")
+
+    # logg
+    doc_title = await get_doc_title(user_id, doc_id, db=db)
+    session_logger.log_step(task="header_1", layer=2, log_text=f"Starting conversion to Markdown for document: {doc_title}")
+    session_logger.log_step(task="table", layer=2, log_text=f"Using following method: ", table_data=converter_dict)
+
+    converter_dict.update({"db": db, "user_id": user_id, "doc_id": doc_id, "input_path": input_path, "output_path": output_path, "logger": session_logger})
+    converter_type = converter_dict.pop("type")
+    converter = CONVERSION_TYPE_MAPPER[converter_type](**converter_dict)
+
+    await maybe_await(converter.run_conversion())
+
+    # Finally we label this doc as "converted"
+    await DocPipelines.update_data(data_dict={"converted": 1}, where_dict={"user_id": user_id, "doc_id": doc_id},
+                          db=db)
+
+    # And after that export the logs to md
+
+    await export_logs(log_path)
+
+
+
+
+
+
+# ---------------------------------------------
+
+# ---------------- Markdown post-processing --------------------
+
+# ---------------------------------------------
+
+
+
+class ItemEnricher:
+    """
+    Enriches text items like tables, images, based on regex identifiers
+    """
+
+    def __init__(self, user_id: UUID, logger: InfoLogger, db: AsyncSession, prompt: str, model: str,
+                 starting_mark: str = "|", ending_mark: str = "", history: bool = False):
+
+        self.user_id = user_id
+        self.db = db
+        self.logger = logger
+
+        self.item_lines = []  # stores all table positions
+        self.current_chunk = ""  # stores paragraph from previous iterations
+        self.starting_mark = starting_mark
+        self.ending_mark = ending_mark
+
+        self.prompt = prompt
+        self.model = model
+        self.chat_orchestrator: Optional[ChatOrchestrator] = None
+        self.do_history = history
+        self.history: list[dict[str, Any]] = []
+
+    # ============================================================
+    # INTERNAL HELPERS
+    # ============================================================
+
+
+
+    async def init_clients(self):
+        user_key_list = await get_user_api_keys(user_id=self.user_id, base_api="https://chat-ai.academiccloud.de/v1",
+                                                db=self.db)
+
+        self.chat_orchestrator = ChatOrchestrator(user_key_list=user_key_list, base_api="https://chat-ai.academiccloud.de/v1")
+
+
+
+
+    def _call_orchestrator(self, system_prompt, user_prompt):
+        if self.do_history:
+            output_dict = json.loads(
+                self.chat_orchestrator.call_with_history(label=self.model, system_prompt=system_prompt,
+                                                         user_prompt=user_prompt, history=self.history))
+
+            # update history list with user and assistant input of the new call
+            self.history += [{"role": "user", "content": user_prompt},
+                             {"role": "assistant", "content": output_dict["Output"]}]
+
+        else:
+            output_dict = json.loads(
+                self.chat_orchestrator.call(label=self.model, system_prompt=system_prompt,
+                                            user_prompt=user_prompt))
+
+        return output_dict["Output"]
+
+    def _enrich_chunk(self, chunk: str) -> str:
+        # Qwen3-Coder is explicitly an instruction-tuned coder model, so its usage profile lines up with OpenAIs mini line
+
+        system_prompt = f"""
+                        You are an assistant that must always respond in valid JSON following this schema:
+
+                        {{  
+                            "title": "Json",
+                            "description": "Structured Json",
+                            "type": "object",
+                            "properties": {{
+                                "Output": {{
+                                    "title": "Structured Output",
+                                    "description": {self.prompt},
+                                    "type": "string"
+                                }}
+                            }}  
+                        }}   
+
+                """
+
+        user_prompt = f"""
+                    Please analyze following Chunk Content and generate the specified Output. 
+
+                    Chunk Content:
+                    ---
+                    {chunk}
+
+                    """
+
+        enriched_output = self._call_orchestrator(system_prompt, user_prompt)
+
+        return enriched_output
+
+    def scan_paragraphs(self, lines: List[str]):
+
+        item_lines = set()
+
+        in_table = False
+
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+
+            if not in_table:
+                if stripped.startswith(self.starting_mark):
+                    in_table = True
+                    item_lines.add(i)
+            else:
+                if stripped == self.ending_mark:
+                    in_table = False
+                else:
+                    item_lines.add(i)
+
+        self.item_lines = item_lines
+
+
+
+
+    def process_items(self, i, line, output_dict):
+
+        if i in self.item_lines:
+            # update actual paragraph for next iteration
+            self.current_chunk += line
+            return True
+
+        if self.current_chunk:
+            # process item into readable text
+            explained_item = self._enrich_chunk(self.current_chunk)
+
+
+            output_dict["text"] += f"{explained_item}\n"
+
+            self.logger.log_step(task="table", layer=1, log_text=f"Explained new item: ", table_data={"Input": self.current_chunk, "Output": explained_item})
+
+            self.current_chunk = ""
+
+        return False
+
+
+
+
+
+    def process_last_item(self, output_dict):
+        if self.current_chunk:
+            explained_item = self._enrich_chunk(self.current_chunk)
+
+            output_dict["text"] += f"{explained_item}\n"
+
+            self.logger.log_step(task="table", layer=1, log_text=f"Explained last item: ", table_data={"Input": self.current_chunk, "Output": explained_item})
+
+
+
+
+    async def run_method(self, md_path: str):
+
+
+        with open(md_path, "r", encoding="utf-8") as f:
+            md_text = f.read()
+
+        lines = md_text.split("\n")
+        # search items, if the required chunker is provided
+
+        start = time.time()
+        await self.init_clients()
+
+        self.scan_paragraphs(lines)
+        end = time.time()
+
+        self.logger.log_step(task="info_text", layer=1, log_text=f"Scanned items in {round(end - start, 2)} seconds")
+
+        # initialize the paragraph_dict. If no chunkers are provided it will only store paragraphs and record their section_id
+
+        output_dict = {"text": ""}
+
+        # create new items for this document, if they don't exist
+
+        # start processing paragraphs
+        start = time.time()
+        for i, line in enumerate(lines):
+
+            line = line.strip()
+            if not line:
+                continue
+
+            is_item = self.process_items(i, line, output_dict)
+            if is_item:
+                continue
+
+            output_dict["text"] += f"{line}\n"
+
+        # In case that the last paragraph still belongs to an item, save this item
+        self.process_last_item(output_dict)
+
+        end = time.time()
+
+        self.logger.log_step(task="info_text", layer=2, log_text=f"Processed items in {round(end - start, 2)} seconds")
+
+        output_text = output_dict["text"]
+
+        with open(md_path, "w", encoding="utf-8") as f:
+            f.write(output_text)
+
+
+
+
+
+
+
+class ItemFilter:
+
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, prompt: str, model: str,
+                 starting_mark: str = "|", ending_mark: str = "", remove_mark: bool = True, history: bool = False):
+
+        self.user_id = user_id
+        self.db = db
+        self.logger = logger
+
+
+        self.item_lines = []  # stores all table positions
+        self.current_chunk = ""  # stores paragraph from previous iterations
+        self.starting_mark = starting_mark
+        self.ending_mark = ending_mark
+        self.remove_mark = remove_mark
+
+        self.prompt = prompt
+        self.model = model
+        self.chat_orchestrator: Optional[ChatOrchestrator] = None
+        self.do_history = history
+        self.history: list[dict[str, Any]] = []
+        self.system_prompt = self._get_system_prompt()
+
+
+
+
+
+
+
+
+    async def init_clients(self):
+        user_key_list = await get_user_api_keys(user_id=self.user_id, base_api="https://chat-ai.academiccloud.de/v1",
+                                                db=self.db)
+
+        self.chat_orchestrator = ChatOrchestrator(user_key_list=user_key_list,
+                                                  base_api="https://chat-ai.academiccloud.de/v1")
+
+    def _call_orchestrator(self, user_prompt, system_prompt):
+        if self.do_history:
+            output_dict = json.loads(
+                self.chat_orchestrator.call_with_history(label=self.model, system_prompt=system_prompt,
+                                                         user_prompt=user_prompt, history=self.history))
+
+            # update history list with user and assistant input of the new call
+            self.history += [{"role": "user", "content": user_prompt},
+                             {"role": "assistant", "content": output_dict["Boolean"]}]
+
+        else:
+            output_dict = json.loads(
+                self.chat_orchestrator.call(label=self.model, system_prompt=system_prompt,
+                                            user_prompt=user_prompt))
+
+        return output_dict["Boolean"]
+
+
+
+
+    def _decide_relevance(self, input_chunk):
+        """
+                Rewrites image content with paragraphs describing it - if it aligns with the main topic of the file. Otherwise, it removes it.
+                Should remove descriptions of logos and layout symbols
+        """
+
+        system_prompt = f"""
+                        You are an assistant that must always respond in valid JSON following this schema:
+
+                        {{  
+                            "title": "Json",
+                            "description": "Structured Json",
+                            "type": "object",
+                            "properties": {{
+                                "Boolean": {{
+                                    "title": "Boolean",
+                                    "description": {self.prompt},
+                                    "type": "Boolean"
+                                }}
+                            }}  
+                        }}   
+
+                """
+
+        user_prompt = f"""
+                    Analyze the content of following CHUNK and generate the specified Boolean. 
+
+                    CHUNK:
+                    ---
+                    {input_chunk}
+
+                    """
+
+        bool_output = self._call_orchestrator(user_prompt, system_prompt)
+
+        return bool_output
+
+    def scan_paragraphs(self, lines: List[str]):
+
+        item_lines = set()
+
+        in_table = False
+
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+
+            if not in_table:
+                if stripped.startswith(self.starting_mark):
+                    in_table = True
+                    item_lines.add(i)
+            else:
+                if stripped == self.ending_mark:
+                    in_table = False
+                else:
+                    item_lines.add(i)
+
+        self.item_lines = item_lines
+
+
+
+    def process_items(self, i, line, output_dict):
+
+        if i in self.item_lines:
+            # update actual paragraph for next iteration
+            self.current_chunk += line
+            return True
+
+        if self.current_chunk:
+
+            is_relevant = self._decide_relevance(self.current_chunk)
+
+            if is_relevant:
+                current_chunk = self.current_chunk
+                if self.remove_mark:
+                    # from the left
+                    current_chunk = current_chunk.replace(self.starting_mark, "", 1)
+                    # from the right
+                    parts = current_chunk.rsplit(self.ending_mark, 1)
+                    current_chunk = parts[0] + parts[1]
+
+                output_dict["text"] += f"{current_chunk}\n"
+
+                self.logger.log_step(task="info_text", layer=1, log_text=f"Saved item:\n {current_chunk}\n")
+
+            else:
+                self.logger.log_step(task="info_text", layer=1, log_text=f"Removed item:\n {self.current_chunk}\n")
+
+
+            self.current_chunk = ""
+
+        return False
+
+
+
+
+    def process_last_item(self, output_dict):
+        if self.current_chunk:
+            is_relevant = self._decide_relevance(self.current_chunk)
+
+            if is_relevant:
+                current_chunk = self.current_chunk
+                if self.remove_mark:
+                    # from the left
+                    current_chunk = current_chunk.replace(self.starting_mark, "", 1)
+                    # from the right
+                    parts = current_chunk.rsplit(self.ending_mark, 1)
+                    current_chunk = parts[0] + parts[1]
+
+                output_dict["text"] += f"{current_chunk}\n"
+
+                self.logger.log_step(task="info_text", layer=1, log_text=f"Saved last item:\n {current_chunk}\n")
+
+            else:
+                self.logger.log_step(task="info_text", layer=1, log_text=f"Removed last item:\n {self.current_chunk}\n")
+
+
+
+
+
+
+    async def run_method(self, md_path: str):
+
+
+        with open(md_path, "r", encoding="utf-8") as f:
+            md_text = f.read()
+
+        lines = md_text.split("\n")
+        # search items, if the required chunker is provided
+
+        start = time.time()
+        await self.init_clients()
+
+        self.scan_paragraphs(lines)
+        end = time.time()
+
+        self.logger.log_step(task="info_text", layer=1, log_text=f"Scanned items in {round(end - start, 2)} seconds")
+
+        # initialize the paragraph_dict. If no chunkers are provided it will only store paragraphs and record their section_id
+
+        output_dict = {"text": ""}
+
+        # create new items for this document, if they don't exist
+
+        # start processing paragraphs
+        start = time.time()
+        for i, line in enumerate(lines):
+
+            line = line.strip()
+            if not line:
+                continue
+
+            is_item = self.process_items(i, line, output_dict)
+            if is_item:
+                continue
+
+            output_dict["text"] += f"{line}\n"
+
+        # In case that the last paragraph still belongs to an item, save this item
+        self.process_last_item(output_dict)
+
+        end = time.time()
+
+        self.logger.log_step(task="info_text", layer=2, log_text=f"Processed items in {round(end - start, 2)} seconds")
+
+        output_text = output_dict["text"]
+
+        with open(md_path, "w", encoding="utf-8") as f:
+            f.write(output_text)
+
+
+
+def log_pipeline_methods(logger: InfoLogger, input_pipeline: list[dict[str, Any]]):
+    logger.log_step(task="info_text", layer=2, log_text=f"This Pipeline consists of following methods: ",
+                            table_data=input_pipeline)
+    for input_method in input_pipeline:
+        logger.log_step(task="table", layer=2, table_data=input_method)
+
+
+
+PROCESSING_TYPE_MAPPER = {
+    "Rewriter": ItemEnricher,
+    "Filter": ItemFilter,
+}
+
+
+
+
+async def run_md_processing(pipeline: list[dict[str, Any]], user_id: UUID, doc_id: UUID, db: AsyncSession):
+
+    _, md_path = await get_doc_paths(user_id, doc_id, db=db)
+    log_path = await get_log_path(user_id, stage="md_processing")
+    session_logger = InfoLogger(log_path=log_path, stage="md_processing")
+    doc_title = await get_doc_title(user_id, doc_id, db=db)
+
+
+    session_logger.log_step(task="header_1", log_text=f"Starting Markdown Processing for document: {doc_title}")
+    session_logger.log_step(task="header_2", log_text=f"Running Pipeline")
+    log_pipeline_methods(session_logger, pipeline)
+
+
+    for method in pipeline:
+        method.update({"logger": session_logger, "user_id": user_id, "db": db})
+
+
+        method_type = method.pop("type")
+        method_instance = PROCESSING_TYPE_MAPPER[method_type](**method)
+
+        await method_instance.run_method(md_path)
+
+    await export_logs(log_path)
+
+
 
 
 
@@ -729,11 +924,12 @@ class DoclingConverter(BaseConverter):
 
 class BaseChunker:
     
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, level_name: str, doc_title: str, with_title: bool):
+    def __init__(self, db: AsyncSession, logger: InfoLogger, evaluator: ChunkerEvaluator, user_id: UUID, doc_id: UUID, level_name: str, doc_title: str, with_title: bool):
 
 
         self.db = db
         self.logger = logger
+        self.evaluator = evaluator
         self.user_id = user_id
         self.doc_id = doc_id
         self.doc_title = doc_title
@@ -754,20 +950,20 @@ class BaseChunker:
 
         if not max_tokens:
             max_tokens = hf_tok.model_max_length
-            self.logger.log_step(task="info_text", log_text=f"Setting max_tokens={max_tokens} corresponding to {model}")
+            self.logger.log_step(task="info_text", layer=1, log_text=f"Setting max_tokens={max_tokens} corresponding to {model}")
 
         else:
-            self.logger.log_step(task="info_text", log_text=f"Keeping max_tokens={max_tokens}")
+            self.logger.log_step(task="info_text", layer=1, log_text=f"Keeping max_tokens={max_tokens}")
 
 
 
-        token_limit = 1000  # prevent too big embeddings given by wrong max_tokens
+        token_limit = 2000  # prevent too big embeddings given by wrong max_tokens
 
         if max_tokens > token_limit:
 
-            self.logger.log_step(task="info_text", log_text=f"Setting max_tokens={512}, previous are > {token_limit}")
+            self.logger.log_step(task="info_text", layer=1, log_text=f"Tokens too big. Setting max_tokens={token_limit}")
 
-            max_tokens = 512
+            max_tokens = token_limit
         
         tokenizer: BaseTokenizer = HuggingFaceTokenizer(tokenizer=hf_tok, max_tokens=max_tokens)
 
@@ -781,7 +977,7 @@ class BaseChunker:
     async def run_doc_chunking(self, input_path: str):
 
         # loggs
-        self.logger.log_step(task="info_text", log_text=f"Starting Doc chunking for doc {self.doc_id}, and user {self.user_id}")
+        self.logger.log_step(task="info_text", layer=1, log_text=f"Starting Doc chunking")
         # -----
 
 
@@ -806,26 +1002,33 @@ class BaseChunker:
         # now meta_dict holds only the parent level IDs
 
         # method of the child class
-        start = time.time()
-        output_chunks = self.chunk_text(input_chunk)
-        end = time.time()
 
-        self.logger.log_step(task="info_text", log_text=f"Chunked text in {round(end - start, 2)} seconds ")
+        output_chunks = self.chunk_text(input_chunk)
+
+
+
+        # Evaluate Chunking
+        if self.evaluator:
+            self.evaluator.run_evaluation(input_chunk=input_chunk, output_chunks=output_chunks)
+
+
+
 
         # each item will correspond to a chunk, its level_id plus meta_dict
         meta_list = []
         for chunk in output_chunks:
+            raw_chunk = chunk
 
             title = ""
             if self.with_title:
+
                 title, chunk = (chunk.split("\n", 1) + [""])[:2]
 
 
             if title or chunk:
+                await Retrieval.insert_data(data_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.level, "level_id": self.level_id, "title": title, "content": chunk, "original_content": chunk}, db=self.db)
 
-                await Retrieval.insert_data(data_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.level, "level_id": self.level_id, "title": title, "content": chunk}, db=self.db)
-
-                meta_list.append(meta_dict | {"paragraph": chunk, f"{self.level}_id": self.level_id})
+                meta_list.append(meta_dict | {"paragraph": raw_chunk, f"{self.level}_id": self.level_id})
 
             self.level_id += 1
 
@@ -833,6 +1036,296 @@ class BaseChunker:
 
         return meta_list
 
+
+
+
+class ChunkingEnricher:
+
+    """
+    The only difference to the regular Enricher is that the enriched content updates "content" but also "original_content"
+
+    """
+
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID,
+                 where: str, model: str, prompt: str, position: str = "", caption: str = "", history: bool = False):
+
+        self.db = db
+        self.user_id = user_id
+        self.doc_id = doc_id
+        self.level = where
+        self.logger = logger
+
+
+        self.caption = caption
+        self.prompt = prompt
+        self.model = model
+        self.position = position
+
+        self.chat_orchestrator: Optional[ChatOrchestrator] = None
+        self.do_history = history
+        self.history: list[dict[str, Any]] = []
+
+
+        # these instructions aim at replacing the content of a big chunk like "embedding_chunk" by a summary of its own input_content created previously by extracting its sections titles.
+        # level can also refer to a child of output_level instead, which can also be a summary created previously, thus defining enrichment in a recursive manner, for example with numbered sections.
+
+
+
+
+    # ============================================================
+    # INTERNAL HELPERS
+    # ============================================================
+
+
+    def _get_system_prompt(self):
+
+        # "title": "Summary",
+
+
+        specific_prompt = f"""Output: {{
+                                    "title": "Structured Output",
+                                    "description": {self.prompt},
+                                    "type": "string"
+                                    }}"""
+
+
+
+        system_prompt = f"""
+                You are an assistant that must always respond in valid JSON following this schema:
+
+                {{
+                    "title": "Json",
+                    "description": "Structured Json",
+                    "type": "object",
+                    "properties": {{
+                        {specific_prompt}
+                    }}
+                }}
+
+                """
+
+        return system_prompt
+
+
+    async def init_clients(self):
+
+        user_key_list = await get_user_api_keys(user_id=self.user_id, base_api="https://chat-ai.academiccloud.de/v1", db=self.db)
+
+        self.chat_orchestrator = ChatOrchestrator(user_key_list=user_key_list,  base_api="https://chat-ai.academiccloud.de/v1")
+
+
+    def _call_orchestrator(self, system_prompt, user_prompt):
+        if self.do_history:
+            output_dict = json.loads(self.chat_orchestrator.call_with_history(label=self.model, system_prompt=system_prompt, user_prompt=user_prompt, history=self.history))
+
+            # update history list with user and assistant input of the new call
+            self.history += [{"role": "user", "content": user_prompt}, {"role": "assistant", "content": output_dict["Output"]}]
+
+        else:
+            output_dict = json.loads(self.chat_orchestrator.call(label=self.model, system_prompt=system_prompt, user_prompt=user_prompt))
+
+        return output_dict["Output"]
+
+
+    def _enrich_chunk(self, system_prompt: str, chunk: str) -> str:
+        # Qwen3-Coder is explicitly an instruction-tuned coder model, so its usage profile lines up with OpenAIs mini line
+
+        # QWEN2.5_CODER_32B_INSTRUCT
+
+        user_prompt = f"""
+            Please analyze following Chunk Content and generate the specified Output. 
+
+            Chunk Content:
+            ---
+            {chunk}
+
+            """
+
+
+        new_content = self._call_orchestrator(system_prompt, user_prompt)
+
+
+        # Caption and Position Logic
+
+        if self.caption:
+            new_content = f"{self.caption}: \n{new_content}"
+
+        if self.position == "top":
+            output_content = f"{new_content}\n{chunk}"
+
+        elif self.position == "bottom":
+            output_content = f"{chunk}\n{new_content}"
+
+        else:
+            output_content = new_content
+
+
+        return output_content
+
+
+
+
+    async def run_method(self, chunk_array) -> None:
+        # use the content of level to generate metadata for output_level (e.g. section for section, or section for paragraph)
+        # for example generate a section summary to enrich each section or provide context for all paragraphs in that section
+
+        # loggs
+        await self.init_clients()
+
+
+        rows, columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.level}, db=self.db)
+
+        self.logger.log_step(task="info_text", log_text="Starting enriching chunks")
+
+        input_df = pd.DataFrame(rows, columns=columns).sort_values(by="level_id")  # like the retrievals table, but one for each hierarchy level
+
+        input_ids = list(set(input_df[f"level_id"]))
+
+
+
+        for input_id in input_ids:
+            #print(f"proceeding to enrich {input_id}")
+
+            # instead of extracting chunk from paragraphs table, we search for the input or output column of the retrievals table
+
+            old_content = input_df.loc[input_df["level_id"] == input_id, "content"].dropna().astype(str).iloc[0]  # one row dataframe
+
+            if not old_content:
+
+                return
+
+            system_prompt = self._get_system_prompt()
+
+            start = time.time()
+            new_content = self._enrich_chunk(system_prompt, old_content)
+            end = time.time()
+
+            await Retrieval.update_data(data_dict={"content": new_content, "original_content": new_content}, where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level_id": input_id, "level": self.level}, db=self.db)
+            self.logger.log_step(task="table", layer=1, table_data={"old_content": old_content, "new_content": new_content, "duration": round(end - start, 2)})
+
+            # in the last iteration step we update chunk_array
+            for chunk_dict in chunk_array:
+                if chunk_dict[f"{self.level}_id"] == input_id:
+                    chunk_dict["paragraph"] = new_content
+
+        return chunk_array
+
+
+
+
+
+
+class ChunkingFilter:
+
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, where: str, model: str, prompt: str, history: bool = False):
+
+        self.db = db
+        self.user_id = user_id
+        self.doc_id = doc_id
+        self.level = where
+        self.logger = logger
+
+        self.prompt = prompt
+        self.model = model
+
+        self.chat_orchestrator: Optional[ChatOrchestrator] = None
+        self.do_history = history
+        self.history: list[dict[str, Any]] = []
+
+
+
+
+    async def init_clients(self):
+        user_key_list = await get_user_api_keys(user_id=self.user_id, base_api="https://chat-ai.academiccloud.de/v1",
+                                                db=self.db)
+
+        self.chat_orchestrator = ChatOrchestrator(user_key_list=user_key_list, base_api="https://chat-ai.academiccloud.de/v1")
+
+
+
+    def filter_image_content(self, input_chunk):
+        """
+                Rewrites image content with paragraphs describing it - if it aligns with the main topic of the file. Otherwise, it removes it.
+                Should remove descriptions of logos and layout symbols
+        """
+
+        system_prompt = f"""
+                        You are an assistant that must always respond in valid JSON following this schema:
+
+                        {{  
+                            "title": "Json",
+                            "description": "Structured Json",
+                            "type": "object",
+                            "properties": {{
+                                "Boolean": {{
+                                    "title": "Boolean",
+                                    "description": {self.prompt},
+                                    "type": "Boolean"
+                                }}
+                            }}  
+                        }}   
+
+                """
+
+        user_prompt = f"""
+                    Analyze the content of following CHUNK and generate the specified Boolean. 
+
+                    CHUNK:
+                    ---
+                    {input_chunk}
+
+                    """
+
+        output_dict = json.loads(self.chat_orchestrator.call(self.model, system_prompt, user_prompt))
+
+        return output_dict["Boolean"]
+
+
+
+    async def run_method(self, chunk_array) -> None:
+        # use the content of level to generate metadata for output_level (e.g. section for section, or section for paragraph)
+        # for example generate a section summary to enrich each section or provide context for all paragraphs in that section
+
+        # loggs
+        await self.init_clients()
+
+        rows, columns = await Retrieval.get_all(
+            where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.level}, db=self.db)
+
+        self.logger.log_step(task="info_text", log_text="Starting filtering chunks")
+
+        input_df = pd.DataFrame(rows, columns=columns).sort_values(
+            by="level_id")  # like the retrievals table, but one for each hierarchy level
+
+        input_ids = list(set(input_df[f"level_id"]))
+
+        irrelevant_ids = []
+        for input_id in input_ids:
+            # print(f"proceeding to enrich {input_id}")
+
+            # instead of extracting chunk from paragraphs table, we search for the input or output column of the retrievals table
+
+            content = input_df.loc[input_df["level_id"] == input_id, "content"].dropna().astype(str).iloc[0]  # one row dataframe
+
+            if not content:
+                print("Content is empty")
+                return
+
+
+            is_relevant = self.filter_image_content(content)
+
+            if not is_relevant:
+                irrelevant_ids.append(input_id)
+                await Retrieval.delete_data(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level_id": input_id, "level": self.level}, db=self.db)
+
+
+
+        # Finally we update chunk_array
+        for i, chunk_dict in enumerate(chunk_array):
+            if chunk_dict[f"{self.level}_id"] in irrelevant_ids:
+                chunk_array.pop(i)
+
+        return chunk_array
 
 
 
@@ -845,13 +1338,13 @@ class ParagraphChunker(BaseChunker):
 
     """
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, level_name: str, doc_title: str,
+    def __init__(self, db: AsyncSession, logger: InfoLogger, evaluator: ChunkerEvaluator , user_id: UUID, doc_id: UUID, level_name: str, doc_title: str,
                  with_title: bool, separator: str = "##", tokenizer_model: str = "", max_tokens: int = 0):
 
-        super().__init__(db=db, logger=logger, user_id=user_id, doc_id=doc_id, level_name=level_name, with_title=with_title, doc_title=doc_title)
+        super().__init__(db=db, logger=logger, evaluator=evaluator, user_id=user_id, doc_id=doc_id, level_name=level_name, with_title=with_title, doc_title=doc_title)
 
 
-        self.tokenizer = ""
+        self.tokenizer: BaseTokenizer = None
         self.model = tokenizer_model
 
         self.max_tokens = int(max_tokens) if max_tokens else 0
@@ -916,13 +1409,17 @@ class ParagraphChunker(BaseChunker):
                 continue
 
 
-
             p_len = self.compute_paragraph_length(p)
 
-            self.logger.log_step(task="info_text", log_text=f"Chunking paragraph, obtained length {p_len}")
 
             if current_len + p_len > self.max_tokens:
+
+                """
+                if current: # enable further paragraph chunking
+                    current[0] = self.separator + current[0] """
+
                 chunks.append(f"\n{self.separator}".join(current))
+
                 current = [p]
                 current_len = p_len
             else:
@@ -937,8 +1434,6 @@ class ParagraphChunker(BaseChunker):
 
 
 
-# ----------- SLIDING WINDOW --------------
-
 
 
 class SlidingChunker(BaseChunker):
@@ -948,30 +1443,52 @@ class SlidingChunker(BaseChunker):
     tokenizer_model is mandatory
     """
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, level_name: str, doc_title: str,
+    def __init__(self, db: AsyncSession, logger: InfoLogger, evaluator: ChunkerEvaluator , user_id: UUID, doc_id: UUID, level_name: str, doc_title: str,
                  with_title: bool, tokenizer_model: str = "", max_tokens: int = 0, overlap_tokens: int = 0):
 
-        super().__init__(db=db, logger=logger, user_id=user_id, doc_id=doc_id, level_name=level_name, with_title=with_title, doc_title=doc_title)
+        super().__init__(db=db, logger=logger, evaluator=evaluator, user_id=user_id, doc_id=doc_id, level_name=level_name, with_title=with_title, doc_title=doc_title)
+
+        self.tokenizer: BaseTokenizer = None
+        self.model = tokenizer_model
+
+        self.max_tokens = int(max_tokens) if max_tokens else 0
 
 
-        self.tokenizer, self.max_tokens = self.get_tokenizer_tools(tokenizer_model, max_tokens)
-
-        self.overlap_tokens = int(overlap_tokens)
+        self.overlap_tokens = int(overlap_tokens) if overlap_tokens else 0
 
 
+    def encode_text(self, input_text):
+
+        if not self.model:
+            return input_text
+
+        # at the first iteration
+        elif not self.tokenizer:
+            self.tokenizer, self.max_tokens = self.get_tokenizer_tools(self.model, self.max_tokens)
+
+        output_tokens = self.tokenizer.get_tokenizer().encode(input_text)
+        return output_tokens
 
 
+
+    def decode_tokens(self, input_tokens):
+        if not self.model:
+            return input_tokens
+
+        output_text = self.tokenizer.get_tokenizer().decode(input_tokens)
+
+        return output_text
 
 
     def chunk_text(self, text):
-        tokens = self.tokenizer.get_tokenizer().encode(text)
+        tokens = self.encode_text(text)
         chunks = []
         start = 0
 
         while start < len(tokens):
             end = start + self.max_tokens
             chunk_tokens = tokens[start:end]
-            chunk_text = self.tokenizer.get_tokenizer().decode(chunk_tokens)
+            chunk_text = self.decode_tokens(chunk_tokens)
             chunks.append(chunk_text)
             start += self.max_tokens - self.overlap_tokens
 
@@ -987,9 +1504,9 @@ class DoclingChunker(BaseChunker):
 
     """
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, level_name: str, doc_title: str, with_title: bool):
+    def __init__(self, db: AsyncSession, logger: InfoLogger, evaluator: ChunkerEvaluator , user_id: UUID, doc_id: UUID, level_name: str, doc_title: str, with_title: bool):
 
-        super().__init__(db=db, logger=logger, user_id=user_id, doc_id=doc_id, level_name=level_name, with_title=with_title, doc_title=doc_title)
+        super().__init__(db=db, logger=logger, evaluator=evaluator, user_id=user_id, doc_id=doc_id, level_name=level_name, with_title=with_title, doc_title=doc_title)
 
         self.chunker = "" # expected from child class
 
@@ -1018,9 +1535,9 @@ class DoclingChunker(BaseChunker):
 
 class HierarchicalDoclingChunker(DoclingChunker):
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, level_name: str, doc_title: str,
+    def __init__(self, db: AsyncSession, logger: InfoLogger, evaluator: ChunkerEvaluator , user_id: UUID, doc_id: UUID, level_name: str, doc_title: str,
         with_title: bool, max_tokens: int, min_tokens, overlap, merge_across_blocks):
-        super().__init__(db=db, logger=logger, user_id=user_id, doc_id=doc_id, level_name=level_name, with_title=with_title, doc_title=doc_title)
+        super().__init__(db=db, logger=logger, evaluator=evaluator, user_id=user_id, doc_id=doc_id, level_name=level_name, with_title=with_title, doc_title=doc_title)
 
         self.chunker = self.compute_chunker(max_tokens, min_tokens, overlap, merge_across_blocks)
 
@@ -1043,10 +1560,10 @@ class HierarchicalDoclingChunker(DoclingChunker):
 
 class HybridDoclingChunker(DoclingChunker):
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, level_name: str, doc_title: str,
+    def __init__(self, db: AsyncSession, logger: InfoLogger, evaluator: ChunkerEvaluator , user_id: UUID, doc_id: UUID, level_name: str, doc_title: str,
         with_title: bool, tokenizer_model: str = "", max_tokens: int = 0):
 
-        super().__init__(db=db, logger=logger, user_id=user_id, doc_id=doc_id, level_name=level_name, with_title=with_title, doc_title=doc_title)
+        super().__init__(db=db, logger=logger, evaluator=evaluator, user_id=user_id, doc_id=doc_id, level_name=level_name, with_title=with_title, doc_title=doc_title)
 
         self.tokenizer, _ = self.get_tokenizer_tools(tokenizer_model, max_tokens)
         self.chunker = HybridChunker(tokenizer=self.tokenizer)
@@ -1058,58 +1575,7 @@ class HybridDoclingChunker(DoclingChunker):
 
 
 
-
-
-# ---------------------------------------------
-
 # ---------------- ORCHESTRATORS --------------------
-
-# ---------------------------------------------
-
-import inspect
-
-async def maybe_await(value):
-    if inspect.isawaitable(value):
-        return await value
-    return value
-
-
-
-# Run Conversion
-
-CONVERSION_TYPE_MAPPER = {
-    "Docling": DoclingConverter,
-    "Custom": CustomConverter,
-}
-
-
-
-
-async def run_conversion(converter_dict: Dict[str, Any], user_id: UUID, doc_id: UUID, db: AsyncSession):
-
-    input_path, output_path = await get_doc_paths(user_id, doc_id, db=db)
-    log_path = await get_log_path(user_id, stage="conversion")
-    session_logger = InfoLogger(log_path=log_path, stage="conversion")
-
-    # logg
-    doc_title = await get_doc_title(user_id, doc_id, db=db)
-    session_logger.log_step(task="header_1", log_text=f"Starting conversion to Markdown for document: {doc_title}")
-    session_logger.log_step(task="table", log_text=f"Using following method: ", table_data=converter_dict)
-
-    converter_dict.update({"db": db, "user_id": user_id, "doc_id": doc_id, "input_path": input_path, "output_path": output_path, "logger": session_logger})
-    converter_type = converter_dict.pop("type")
-    converter = CONVERSION_TYPE_MAPPER[converter_type](**converter_dict)
-
-    await maybe_await(converter.run_conversion())
-
-    # Finally we label this doc as "converted"
-    await DocPipelines.update_data(data_dict={"converted": 1}, where_dict={"user_id": user_id, "doc_id": doc_id},
-                          db=db)
-
-    # And after that export the logs to md
-
-    await export_logs(log_path)
-
 
 
 
@@ -1118,24 +1584,109 @@ async def run_conversion(converter_dict: Dict[str, Any], user_id: UUID, doc_id: 
 
 # Run Chunking
 
+
+EVALUATOR_TYPE_MAPPER = {
+    "Chunking": ChunkerEvaluator,
+    "Enriching": EnricherEvaluator,
+}
+
+async def run_chunking(pipelines: dict[str, list[dict[str, Any]]], user_id: UUID, doc_id: UUID, db: AsyncSession):
+
+    _, input_path = await get_doc_paths(user_id, doc_id, db=db)
+    log_path = await get_log_path(user_id, stage="chunking")
+    session_logger = InfoLogger(log_path=log_path, stage="chunking")
+    doc_title = await get_doc_title(user_id, doc_id, db=db)
+    session_logger.log_step(task="header_1", log_text=f"Starting Chunking for document: {doc_title}")
+
+    # Init evaluator method
+    evaluator_array = []
+    if "evaluator" in pipelines:
+        evaluator_array = pipelines.pop("evaluator")
+
+
+
+    # Run Pipelines
+    sorted_items = sorted(list(pipelines.items()), key=lambda x: int(x[0].strip()))
+    sorted_pipelines = [x[1] for x in sorted_items if x[1]]
+    session_logger.log_step(task="info_text", log_text=f"Sorted pipelines look like this: {sorted_pipelines}")
+    evaluation_pipelines = sorted_pipelines.copy()
+
+
+    # If evaluator was instanced, run all pipelines and record their score. Finally run the highest scoring pipeline
+    if evaluator_array:
+        evaluator_method = evaluator_array[0]
+        session_logger.log_step(task="header_2", layer=2, log_text=f"Starting Evaluation of Pipelines")
+        session_logger.log_step(task="table", layer=2, log_text=f"using following Method: ", table_data=evaluator_method)
+
+        evaluator_type = evaluator_method.pop("type")
+        evaluator_method.update({"logger": session_logger, "user_id": user_id, "doc_id": doc_id, "db": db})
+        evaluator_instance = EVALUATOR_TYPE_MAPPER[evaluator_type](**evaluator_method)
+        pipeline_scores = []
+        for i, pipeline in enumerate(evaluation_pipelines):
+            session_logger.log_step(task="info_text", layer=2, log_text=f"Pipeline {i + 1}")
+            log_pipeline_methods(session_logger, pipeline)
+
+            await run_chunking_pipeline(method_list=pipeline, user_id=user_id, doc_id=doc_id, db=db, session_logger=session_logger, session_evaluator=evaluator_instance, input_path=input_path, log_path=log_path, doc_title=doc_title)
+
+            pipeline_scores.append(evaluator_instance.pipeline_score)
+
+
+        #  Overwrite last Retrieval content with the best chunking pipeline
+        best_index = pipeline_scores.index(max(pipeline_scores))
+        session_logger.log_step(task="header_2", layer=2, log_text=f"Running Pipeline {best_index + 1}")
+        log_pipeline_methods(session_logger, sorted_pipelines[best_index])
+
+        await run_chunking_pipeline(method_list=sorted_pipelines[best_index], user_id=user_id, doc_id=doc_id, db=db, session_logger=session_logger, session_evaluator=evaluator_instance, input_path=input_path, log_path=log_path, doc_title=doc_title)
+
+
+
+    # If no evaluator is present, run the first pipeline only
+    else:
+
+        pipeline = sorted_pipelines[0]
+        session_logger.log_step(task="header_2", layer=2, log_text=f"Running Pipeline 1")
+        log_pipeline_methods(session_logger, pipeline)
+
+        await run_chunking_pipeline(method_list=pipeline, user_id=user_id, doc_id=doc_id, db=db, session_logger=session_logger, session_evaluator=None, input_path=input_path, log_path=log_path, doc_title=doc_title)
+
+
+
+
+
+
+# Run each Pipeline
+
 CHUNKING_TYPE_MAPPER = {
     "Paragraph Chunker": ParagraphChunker,
     "Hybrid Chunker": HybridChunker,
     "Sliding Window Chunker": SlidingChunker,
+    "Enricher": ChunkingEnricher,
+    "Filter": ChunkingFilter,
 }
 
+async def run_chunking_pipeline(method_list: list[dict[str, Any]], user_id: UUID, doc_id: UUID, db: AsyncSession, session_logger: InfoLogger, session_evaluator: ChunkerEvaluator, input_path: str, log_path: str, doc_title: str):
+
+    def insert_past_levels(method_list):
+       """
+       Aimed at "Enricher" and "Filter" methods
+       """
+       first_method = method_list[0]
+       if first_method["type"] in ["Enricher", "Filter"]:
+           first_method["level_name"] = "document"
+
+       for i in range(1, len(method_list)):
+           method = method_list[i]
+           if method["type"] in ["Enricher", "Filter"]:
+               method["level_name"] = method_list[i-1]["level_name"]
+
+       # finally change level key to match the Enricher/Filter class
+       for method in method_list:
+           if method["type"] in ["Enricher", "Filter"] and "level_name" in method:
+               method["where"] = method.pop("level_name")
+
+       return method_list
 
 
-async def run_chunking(method_list: list[dict[str, Any]], user_id: UUID, doc_id: UUID, db: AsyncSession):
-
-    source_path, input_path = await get_doc_paths(user_id, doc_id, db=db)
-    log_path = await get_log_path(user_id, stage="chunking")
-    session_logger = InfoLogger(log_path=log_path, stage="chunking")
-
-    # log
-    doc_title = await get_doc_title(user_id, doc_id, db=db)
-    session_logger.log_step(task="header_1", log_text=f"Starting Chunking for document: {doc_title}")
-    session_logger.log_step(task="table", log_text=f"Using following methods: ", table_data=method_list)
 
 
     # LIMIT Chunking iterations
@@ -1143,59 +1694,111 @@ async def run_chunking(method_list: list[dict[str, Any]], user_id: UUID, doc_id:
 
     # Delete previous occurrences of this doc in the "Retrievals" table
     await Retrieval.delete_data({"user_id": user_id, "doc_id": doc_id}, db)
-    
-    async def generate_offspring(input_chunks):
+
+    async def generate_offspring(input_chunks, input_method):
         output_chunks = []
         for input_chunk in input_chunks:
 
-            new_chunks = await method_instance.run_text_chunking(input_chunk)
+            new_chunks = await input_method.run_text_chunking(input_chunk)
             output_chunks += new_chunks
 
         return output_chunks
-    
-    
+
+
+    # insert levels of previous chunker/method to each Enricher/Filter
+    method_list = insert_past_levels(method_list)
+
     first_method = method_list.pop(0)
     method_type = first_method.pop("type")
-    first_method.update({"logger": session_logger, "user_id": user_id, "doc_id": doc_id, "db": db, "doc_title": doc_title})
-    
-    session_logger.log_step(task="info_text", log_text=f"Atempting to init first method for user: {user_id}")
+    first_method.update({"logger": session_logger, "evaluator": session_evaluator, "user_id": user_id, "doc_id": doc_id, "db": db, "doc_title": doc_title})
+
+    session_logger.log_step(task="info_text", log_text=f"Attempting to init first method for user: {user_id}")
     method_instance = CHUNKING_TYPE_MAPPER[method_type](**first_method)
 
+
+    # Record Pipeline Start
+    pipeline_start = time.time()
+
     # apply first chunker to the document at this path
+    doc_start = time.time()
     old_chunk_array = await method_instance.run_doc_chunking(input_path)
+    doc_end = time.time()
+
+    session_logger.log_step(task="info_text", layer=2, log_text=f"Chunking at {first_method["level_name"]} level completed in {round(doc_end - doc_start, 2)} seconds ")
+
+    #Commit evaluation of the first method
+    if session_evaluator:
+        session_evaluator.commit_evaluation()
+
+
+
     new_chunk_array = []
 
-    
+
     for i, method in enumerate(method_list):
         # New Chunking Method
         method_type = method.pop("type")
-        method.update({"logger": session_logger, "user_id": user_id, "doc_id": doc_id, "db": db, "doc_title": doc_title})
 
-        # Instance new method
-        method_instance = CHUNKING_TYPE_MAPPER[method_type](**method)
-        
-        # Generate offspring based on past generation of chunks
-        new_chunk_array = await generate_offspring(old_chunk_array)
+        # We don't evaluate these methods (not propper chunkers)
+        if method_type in ["Enricher", "Filter"]:
+            method.update({"logger": session_logger, "user_id": user_id, "doc_id": doc_id, "db": db, "doc_title": doc_title})
+
+            # Instance new method
+            method_instance = CHUNKING_TYPE_MAPPER[method_type](**method)
+
+            text_start = time.time()
+            new_chunk_array = await method_instance.run_method(old_chunk_array)
+            text_end = time.time()
+
+            session_logger.log_step(task="info_text", layer=2, log_text=f"{method_type} step at {method["level_name"]} level completed in {round(text_end - text_start, 2)} seconds ")
+
+
+
+        else:
+            if session_evaluator:
+                session_evaluator.current_level = method["level_name"]
+
+            method.update({"logger": session_logger, "evaluator": session_evaluator, "user_id": user_id, "doc_id": doc_id, "db": db, "doc_title": doc_title})
+
+            # Instance new method
+            method_instance = CHUNKING_TYPE_MAPPER[method_type](**method)
+
+            # Generate offspring based on past generation of chunks
+            text_start = time.time()
+            new_chunk_array = await generate_offspring(old_chunk_array, method_instance)
+            text_end = time.time()
+
+            session_logger.log_step(task="info_text", layer=2, log_text=f"Chunking at {method["level_name"]} level completed in {round(text_end - text_start, 2)} seconds ")
+
+            # Commit evaluation of method
+            if session_evaluator:
+                session_evaluator.commit_evaluation()
+
 
 
         if i+2 > min(method_limit, len(method_list)): break
-        
+
         old_chunk_array = new_chunk_array
-        
+
+
+    pipeline_end = time.time()
+
+
     # After all chunking iterations, we introduce the latest new_chunks into the "Paragraphs" table with all recorded level IDs
+    session_logger.log_step(task="info_text", layer=2, log_text=f"Completed chunking in {round(pipeline_end - pipeline_start, 2)} seconds")
+
 
     # First delete previous occurrences of this doc in the table
     await Paragraph.delete_data({"user_id": user_id, "doc_id": doc_id}, db)
 
-    session_logger.log_step(task="info_text", log_text=f"Obtained output chunk array")
+    session_logger.log_step(task="table", layer=1, log_text=f"Inserting following data into the Paragraphs table", table_data=new_chunk_array)
 
     for chunk_dict in new_chunk_array:
-        session_logger.log_step(task="info_text", log_text=f"Inserting dict: {chunk_dict}")
+        #session_logger.log_step(task="info_text", log_text=f"Inserting dict: {chunk_dict}")
         await Paragraph.insert_paragraphs(data_dict=chunk_dict, db=db)
 
 
     # Finally we export the logs to md
-
     await export_logs(log_path)
             
         

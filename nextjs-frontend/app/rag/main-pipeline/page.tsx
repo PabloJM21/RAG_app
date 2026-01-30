@@ -3,6 +3,7 @@
 import { fetchPipeline, addPipeline, run } from "@/app/api/rag/main-pipeline/pipeline-action";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import {X} from "lucide-react";
 
 /* ---------- Types ---------- */
 
@@ -68,7 +69,7 @@ export function MainPipelineEditor({
   const [pipeline, setPipeline] =
     useState<PipelineSpec>(initialPipeline);
 
-  const [pendingType, setPendingType] = useState<
+  const [selectedType, setSelectedType] = useState<
     Partial<Record<PipelineSlot, string>>
   >({});
 
@@ -251,10 +252,10 @@ export function MainPipelineEditor({
                 {slot !== "generator" && (
                   <>
                     <select
-                      value={pendingType[slot] ?? ""}
+                      value={selectedType[slot] ?? ""}
                       onChange={(e) =>
-                        setPendingType({
-                          ...pendingType,
+                        setSelectedType({
+                          ...selectedType,
                           [slot]: e.target.value,
                         })
                       }
@@ -272,7 +273,7 @@ export function MainPipelineEditor({
                         setSlot(
                           slot,
                           createRetriever(
-                            pendingType[slot]!
+                            selectedType[slot]!
                           )
                         )
                       }
@@ -305,7 +306,7 @@ export function MainPipelineEditor({
                       position: "relative",
                     }}
                   >
-                    <button
+                    {/* <button
                       onClick={() => setSlot(slot, null)}
                       style={{
                         position: "absolute",
@@ -314,7 +315,17 @@ export function MainPipelineEditor({
                       }}
                     >
                       ❌
-                    </button>
+                    </button>*/}
+                    
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setSlot(slot, null)}
+                      className="absolute top-1 right-1 text-muted-foreground hover:text-destructive"
+                      aria-label="Delete"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
 
                     {Object.entries(pipeline[slot]!).map(
                       ([key, value]) => (
@@ -366,13 +377,6 @@ export function MainPipelineEditor({
             Run Chunking
           </Button>
 
-          <Button
-            variant="outline"
-            className="w-full text-lg py-4"
-            onClick={() => run("extraction")}
-          >
-            Run Extraction
-          </Button>
 
           <Button
             variant="outline"

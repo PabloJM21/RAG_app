@@ -79,47 +79,38 @@ class Base(DeclarativeBase):
             where_dict: Dict[str, Any],
             db: AsyncSession,
             columns: Optional[list] = None,
-    ) -> tuple[list[dict[str, Any]], list[str]]:
+    ):
 
 
-        def build_filter(expr, value):
-            if isinstance(value, (list, tuple, set)):
-                return expr.in_(value)
-            return expr == value
 
-        # ------------------------
-        # Build WHERE conditions
-        # ------------------------
+        if not columns:
+            # This is wrong and should be replaced
+            columns = [c.key for c in inspect(cls).mapper.column_attrs]
+
+
+
+        # Projection
+        select_columns = ([getattr(cls, c) for c in columns])
+
+        # Filters
         filters = []
-
         for key, value in where_dict.items():
-            filters.append(build_filter(getattr(cls, key), value))
-
-        if columns:
-            stmt = select(*(getattr(cls, col) for col in columns))
-        else:
-            cols = inspect(cls).mapper.column_attrs
-            stmt = select(*(getattr(cls, c.key) for c in cols))
+            filters.append(getattr(cls, key) == value)
 
 
+        stmt = select(*select_columns)
         if filters:
             stmt = stmt.where(and_(*filters))
 
-        # ------------------------
-        # Execute query
-        # ------------------------
         result = await db.execute(stmt)
-        rows = result.mappings().all() # mappings avoid repeated getattr(row, ...) calls and simplify merging
+
+        rows = result.mappings().all()
 
         # ------------------------
         # Column handling
         # ------------------------
-        if not columns:
-            columns = [c.key for c in inspect(cls).mapper.column_attrs]
 
-        data = [{k: row[k] for k in columns} for row in rows]
-
-        return data, columns
+        return rows, columns
 
 
 
@@ -175,11 +166,13 @@ class DocPipelines(Base):
     conversion_pipeline = Column(String, nullable=True)  # string representing a Dict
     converted = Column(Integer, nullable=True)  # 0 or 1
 
-    chunking_pipeline = Column(String, nullable=True)  # string representing a List[Dict]
+    processing_pipeline = Column(String, nullable=True)  # string representing a List[Dict]
+
+    chunking_pipeline = Column(String, nullable=True)  # string representing a
     chunked = Column(Integer, nullable=True)  # 0 or 1
 
     extraction_pipeline = Column(String, nullable=True) # string representing a List[Dict]
-    extracted = Column(Integer, nullable=True) # 0 or 1
+    #extracted = Column(Integer, nullable=True) # 0 or 1
 
     retrieval_pipeline = Column(String, nullable=True) # string representing a List[Dict]
     exported = Column(Integer, nullable=True) # 0 or 1
@@ -369,20 +362,6 @@ class Paragraph(Base):
         # Column handling
         # ------------------------
 
-        metadata_keys = set(columns) - PARAGRAPH_KEYS
-
-        # ------------------------
-        # Merge metadata
-        # ------------------------
-        output = []
-
-        for row in rows:
-            meta = row.get("paragraph_metadata") or {}
-            merged = {
-                **{k: row[k] for k in PARAGRAPH_KEYS if k in row},
-                **{k: v for k, v in meta.items() if k in metadata_keys},
-            }
-            output.append(merged)
 
         return rows, columns
 
@@ -398,6 +377,7 @@ class Retrieval(Base):
     level_id = Column(Integer, nullable=True)
     level = Column(String, nullable=True)
     title = Column(Text, nullable=True)
+    original_content = Column(Text, nullable=True)
     content = Column(Text, nullable=True)
 
     user_id = Column(UUID(as_uuid=True), ForeignKey("user.id"), nullable=False)

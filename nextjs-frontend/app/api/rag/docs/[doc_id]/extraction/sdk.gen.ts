@@ -38,7 +38,8 @@ export type Errors = {
   422: HttpValidationError;
 };
 
-export type PipelineSpec = Array<Record<string, any>>;
+export type MethodSpec = Record<string, any>;
+export type PipelineSpec = Record<string, MethodSpec[]>;
 
 
 

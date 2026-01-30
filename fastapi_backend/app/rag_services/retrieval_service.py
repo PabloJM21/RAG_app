@@ -9,8 +9,10 @@ import time
 #Orchestrators
 from app.rag_apis.chat_api import ChatOrchestrator
 
+
 # helpers for disc paths
-from app.rag_services.helpers import get_doc_paths, get_log_path, get_doc_title
+from app.rag_services.helpers import get_doc_paths, get_log_path, get_doc_title, get_user_api_keys
+
 
 #embeddings
 from openai import OpenAI
@@ -37,10 +39,11 @@ class BaseRetriever:
         db: AsyncSession,
         logger: InfoLogger,
         user_id: UUID,
-        doc_id: UUID,
         level: str,
         retrieval_amount: int,
         query_transformation_model: str,
+        query_transformation_prompt: str,
+        doc_id: UUID = None,
     ):
         self.db = db
         self.logger = logger
@@ -50,6 +53,7 @@ class BaseRetriever:
         self.k = retrieval_amount
 
         self.transformation_model = query_transformation_model
+        self.query_transformation_prompt = query_transformation_prompt
 
     # ---------------------------------------------------------
     # Internal helpers
@@ -181,7 +185,10 @@ class BaseRetriever:
         )
 
         return self.rows_to_columns(retrieval_rows)
-    
+
+
+
+
     
     async def get_retrieval_content(self, filter_ids: Optional[Iterable] = ()):
         
@@ -196,12 +203,91 @@ class BaseRetriever:
 
 
 
+
+    def _get_system_prompt(self):
+
+        # "title": "Summary",
+
+        specific_prompt = f"""
+               processed_query: {{
+                               "description": {self.query_transformation_prompt},
+                               "type": "string"
+                           }},
+                           """
+
+        system_prompt = f"""
+                   You are an assistant that must always respond in valid JSON following this schema:
+
+                   {{
+                       "title": "Output",
+                       "description": "Structured Output for a text query.",
+                       "type": "object",
+                       "properties": {{
+                           {specific_prompt}
+                       }}
+                   }}
+
+                   """
+
+        return system_prompt
+
+
+
+    async def process_query(self, query: str) -> str:
+        # Qwen3-Coder is explicitly an instruction-tuned coder model, so its usage profile lines up with OpenAIs mini line
+
+        user_key_list = await get_user_api_keys(user_id=self.user_id, base_api="https://chat-ai.academiccloud.de/v1", db=self.db)
+
+        chat_orchestrator = ChatOrchestrator(user_key_list=user_key_list, base_api="https://chat-ai.academiccloud.de/v1")
+
+        system_prompt = self._get_system_prompt()
+
+        user_prompt = f"""
+               Please analyze following Query and generate the specified Output. 
+
+               Query:
+               ---
+               {query}
+
+               """
+
+        output_dict = json.loads(chat_orchestrator.call(self.transformation_model, system_prompt, user_prompt))
+
+        return output_dict["Output"]
+
+    async def run_retrieval(self, query: str, filter_ids: Optional[Iterable] = ()) -> Dict[str, List]:
+
+        # first process query if required
+        if self.transformation_model:
+            query = self.process_query(query)
+
+        start = time.time()
+
+        retrieval_dict = await self.get_retrieval_content(filter_ids)
+
+        # call to child method
+        retrieval_output_ids = await self.run_retriever(query, retrieval_dict)
+
+        end = time.time()
+
+        output_dict = {"retrieval_id": retrieval_output_ids}
+
+        # add doc_ids to the dict, in case of the router
+        if not self.doc_id:
+            self.update_output_dict(retrieval_dict, output_dict)
+
+        return output_dict
+
+
+
+
+
 # ---------------------------------------------
 
 # ----------------CHUNKERS --------------------
 
 # ---------------------------------------------
-# Requirement for new Retriever classes: "run_retrieval" method with the specified input and output types
+# Requirement for new Retriever classes: "run_retriever" method with the specified input and output types
 
 
 
@@ -215,9 +301,9 @@ class ReasonerRetriever(BaseRetriever):
     To create an instance of the class, provide the level at which the retrieval will take place
     """
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, level: str, retrieval_amount: int, query_transformation_model: str, reasoner_model: str, doc_id: Optional[UUID] = 0):
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, level: str, retrieval_amount: int, reasoner_model: str, query_transformation_model: str, query_transformation_prompt: Optional[str] = "A new version of this query in the same language, suited for chunk retrieval with LLMs", doc_id: Optional[UUID] = None):
 
-        super().__init__(db=db, logger=logger, user_id=user_id, doc_id=doc_id, level=level, retrieval_amount=retrieval_amount, query_transformation_model=query_transformation_model)
+        super().__init__(db=db, logger=logger, user_id=user_id, doc_id=doc_id, level=level, retrieval_amount=retrieval_amount, query_transformation_model=query_transformation_model, query_transformation_prompt=query_transformation_prompt)
 
 
         self.reasoner_model = reasoner_model
@@ -273,11 +359,8 @@ class ReasonerRetriever(BaseRetriever):
 
 
 
-    async def run_retrieval(self, query: str, filter_ids: Optional[Iterable] = ())-> Dict[str, List]:
-        start = time.time()
+    async def run_retriever(self, query: str, retrieval_dict: dict):
 
-        # 
-        retrieval_dict = await self.get_retrieval_content(filter_ids)
 
 
         retrieval_input_chunks = ""
@@ -286,18 +369,9 @@ class ReasonerRetriever(BaseRetriever):
 
         retrieval_output_ids = self._retrieve_ids(query, retrieval_input_chunks)
 
-        end = time.time()
 
-        output_dict = {"retrieval_id": retrieval_output_ids}
 
-        # add doc_ids to the dict, in case of the router
-        if not self.doc_id:
-            self.update_output_dict(retrieval_dict, output_dict)
-
-        # logg
-        self.logger.log_step(task="validate", log_text="Reasoner Retrieval", inputs=query, outputs=retrieval_output_ids, duration=f"{round(end-start, 2)} seconds")
-
-        return output_dict
+        return retrieval_output_ids
 
 
 
@@ -315,9 +389,9 @@ class EmbeddingRetriever(BaseRetriever):
     Provides two methods: generate_embeddings, similarity_search
     """
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, level: str, retrieval_amount: int, query_transformation_model: str, embedding_model: str, doc_id: Optional[UUID] = 0):
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, level: str, retrieval_amount: int, embedding_model: str, query_transformation_model: str, query_transformation_prompt: Optional[str] = "A new version of this query in the same language, suited for chunk retrieval with LLMs", doc_id: Optional[UUID] = None):
 
-        super().__init__(db=db, logger=logger, user_id=user_id, doc_id=doc_id, level=level, retrieval_amount=retrieval_amount, query_transformation_model=query_transformation_model)  # modern Python 3 style, no super(EmbeddingRetriever, self)
+        super().__init__(db=db, logger=logger, user_id=user_id, doc_id=doc_id, level=level, retrieval_amount=retrieval_amount, query_transformation_model=query_transformation_model, query_transformation_prompt=query_transformation_prompt)  # modern Python 3 style, no super(EmbeddingRetriever, self)
 
 
         # self.client = OpenAI()
@@ -361,10 +435,6 @@ class EmbeddingRetriever(BaseRetriever):
             output_df = pd.DataFrame({"user_id": [self.user_id] * len(embeddings), "retrieval_id": retrieval_dict["retrieval_id"], "embedding": embeddings})
 
 
-
-
-            # print("input_df before return: ", input_df)
-
             return output_df
 
         embedding_df = await embed_columns(retrieval_dict)
@@ -407,23 +477,9 @@ class EmbeddingRetriever(BaseRetriever):
 
 
 
-    async def run_retrieval(self, query: str, filter_ids: Optional[Iterable] = (), k: int = 3):
-
-        # loggs
-
-        filter_prompt = ""
-        if filter_ids:
-            filter_prompt += f", filtering on retrieval_ids={", ".join(filter_ids)}"
-
-        self.logger.log_step(log_text=f"EmbeddingRetriever: retrieving {k} {self.level}s " + filter_prompt)
+    async def run_retriever(self, query: str, retrieval_dict: dict):
 
 
-
-        # 2. Find retrieval IDs for this level based on filter IDs - all of them if not given
-
-        start = time.time()
-
-        retrieval_dict = await self.get_retrieval_content(filter_ids)
 
 
         # 3. Load embeddings for these IDs, if they exist
@@ -457,21 +513,11 @@ class EmbeddingRetriever(BaseRetriever):
         # convert nnumpy array back to list
         retrieval_output_ids = top_k_embedding_columns["retrieval_id"].tolist()
 
-        end = time.time()
 
-        # loggs
-
-        output_dict = {"retrieval_id": retrieval_output_ids}
-
-        # add doc_ids to the dict, in case of the router
-        if not self.doc_id:
-            self.update_output_dict(retrieval_dict, output_dict)
-
-        self.logger.log_step(task="validate", log_text=f"Embedding Retrieval", inputs=query, outputs=retrieval_output_ids, scores=embedding_columns["cosine_similarity"].tolist(), duration=f"{round(end-start, 2)} seconds")
+        return retrieval_output_ids
 
 
 
-        return output_dict
 
     @staticmethod
     def _cosine_similarity(query_embedding, emb_matrix):
@@ -507,6 +553,106 @@ class EmbeddingRetriever(BaseRetriever):
             col: np.array(col_dict[col])[sorted_idx].tolist()
             for col in col_dict
         }
+
+
+
+
+
+import math
+from collections import Counter, defaultdict
+
+class BM25Retriever(BaseRetriever):
+
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, level: str, retrieval_amount: int, query_transformation_model: str, query_transformation_prompt: Optional[str] = "A new version of this query in the same language, suited for chunk retrieval with LLMs", doc_id: Optional[UUID] = None, k1: float = 1.5, b: float = 0.75):
+
+        super().__init__(db=db, logger=logger, user_id=user_id, doc_id=doc_id, level=level, retrieval_amount=retrieval_amount, query_transformation_model=query_transformation_model, query_transformation_prompt=query_transformation_prompt)
+
+
+        self.k1 = k1        # BM25 parameter
+        self.b = b          # BM25 parameter
+
+
+
+    def _tokenize(self, text: str):
+        # simple whitespace + punctuation tokenizer
+        text = text.lower()
+        return re.findall(r"\b\w+\b", text)
+
+    def run_retriever(self, query: str, retrieval_dict: dict):
+        """
+        Args:
+            query (str)
+            retrieval_dict (dict):
+                {
+                    "retrieval_id": [id1, id2, ...],
+                    "content": [chunk1, chunk2, ...]
+                }
+
+        Returns:
+            List of retrieval_id values for top-k retrieved chunks.
+        """
+
+        retrieval_ids = retrieval_dict["retrieval_id"]
+        documents = retrieval_dict["content"]
+        assert len(retrieval_ids) == len(documents), "Input lists must be same length"
+
+        # ---- Tokenize documents ----
+        tokenized_docs = [self._tokenize(doc) for doc in documents]
+        doc_lengths = [len(doc) for doc in tokenized_docs]
+        avgdl = sum(doc_lengths) / len(doc_lengths)
+
+        # ---- Compute term frequencies ----
+        tf = [Counter(doc) for doc in tokenized_docs]
+
+        # ---- Compute document frequencies ----
+        df = defaultdict(int)
+        for doc in tokenized_docs:
+            for term in set(doc):
+                df[term] += 1
+
+        N = len(documents)
+
+        # ---- Compute IDF ----
+        idf = {}
+        for term, freq in df.items():
+            idf[term] = math.log(1 + (N - freq + 0.5) / (freq + 0.5))
+
+        # ---- Score documents for query ----
+        query_tokens = self._tokenize(query)
+        scores = []
+
+        for i, doc_tf in enumerate(tf):
+            score = 0.0
+            dl = doc_lengths[i]
+
+            for term in query_tokens:
+                if term not in doc_tf:
+                    continue
+
+                freq = doc_tf[term]
+                numerator = freq * (self.k1 + 1)
+                denominator = freq + self.k1 * (1 - self.b + self.b * dl / avgdl)
+                score += idf.get(term, 0) * (numerator / denominator)
+
+            scores.append((score, retrieval_ids[i]))
+
+        # ---- Sort & return top-k retrieval_ids ----
+        scores.sort(key=lambda x: x[0], reverse=True)
+        top_ids = [rid for _, rid in scores[:self.k]]
+
+        return top_ids
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # ============================================================
@@ -549,6 +695,7 @@ async def get_content(db: AsyncSession, user_id: UUID, retrieval_ids: Iterable =
 TYPE_MAPPER = {
     "ReasonerRetriever": ReasonerRetriever,
     "EmbeddingRetriever": EmbeddingRetriever,
+    "BM25Retriever": BM25Retriever,
 }
 
 

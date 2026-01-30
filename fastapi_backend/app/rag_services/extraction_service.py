@@ -11,6 +11,9 @@ import os
 #Orchestrators
 from app.rag_apis.chat_api import ChatOrchestrator
 
+#Internal helpers 
+from app.rag_services.evaluator_service import ChunkerEvaluator, EnricherEvaluator
+
 # helpers for disc paths
 from app.rag_services.helpers import get_doc_paths, get_log_path, get_doc_title, get_user_api_keys
 
@@ -23,7 +26,7 @@ from app.generate_markdown import export_logs
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import DocPipelines, Paragraph, Retrieval
-
+from sqlalchemy import and_, update
 
 
 
@@ -45,7 +48,6 @@ class Extractor:
 
         self.output_level = output_level
 
-
         self.caption = caption
 
         self.doc_id = doc_id
@@ -53,7 +55,6 @@ class Extractor:
         self.title = False
         if what == "title":
             self.title = True
-
 
 
         self.replace = replace
@@ -88,6 +89,9 @@ class Extractor:
         if self.title:
             input_ids.sort(reverse=True)
 
+        update_data = []
+        insert_data = []
+
         for input_id in input_ids:
             #print(f"proceeding to extract title {input_id}")
 
@@ -96,7 +100,10 @@ class Extractor:
             else:
                 content = input_df.loc[input_df["level_id"] == input_id, "content"].dropna().astype(str).iloc[0]  # one row dataframe
 
-            new_content = f"{self.caption}: {content}\n"
+            if self.caption:
+                new_content = f"{self.caption}: {content}\n"
+            else:
+                new_content = f"{content}\n"
 
 
 
@@ -117,6 +124,7 @@ class Extractor:
                 old_content = output_df.loc[output_df["level_id"] == output_id, "title"].dropna().astype(str).iloc[0]  # one row dataframe
                 self.logger.log_step(task="info_text", log_text=f"Old content of output level: {old_content}")
 
+
                 if old_content:
 
                     if not self.replace:
@@ -129,21 +137,35 @@ class Extractor:
                         await Retrieval.update_data(data_dict={"content": updated_content}, where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level_id": output_id, "level": self.output_level}, db=self.db)
 
                         self.logger.log_step(task="info_text", log_text=f"Extraction: Updating doc_id, level_id, level: {self.doc_id, output_id, self.output_level}, with following content: {updated_content}")
+                        update_data.append({"Input": old_content, "Output": updated_content})
 
                     else:
                         await Retrieval.update_data(data_dict={"content": new_content}, where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level_id": output_id, "level": self.output_level}, db=self.db)
 
-
+                        update_data.append({"Input": old_content, "Output": new_content})
 
 
                 else:
 
                     await Retrieval.insert_data(data_dict={"doc_id": self.doc_id, "level_id": output_id, "level": self.output_level, "content": new_content}, db=self.db)
 
-
-                    self.logger.log_step(task="info_text", log_text=f"Extraction: Inserting doc_id, level_id, level: {self.doc_id, output_id, self.output_level}, with following content: {new_content}")
+                    insert_data.append({"Output": new_content})
 
         await self.db.commit()
+
+
+        # After Completion
+
+        self.logger.log_step(task="info_text", layer=2, log_text="Completed Extraction")
+
+
+        if insert_data:
+            self.logger.log_step(task="table", layer=1, log_text="With following chunk inserts: ", table_data=insert_data)
+
+        if update_data:
+            self.logger.log_step(task="table", layer=1, log_text="With following chunk updates: ", table_data=update_data)
+
+
 
 
 
@@ -164,8 +186,8 @@ class Enricher:
 
     """
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, where: str = "document", what: str = "summary", model: str = "coder",
-                 replace: bool = True, caption: str = "Content"):
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID,
+                 where: str, model: str, prompt: str, position: str = "", caption: str = "", history: bool = False):
 
         self.db = db
         self.user_id = user_id
@@ -173,12 +195,16 @@ class Enricher:
         self.input_level = where
         self.logger = logger
 
-        self.what = what
+
         self.caption = caption
+        self.prompt = prompt
         self.model = model
-        self.replace = replace
+        self.position = position
 
         self.chat_orchestrator: Optional[ChatOrchestrator] = None
+        self.do_history = history
+        self.history: list[dict[str, Any]] = []
+
 
         # these instructions aim at replacing the content of a big chunk like "embedding_chunk" by a summary of its own input_content created previously by extracting its sections titles.
         # input_level can also refer to a child of output_level instead, which can also be a summary created previously, thus defining enrichment in a recursive manner, for example with numbered sections.
@@ -191,52 +217,7 @@ class Enricher:
     # ============================================================
 
 
-    def _get_system_prompt(self):
 
-        specific_prompt = ""
-
-        if self.what == "summary":
-            specific_prompt += f"""
-            {self.caption}: {{
-                            "title": "Summary",
-                            "description": "A concise 1-2 sentence summary of the chunk.",
-                            "type": "string"
-                        }},
-                        """
-
-        elif self.what == "keywords":
-            specific_prompt += f"""
-            {self.caption}: {{
-                            "title": "Keywords",
-                            "description": "A list of 5-7 key topics or entities mentioned.",
-                            "type": "string"
-                        }},
-                        """
-
-        elif self.what == "questions":
-            specific_prompt += f"""
-            {self.caption}: {{
-                            "title": "Hypothetical Questions",
-                            "description": "A list of 3-5 questions this chunk could answer.",
-                            "type": "string"
-                        }},
-                        """
-
-        system_prompt = f"""
-                You are an assistant that must always respond in valid JSON following this schema:
-
-                {{
-                    "title": "Output",
-                    "description": "Structured Output for a document chunk.",
-                    "type": "object",
-                    "properties": {{
-                        {specific_prompt}
-                    }}
-                }}
-
-                """
-
-        return system_prompt
 
 
     async def init_clients(self):
@@ -246,15 +227,44 @@ class Enricher:
         self.chat_orchestrator = ChatOrchestrator(user_key_list=user_key_list,  base_api="https://chat-ai.academiccloud.de/v1")
 
 
+    def _call_orchestrator(self, system_prompt, user_prompt):
+        if self.do_history:
+            output_dict = json.loads(self.chat_orchestrator.call_with_history(label=self.model, system_prompt=system_prompt, user_prompt=user_prompt, history=self.history))
+
+            # update history list with user and assistant input of the new call
+            self.history += [{"role": "user", "content": user_prompt}, {"role": "assistant", "content": output_dict["Output"]}]
+
+        else:
+            output_dict = json.loads(self.chat_orchestrator.call(label=self.model, system_prompt=system_prompt, user_prompt=user_prompt))
+
+        return output_dict["Output"]
 
 
-    def _enrich_chunk(self, system_prompt: str, chunk: str) -> str:
+    def _enrich_chunk(self, chunk: str) -> str:
         # Qwen3-Coder is explicitly an instruction-tuned coder model, so its usage profile lines up with OpenAIs mini line
 
-        # QWEN2.5_CODER_32B_INSTRUCT
+        specific_prompt = f"""Output: {{
+                                    "title": "Structured Output",
+                                    "description": {self.prompt},
+                                    "type": "string"
+                                    }}"""
+
+        system_prompt = f"""
+                You are an assistant that must always respond in valid JSON following this schema:
+
+                {{
+                    "title": "Json",
+                    "description": "Structured Json",
+                    "type": "object",
+                    "properties": {{
+                        {specific_prompt}
+                    }}
+                }}
+
+                """
 
         user_prompt = f"""
-            Please analyze following Chunk Content and generate the specified Output. Use the same language as the chunk.
+            Please analyze following Chunk Content and generate the specified Output. 
 
             Chunk Content:
             ---
@@ -263,9 +273,25 @@ class Enricher:
             """
 
 
-        output_dict = json.loads(self.chat_orchestrator.call(self.model, system_prompt, user_prompt))
+        new_content = self._call_orchestrator(system_prompt, user_prompt)
 
-        return output_dict["Output"]
+
+        # Caption and Position Logic
+
+        if self.caption:
+            new_content = f"{self.caption}: \n{new_content}"
+
+        if self.position == "top":
+            output_content = f"{new_content}\n{chunk}"
+
+        elif self.position == "bottom":
+            output_content = f"{chunk}\n{new_content}"
+
+        else:
+            output_content = new_content
+
+
+        return output_content
 
 
 
@@ -280,16 +306,14 @@ class Enricher:
 
         rows, columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.input_level}, db=self.db)
 
-        self.logger.log_step(task="table", log_text="Enriching following chunk content: ", table_data=rows)
+        self.logger.log_step(task="info_text", layer=1, log_text="Starting enriching chunks")
 
         input_df = pd.DataFrame(rows, columns=columns).sort_values(by="level_id")  # like the retrievals table, but one for each hierarchy level
 
         input_ids = list(set(input_df[f"level_id"]))
 
 
-
-        #print(f"Updating doc_id, level_id, level: {self.input_level}, ")
-
+        table_data = []
         for input_id in input_ids:
             #print(f"proceeding to enrich {input_id}")
 
@@ -298,38 +322,163 @@ class Enricher:
             old_content = input_df.loc[input_df["level_id"] == input_id, "content"].dropna().astype(str).iloc[0]  # one row dataframe
 
             if not old_content:
+
+                return
+
+
+            start = time.time()
+            new_content = self._enrich_chunk(old_content)
+            end = time.time()
+
+            await Retrieval.update_data(data_dict={"content": new_content}, where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level_id": input_id, "level": self.input_level}, db=self.db)
+
+            table_data.append({"Input": old_content, "Output": new_content, "duration": round(end - start, 2)})
+
+        self.logger.log_step(task="info_text", layer=2, log_text="Completed chunk enrichment")
+        self.logger.log_step(task="table", layer=1, log_text="Completed Enrichment with following chunk updates: ", table_data=table_data)
+
+
+
+
+
+
+
+
+
+class Filter:
+
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, where: str, model: str, prompt: str, history: bool = False):
+
+        self.db = db
+        self.user_id = user_id
+        self.doc_id = doc_id
+        self.input_level = where
+        self.logger = logger
+
+        self.prompt = prompt
+        self.model = model
+
+        self.chat_orchestrator: Optional[ChatOrchestrator] = None
+        self.do_history = history
+        self.history: list[dict[str, Any]] = []
+
+
+
+
+    async def init_clients(self):
+        user_key_list = await get_user_api_keys(user_id=self.user_id, base_api="https://chat-ai.academiccloud.de/v1",
+                                                db=self.db)
+
+        self.chat_orchestrator = ChatOrchestrator(user_key_list=user_key_list,
+                                                  base_api="https://chat-ai.academiccloud.de/v1")
+
+
+
+
+    def _call_orchestrator(self, user_prompt, system_prompt):
+        if self.do_history:
+            output_dict = json.loads(
+                self.chat_orchestrator.call_with_history(label=self.model, system_prompt=system_prompt,
+                                                         user_prompt=user_prompt, history=self.history))
+
+            # update history list with user and assistant input of the new call
+            self.history += [{"role": "user", "content": user_prompt},
+                             {"role": "assistant", "content": output_dict["Boolean"]}]
+
+        else:
+            output_dict = json.loads(
+                self.chat_orchestrator.call(label=self.model, system_prompt=system_prompt,
+                                            user_prompt=user_prompt))
+
+        return output_dict["Boolean"]
+
+
+
+
+    def _decide_relevance(self, input_chunk):
+        """
+                Rewrites image content with paragraphs describing it - if it aligns with the main topic of the file. Otherwise, it removes it.
+                Should remove descriptions of logos and layout symbols
+        """
+
+        system_prompt = f"""
+                        You are an assistant that must always respond in valid JSON following this schema:
+
+                        {{  
+                            "title": "Json",
+                            "description": "Structured Json",
+                            "type": "object",
+                            "properties": {{
+                                "Boolean": {{
+                                    "title": "Boolean",
+                                    "description": {self.prompt},
+                                    "type": "Boolean"
+                                }}
+                            }}  
+                        }}   
+
+                """
+
+        user_prompt = f"""
+                    Analyze the content of following CHUNK and generate the specified Boolean. 
+
+                    CHUNK:
+                    ---
+                    {input_chunk}
+
+                    """
+
+        bool_output = self._call_orchestrator(user_prompt, system_prompt)
+
+        return bool_output
+
+
+
+
+
+    async def run_method(self) -> None:
+        # use the content of input_level to generate metadata for output_level (e.g. section for section, or section for paragraph)
+        # for example generate a section summary to enrich each section or provide context for all paragraphs in that section
+
+        # loggs
+        await self.init_clients()
+
+        rows, columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.input_level}, db=self.db)
+
+        self.logger.log_step(task="info_text", layer=2, log_text="Starting filtering chunks")
+
+        input_df = pd.DataFrame(rows, columns=columns).sort_values(
+            by="level_id")  # like the retrievals table, but one for each hierarchy level
+
+        input_ids = list(set(input_df[f"level_id"]))
+
+        for input_id in input_ids:
+            # print(f"proceeding to enrich {input_id}")
+
+            # instead of extracting chunk from paragraphs table, we search for the input or output column of the retrievals table
+
+            content = input_df.loc[input_df["level_id"] == input_id, "content"].dropna().astype(str).iloc[0]  # one row dataframe
+
+            if not content:
                 print("Content is empty")
                 return
 
-            system_prompt = self._get_system_prompt()
 
-            start = time.time()
-            new_content = self._enrich_chunk(system_prompt, old_content)
-            end = time.time()
+            is_relevant = self._decide_relevance(content)
 
+            if not is_relevant:
 
+                await Retrieval.delete_data(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level_id": input_id, "level": self.input_level}, db=self.db)
 
-            if not self.replace:
-
-                updated_content = f"{old_content}\n{new_content}"
-
-                
-                await Retrieval.update_data(data_dict={"content": updated_content}, where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level_id": input_id, "level": self.input_level}, db=self.db)
-
-
-                self.logger.log_step(task="table", table_data={"old_content": old_content, "new_content": new_content, "duration": round(end - start, 2)})
-
-
+                self.logger.log_step(task="info_text", layer=1, log_text=f"Removed chunk:\n {content}\n")
 
             else:
-                await Retrieval.update_data(data_dict={"content": new_content}, where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level_id": input_id, "level": self.input_level}, db=self.db)
 
-                self.logger.log_step(task="table", table_data={"old_content": old_content, "new_content": new_content, "duration": round(end - start, 2)})
-
+                self.logger.log_step(task="info_text", layer=1, log_text=f"Saved chunk:\n {content}\n")
 
 
 
-class Reset:
+class Reseter:
 
 
     def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, where: str = "section"):
@@ -342,57 +491,100 @@ class Reset:
 
     async def run_method(self):
 
-        # Finally, merge paragraphs data and insert chunks into the RETRIEVALS table (Sections and EmbeddingChunks)
+        self.logger.log_step(task="info_text", layer=2, log_text=f"Reseting chunks at {self.level} level")
 
-        await Retrieval.delete_data({"user_id": self.user_id, "doc_id": self.doc_id, "level": self.level}, self.db)
+        where_dict = {"user_id": self.user_id, "doc_id": self.doc_id, "level": self.level}
 
-        rows, columns = await Paragraph.get_all_paragraphs({"user_id": self.user_id, "doc_id": self.doc_id}, self.db)
+        # Filters
+        filters = []
+        for key, value in where_dict.items():
+            filters.append(getattr(Retrieval, key) == value)
 
-        self.paragraph_df = pd.DataFrame(rows, columns=columns).sort_values(
-            by="paragraph_id")  # ensures that paragraphs are in the right order
+        stmt = (
+            update(Retrieval)
+            .where(and_(*filters))
+            .values(content=Retrieval.original_content)
+        )
 
-        # Insert Document title
-
-        await self.export_document_title()
-
-        # Export Level Chunks
-
-
-        id_values = list(set(self.paragraph_df[f"{self.level}_id"]))
-
-        for id_value in id_values:
-            filtered_df = self.paragraph_df[self.paragraph_df[f"{self.level}_id"] == id_value]
-
-            title = filtered_df["paragraph"].iloc[0]
-            chunk = "\n".join(filtered_df["paragraph"].iloc[1:])
-
-            # self.db.insert("Retrievals", {"doc_id": self.doc_id, "level": level, "level_id": id_value, "title": title, "content": chunk})
-
-            await Retrieval.insert_data(
-                {"user_id": self.user_id, "doc_id": self.doc_id, "level": self.level, "level_id": id_value,
-                 "title": title, "content": chunk},
-                self.db)
-
+        await self.db.execute(stmt)
         await self.db.commit()
+
+
+
+
+
+# ---------------------------------------------
+
+# ---------------- ORCHESTRATORS --------------------
+
+# ---------------------------------------------
+
+
+EVALUATOR_TYPE_MAPPER = {
+    "Chunking": ChunkerEvaluator,
+    "Enriching": EnricherEvaluator,
+}
+
+
+
+async def run_extraction(pipelines: dict[str, list[dict[str, Any]]], user_id: UUID, doc_id: UUID, db: AsyncSession):
+    log_path = await get_log_path(user_id, stage="extraction")
+    session_logger = InfoLogger(log_path=log_path, stage="extraction")
+    doc_title = await get_doc_title(user_id, doc_id, db=db)
+    session_logger.log_step(task="header_1", layer=2, log_text=f"Starting Extraction for document: {doc_title}")
+
+    # Init evaluator method
+    evaluator_method = pipelines.pop("evaluator")[0]
+
+    # Run Pipelines
+    sorted_items = sorted(list(pipelines.items()), key=lambda x: int(x[0].strip()))
+    sorted_pipelines = [x[1] for x in sorted_items]
+
+    # If evaluator was instanced, run all pipelines and record their score. Finally run the highest scoring pipeline
+    if evaluator_method:
+        session_logger.log_step(task="header_2", layer=2, log_text=f"Starting Evaluation of Pipelines")
+        session_logger.log_step(task="table", layer=2, log_text=f"using following Method: ", table_data=evaluator_method)
+
+        evaluator_type = evaluator_method.pop("type")
+        evaluator_method.update({"logger": session_logger, "user_id": user_id, "doc_id": doc_id, "db": db, "doc_title": doc_title})
+        evaluator_instance = EVALUATOR_TYPE_MAPPER[evaluator_type](**evaluator_method)
+        pipeline_scores = []
+        for i, pipeline in enumerate(sorted_pipelines):
+            session_logger.log_step(task="info_text", layer=2, log_text=f"Pipeline {i + 1}")
+            session_logger.log_step(task="table", layer=2, log_text=f"This Pipeline consists of following methods: ", table_data=pipeline)
+
+            await run_extraction_pipeline(method_list=pipeline, user_id=user_id, doc_id=doc_id, db=db, session_logger=session_logger, session_evaluator=evaluator_instance, log_path=log_path)
+
+            pipeline_scores.append(evaluator_instance.pipeline_score)
+
+        #  Overwrite last Retrieval content with the best chunking pipeline
+        best_index = pipeline_scores.index(max(pipeline_scores))
+        session_logger.log_step(task="header_2", layer=2, log_text=f"Running Pipeline {best_index}")
+        await run_extraction_pipeline(method_list=sorted_pipelines[best_index], user_id=user_id, doc_id=doc_id, db=db, session_logger=session_logger, session_evaluator=evaluator_instance, log_path=log_path)
+
+
+
+    # If no evaluator is present, run the first pipeline only
+    else:
+
+        pipeline = sorted_pipelines[0]
+        session_logger.log_step(task="header_2", layer=2, log_text=f"Running Pipeline 1")
+        session_logger.log_step(task="table", layer=2, log_text=f"This Pipeline consists of following methods: ", table_data=pipeline)
+
+        await run_extraction_pipeline(method_list=pipeline, user_id=user_id, doc_id=doc_id, db=db, session_logger=session_logger, session_evaluator=None, log_path=log_path)
+
+
+
 
 
 TYPE_MAPPER = {
     "Extractor": Extractor,
     "Enricher": Enricher,
-    "Reset Content": Reset,
+    "Filter": Filter,
+    "Reset": Reseter,
 }
 
-async def run_extraction(method_list: list[dict[str, Any]], user_id: UUID, doc_id: UUID, db: AsyncSession):
-
-    log_path = await get_log_path(user_id, stage="extraction")
-    session_logger = InfoLogger(log_path=log_path, stage="extraction")
-
-    # logg
-    doc_title = await get_doc_title(user_id, doc_id, db=db)
-    session_logger.log_step(task="header_1", log_text=f"Starting Extraction for document: {doc_title}")
-    session_logger.log_step(task="info_text", log_text=f"Using following methods: ")
-    for method in method_list:
-        session_logger.log_step(task="table", table_data=method)
+async def run_extraction_pipeline(method_list: list[dict[str, Any]], user_id: UUID, doc_id: UUID, db: AsyncSession, session_logger: InfoLogger, session_evaluator: ChunkerEvaluator, log_path: str):
 
 
     for method in method_list:
@@ -402,19 +594,22 @@ async def run_extraction(method_list: list[dict[str, Any]], user_id: UUID, doc_i
         if method["type"] == "Extractor":
             input_level = method.pop("from")
             output_level = method.pop("to")
-            method["input_level"] = input_level
-            method["output_level"] = output_level
-            session_logger.log_step(task="header_2", log_text=f"Starting Extraction from {input_level} to {output_level}")
+            method.update({"input_level": input_level, "output_level": output_level})
+
+            session_logger.log_step(task="info_text", layer=2, log_text=f"Starting Extraction from {input_level} to {output_level}")
 
         else:
             target_level = method["where"]
-            session_logger.log_step(task="header_2", log_text=f"Starting Enrichment at {target_level} level")
+            session_logger.log_step(task="info_text", layer=2, log_text=f"Starting Enrichment at {target_level} level")
 
 
         method_type = method.pop("type")
         method_instance = TYPE_MAPPER[method_type](**method)
     
         await method_instance.run_method()
+
+    # After running the pipeline we perform the evaluation
+    session_evaluator.commit_evaluation()
 
     await export_logs(log_path)
 
@@ -424,106 +619,6 @@ async def run_extraction(method_list: list[dict[str, Any]], user_id: UUID, doc_i
 
 
 
-
-
-# Mybe implement in the future
-
-
-
-class TableCleaner:
-    """
-    Filters out all items of the input_level that don't align with the content of their parent reference_level (should be something like a summary)
-    Useful for images, tables, small sections ... representing irrelevant data that wasn't filtered before
-    """
-
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id):
-
-        self.db = db
-        self.user_id = user_id
-
-
-    def _filter_retrieval_ids(self, input_chunks: str, reference_chunk: str) -> List:
-        # Qwen3-Coder is explicitly an instruction-tuned coder model, so its usage profile lines up with OpenAIs mini line
-
-        # QWEN2.5_CODER_32B_INSTRUCT
-
-        system_prompt = """
-                You are an assistant that must always respond in valid JSON following this schema:
-
-                {
-                    "title": "Metadata",
-                    "description": "Structured metadata",
-                    "type": "object",
-                    "properties": {
-                        "input_ids": {
-                            "title": "input_ids",
-                            "description": "A list with each INPUT_ID whose content aligns with this CHUNK",
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-
-        """
-
-        user_prompt = f"""
-            Please analyze the content of following CHUNK and INPUT_IDs, and generate the specified object. 
-
-            CHUNK:
-            ---
-            {reference_chunk}
-            ---
-            {input_chunks}
-
-            """
-
-        chat_orchestrator = ChatOrchestrator()
-
-        output_dict = json.loads(chat_orchestrator.call("thinker", system_prompt, user_prompt))
-
-        print("printing Chat Output: ", output_dict)
-
-        filtered_input_ids = list(output_dict["input_ids"])
-
-
-        return filtered_input_ids
-
-
-
-    def run_cleaning(self, input_level, reference_level):
-        start = time.time()
-
-        reference_df = pd.DataFrame(self.db.get_all("retrievals",f"level=?",[reference_level]))
-
-
-        for _, row in reference_df.iterrows():
-            reference_chunk = row["retrieval_input"]
-            paragraphs_df = pd.DataFrame(self.db.get_all(row["doc_id"],f"{reference_level}_id=?", [row["level_id"]]))
-
-
-            input_chunks = ""
-            input_ids = list(set(paragraphs_df[f"{input_level}_id"].values))
-            retrieval_ids = []
-            for input_id in input_ids:
-                input_df = pd.DataFrame(self.db.get_all("retrievals", f"level=? AND doc_id=? AND level_id=?", [input_level, row["doc_id"], input_id]))
-                input_chunk = input_df["retrieval_input"].iloc[0]
-                retrieval_id = input_df["retrieval_id"].iloc[0]
-                retrieval_ids.append(retrieval_id)
-
-                input_chunks += f"INPUT_ID={retrieval_id}\n{input_chunk}\n"
-
-            filtered_retrieval_ids = self._filter_retrieval_ids(input_chunks, reference_chunk)
-
-            for retrieval_id in retrieval_ids:
-                if retrieval_id not in filtered_retrieval_ids:
-                    self.db.delete("retrievals", f"retrieval_id=?", [retrieval_id])
-
-        end = time.time()
-
-        # logg
-        self.logger.log_step(task="info_text", log_text=f"Reasoner Retrieval in {round(end-start, 2)} seconds", inputs=query, outputs=retrieval_output_ids, duration=f"")
 
 
 

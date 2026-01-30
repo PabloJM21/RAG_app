@@ -16,15 +16,15 @@ export default async function DocRootLayout({
       <header className="relative border-b border-gray-300 py-3">
         <div className="absolute left-1/2 -translate-x-1/2">
           <div className="grid grid-cols-4 gap-4">
-            <Link href={`/rag/docs/${doc_id}/indexing`}>
+            <Link href={`/rag/docs/${doc_id}/conversion`}>
               <Button variant="outline" className="w-40 text-lg py-3">
-                Indexing
+                Conversion
               </Button>
             </Link>
 
-            <Link href={`/rag/docs/${doc_id}/results`}>
+            <Link href={`/rag/docs/${doc_id}/chunking`}>
               <Button variant="outline" className="w-40 text-lg py-3">
-                Chunks
+                Chunking
               </Button>
             </Link>
 

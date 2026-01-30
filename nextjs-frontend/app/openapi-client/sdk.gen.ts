@@ -94,6 +94,15 @@ import type {
   RunConversionPipelineData,
   RunConversionPipelineResponses,
   RunConversionPipelineErrors,
+  ReadProcessingPipelineData,
+  ReadProcessingPipelineResponses,
+  ReadProcessingPipelineErrors,
+  AddProcessingPipelineData,
+  AddProcessingPipelineResponses,
+  AddProcessingPipelineErrors,
+  RunProcessingPipelineData,
+  RunProcessingPipelineResponses,
+  RunProcessingPipelineErrors,
   RunConversionPipeline2Data,
   RunConversionPipeline2Responses,
   ReadChunkingPipelineData,
@@ -128,8 +137,6 @@ import type {
   RunExtractionPipelineData,
   RunExtractionPipelineResponses,
   RunExtractionPipelineErrors,
-  ExtractAllData,
-  ExtractAllResponses,
   ReadRetrievalPipelineData,
   ReadRetrievalPipelineResponses,
   ReadRetrievalPipelineErrors,
@@ -902,6 +909,79 @@ export const runConversionPipeline = <ThrowOnError extends boolean = false>(
 };
 
 /**
+ * Read Processing Pipeline
+ */
+export const readProcessingPipeline = <ThrowOnError extends boolean = false>(
+  options: Options<ReadProcessingPipelineData, ThrowOnError>,
+) => {
+  return (options.client ?? client).get<
+    ReadProcessingPipelineResponses,
+    ReadProcessingPipelineErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/conversion/processing/{doc_id}/data",
+    ...options,
+  });
+};
+
+/**
+ * Add Processing Pipeline
+ */
+export const addProcessingPipeline = <ThrowOnError extends boolean = false>(
+  options: Options<AddProcessingPipelineData, ThrowOnError>,
+) => {
+  return (options.client ?? client).post<
+    AddProcessingPipelineResponses,
+    AddProcessingPipelineErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/conversion/processing/{doc_id}/data",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Run Processing Pipeline
+ */
+export const runProcessingPipeline = <ThrowOnError extends boolean = false>(
+  options: Options<RunProcessingPipelineData, ThrowOnError>,
+) => {
+  return (options.client ?? client).post<
+    RunProcessingPipelineResponses,
+    RunProcessingPipelineErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/conversion/processing/{doc_id}/run",
+    ...options,
+  });
+};
+
+/**
  * Run Conversion Pipeline
  */
 export const runConversionPipeline2 = <ThrowOnError extends boolean = false>(
@@ -1185,29 +1265,6 @@ export const runExtractionPipeline = <ThrowOnError extends boolean = false>(
       },
     ],
     url: "/extraction/{doc_id}/run",
-    ...options,
-  });
-};
-
-/**
- * Extract All
- */
-export const extractAll = <ThrowOnError extends boolean = false>(
-  options?: Options<ExtractAllData, ThrowOnError>,
-) => {
-  return (options?.client ?? client).post<
-    ExtractAllResponses,
-    unknown,
-    ThrowOnError
-  >({
-    responseType: "json",
-    security: [
-      {
-        scheme: "bearer",
-        type: "http",
-      },
-    ],
-    url: "/extraction/run",
     ...options,
   });
 };

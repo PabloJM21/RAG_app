@@ -16,7 +16,7 @@ from typing import List, Dict, Any
 from uuid import uuid4
 import json
 
-# Extraction service
+# Retrieval service
 from app.rag_services.retrieval_service import export_doc_pipeline
 
 # Markdown generator

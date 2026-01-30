@@ -81,9 +81,9 @@ class InfoLogger:
                 return session_id
 
 
-    def log_step(self, log_text: str = "", depth: Optional[int] = 1, task: str = "info_text", table_data: dict = None):
+    def log_step(self, log_text: Optional[str] = "", layer: Optional[int] = 1, task: Optional[str] = "info_text", table_data: Optional[dict] = None):
         # Only pass dynamic fields here
-        self.logger.bind(task=task, depth=depth, table_data=table_data).info(log_text)
+        self.logger.bind(task=task, layer=layer, table_data=table_data).info(log_text)
 
 
 

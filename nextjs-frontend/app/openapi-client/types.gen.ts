@@ -1163,6 +1163,104 @@ export type RunConversionPipelineResponses = {
   200: unknown;
 };
 
+export type ReadProcessingPipelineData = {
+  body?: never;
+  path: {
+    /**
+     * Doc Id
+     */
+    doc_id: string;
+  };
+  query?: never;
+  url: "/conversion/processing/{doc_id}/data";
+};
+
+export type ReadProcessingPipelineErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ReadProcessingPipelineError =
+  ReadProcessingPipelineErrors[keyof ReadProcessingPipelineErrors];
+
+export type ReadProcessingPipelineResponses = {
+  /**
+   * Response Conversion-Read Processing Pipeline
+   * Successful Response
+   */
+  200: Array<{
+    [key: string]: unknown;
+  }>;
+};
+
+export type ReadProcessingPipelineResponse =
+  ReadProcessingPipelineResponses[keyof ReadProcessingPipelineResponses];
+
+export type AddProcessingPipelineData = {
+  /**
+   * Pipeline
+   */
+  body: Array<{
+    [key: string]: unknown;
+  }>;
+  path: {
+    /**
+     * Doc Id
+     */
+    doc_id: string;
+  };
+  query?: never;
+  url: "/conversion/processing/{doc_id}/data";
+};
+
+export type AddProcessingPipelineErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type AddProcessingPipelineError =
+  AddProcessingPipelineErrors[keyof AddProcessingPipelineErrors];
+
+export type AddProcessingPipelineResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type RunProcessingPipelineData = {
+  body?: never;
+  path: {
+    /**
+     * Doc Id
+     */
+    doc_id: string;
+  };
+  query?: never;
+  url: "/conversion/processing/{doc_id}/run";
+};
+
+export type RunProcessingPipelineErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type RunProcessingPipelineError =
+  RunProcessingPipelineErrors[keyof RunProcessingPipelineErrors];
+
+export type RunProcessingPipelineResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
 export type RunConversionPipeline2Data = {
   body?: never;
   path?: never;
@@ -1204,9 +1302,11 @@ export type ReadChunkingPipelineResponses = {
    * Response Chunking-Read Chunking Pipeline
    * Successful Response
    */
-  200: Array<{
-    [key: string]: unknown;
-  }>;
+  200: {
+    [key: string]: Array<{
+      [key: string]: unknown;
+    }>;
+  };
 };
 
 export type ReadChunkingPipelineResponse =
@@ -1216,9 +1316,11 @@ export type AddChunkingPipelineData = {
   /**
    * Pipeline
    */
-  body: Array<{
-    [key: string]: unknown;
-  }>;
+  body: {
+    [key: string]: Array<{
+      [key: string]: unknown;
+    }>;
+  };
   path: {
     /**
      * Doc Id
@@ -1453,9 +1555,11 @@ export type ReadExtractionPipelineResponses = {
    * Response Extraction-Read Extraction Pipeline
    * Successful Response
    */
-  200: Array<{
-    [key: string]: unknown;
-  }>;
+  200: {
+    [key: string]: Array<{
+      [key: string]: unknown;
+    }>;
+  };
 };
 
 export type ReadExtractionPipelineResponse =
@@ -1465,9 +1569,11 @@ export type AddExtractionPipelineData = {
   /**
    * Pipeline
    */
-  body: Array<{
-    [key: string]: unknown;
-  }>;
+  body: {
+    [key: string]: Array<{
+      [key: string]: unknown;
+    }>;
+  };
   path: {
     /**
      * Doc Id
@@ -1518,20 +1624,6 @@ export type RunExtractionPipelineError =
   RunExtractionPipelineErrors[keyof RunExtractionPipelineErrors];
 
 export type RunExtractionPipelineResponses = {
-  /**
-   * Successful Response
-   */
-  200: unknown;
-};
-
-export type ExtractAllData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: "/extraction/run";
-};
-
-export type ExtractAllResponses = {
   /**
    * Successful Response
    */

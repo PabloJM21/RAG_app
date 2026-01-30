@@ -32,7 +32,7 @@ router = APIRouter(tags=["extraction"])
 MethodSpec = Dict[str, Any]
 
 
-@router.get("/{doc_id}/data", response_model=List[MethodSpec])
+@router.get("/{doc_id}/data", response_model=Dict[str, List[MethodSpec]])
 async def read_extraction_pipeline(
         doc_id: UUID,
         db: AsyncSession = Depends(get_async_session),
@@ -43,7 +43,7 @@ async def read_extraction_pipeline(
 
     if row.extraction_pipeline is None:
         # Return default empty pipeline if none exists
-        return []
+        return {}
 
     extraction_pipeline = json.loads(row.extraction_pipeline)
 
@@ -53,7 +53,7 @@ async def read_extraction_pipeline(
 @router.post("/{doc_id}/data")
 async def add_extraction_pipeline(
         doc_id: UUID,
-        pipeline: List[MethodSpec],
+        pipeline: Dict[str, List[MethodSpec]],
         db: AsyncSession = Depends(get_async_session),
         user: User = Depends(current_active_user),
 ):
@@ -76,22 +76,21 @@ async def run_extraction_pipeline(
 ):
     # 1. filter: this endpoint is only triggered when a pipeline is fetched or created from the UI
     row = await DocPipelines.get_row(where_dict={"user_id": user.id, "doc_id": doc_id}, db=db)
-    extraction_pipeline = json.loads(row.extraction_pipeline)
+
     
     
 
 
     # 2. filter: output error if the pipeline is created but not saved, and there is no previous pipeline
-    if not extraction_pipeline:
+    if not row.extraction_pipeline:
         raise HTTPException(status_code=404, detail="No pipeline was saved")
+
+    extraction_pipeline = json.loads(row.extraction_pipeline)
 
     # Run extraction
     await run_extraction(extraction_pipeline, user.id, doc_id, db)
 
     # After extraction
-
-    # Set extracted=1
-    row.extracted = 1
 
 
     # NEXT: Set exported=0
@@ -103,6 +102,14 @@ async def run_extraction_pipeline(
     return {
         "status": "ok"
     }
+
+
+
+
+
+
+"""
+
 
 
 # ---------- ALL DOCs ----------
@@ -145,3 +152,4 @@ async def extract_all(
 
 
 
+"""

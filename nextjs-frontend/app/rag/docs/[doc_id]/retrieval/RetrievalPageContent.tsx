@@ -13,7 +13,8 @@ type PipelineSpec = Partial<MethodSpec>[]
 
 const RETRIEVER_TYPES = [
   "EmbeddingRetriever",
-  "ReasonerRetriever"
+  "ReasonerRetriever",
+  "BM25Retriever",
 ] as const;
 
 const RETRIEVER_LEVEL_EXTRA = ["rerank"];
@@ -22,7 +23,7 @@ const EMBEDDING_MODELS = ["e5-mistral-7b-instruct", "multilingual-e5-large-instr
 
 const REASONER_MODELS = ["coder", "thinker", "classifier", "generator", "reasoner"];
 
-const QUERY_TRANSFORM_MODELS = [...REASONER_MODELS, "None"] as const;
+
 
 
 /* ---------- Templates ---------- */
@@ -30,7 +31,8 @@ const QUERY_TRANSFORM_MODELS = [...REASONER_MODELS, "None"] as const;
 const BASE_RETRIEVER_FIELDS = {
   level: "",
   retrieval_amount: "",
-  query_transformation_model: ""
+  query_transformation_model: "",
+  query_transformation_prompt: "",
 };
 
 const EMBEDDING_RETRIEVER_TEMPLATE: MethodSpec = {
@@ -44,6 +46,26 @@ const REASONER_RETRIEVER_TEMPLATE: MethodSpec = {
   ...BASE_RETRIEVER_FIELDS,
   reasoner_model: ""
 };
+
+const BM25_RETRIEVER_TEMPLATE: MethodSpec = {
+  type: "BM25Retriever",
+  ...BASE_RETRIEVER_FIELDS,
+  k1: "1.5",
+  b: "0.75",
+};
+
+
+const TEMPLATE_MAP: Record<(typeof RETRIEVER_TYPES)[number], MethodSpec> = {
+  EmbeddingRetriever: EMBEDDING_RETRIEVER_TEMPLATE,
+  ReasonerRetriever: REASONER_RETRIEVER_TEMPLATE,
+  BM25Retriever: BM25_RETRIEVER_TEMPLATE
+};
+
+function templateFor(
+  type: (typeof RETRIEVER_TYPES)[number]
+): MethodSpec {
+  return structuredClone(TEMPLATE_MAP[type]);
+}
 
 /* ---------- Component ---------- */
 
@@ -87,11 +109,7 @@ export function RetrievalEditor({
   }
 
   function addMethod() {
-    const template =
-      selectedType === "EmbeddingRetriever"
-        ? structuredClone(EMBEDDING_RETRIEVER_TEMPLATE)
-        : structuredClone(REASONER_RETRIEVER_TEMPLATE);
-
+    const template = structuredClone(templateFor(selectedType));
     setPipeline([...pipeline, template]);
   }
   
@@ -147,7 +165,7 @@ export function RetrievalEditor({
           }
         >
           <option value="">—</option>
-          {QUERY_TRANSFORM_MODELS.map((m) => (
+          {REASONER_MODELS.map((m) => (
             <option key={m} value={m}>
               {m}
             </option>

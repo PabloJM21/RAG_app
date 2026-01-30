@@ -5,28 +5,41 @@ from pathlib import Path
 from loguru import logger
 import re
 
+UUID_RE = re.compile(r"UUID\('([0-9a-fA-F-]+)'\)")
+
+
+import ast
+
+
+
 def parse_extra_from_line(line: str) -> dict | None:
-    """
-    Extract and return the Loguru `extra` dict from a log line.
+    """Extract and return the Loguru extra dict from a log line.
+
     Supports both:
-      - {'extra': {...}}
-      - {...}  (flat)
+    - {'extra': {...}}
+    - {...} (flat)
     """
+
+
+
     try:
-        payload = line.rsplit("|", 1)[-1].strip()
+        payload = line.split("|", 3)[-1].strip()
+        payload = UUID_RE.sub(r"'\1'", payload)
+
         data = ast.literal_eval(payload)
+
 
         logger.info(f"Has data in extra: {data}")
 
         if not isinstance(data, dict):
             return None
 
-
         # Case 2: flat extra dict (your current logs)
         return data
 
     except Exception:
         return None
+
 
 
 def rows_to_columns(rows):
@@ -76,35 +89,25 @@ def generate_markdown_from_log(
 
     stage = os.path.basename(log_path).split(".")[0]
 
-    def get_max_depth(text):
-        max_depth = 1
-        for text_line in text:
-            line_extra = parse_extra_from_line(text_line)
-            if not line_extra:
-                continue
-
-            if line_extra.get("session_id") != session_id:
-                continue
-            current_depth = line_extra.get("depth")
-            if current_depth > max_depth:
-                max_depth = current_depth
-
-        return max_depth
 
 
-    def append_line(input_depth, input_line):
+
+    def append_line(input_layer, input_line):
         """
-        Append line to MD record of all logging depths >= input_depth
+        Append line to MD record of all logging layers <= input_layer
         """
-        for higher_depth in range(input_depth, depth_limit + 1):
-            md_line_dict.setdefault(higher_depth, []).append(input_line)
-            logger.info(f"Line appended for depth: {higher_depth}")
+        for previous_layer in range(1, input_layer + 1):
+
+            md_line_dict.setdefault(previous_layer, []).append(input_line)
+            logger.info(f"Line appended for layer: {previous_layer}")
+
+
+
 
     with open(log_path, "r", encoding="utf-8") as f:
         lines = f.readlines()
         lines = group_logs(lines)
 
-        depth_limit = get_max_depth(lines)
 
         for line in lines:
             logger.info(f"New line: {line}")
@@ -121,37 +124,40 @@ def generate_markdown_from_log(
                 continue
 
             task = extra.get("task")
-            depth = extra.get("depth")
-            logger.info(f"found task: {task} and depth {depth}")
+            layer = extra.get("layer")
+            logger.info(f"found task: {task} and layer {layer}")
 
             # ---------- HEADER 1 ----------
             if task == "header_1":
-                log_text = line.split("|")[-2].strip()
+                log_text = line.split("|", 3)[-2].strip()
                 if log_text:
-                    append_line(depth, f"# {log_text}\n")
+                    append_line(layer, f"# {log_text}\n")
 
 
 
 
             # ---------- HEADER 2 ----------
             elif task == "header_2":
-                log_text = line.split("|")[-2].strip()
+                log_text = line.split("|", 3)[-2].strip()
                 if log_text:
-                    append_line(depth,f"## {log_text}\n")
+                    append_line(layer,f"## {log_text}\n")
 
 
 
             # ---------- TEXT INFO ----------
             elif task == "info_text":
-                log_text = line.split("|")[-2].strip()
+                log_text = line.split("|", 3)[-2].strip()
                 if log_text:
                     logger.info(f"Detected info_text, appending line: {log_text}")
-                    append_line(depth, f"{log_text}\n")
+                    append_line(layer, f"{log_text}\n")
 
             # ---------- VALIDATION ----------
             elif task == "table":
-                log_text = line.split("|")[-2].strip()
-                append_line(depth, f"{log_text}\n")
+                log_text = line.split("|", 3)[-2].strip()
+                if log_text:
+                    append_line(layer, f"{log_text}\n")
+
+                append_line(layer, f"\n")
 
                 columns = extra.get("table_data")
                 if isinstance(columns, list):
@@ -165,14 +171,14 @@ def generate_markdown_from_log(
                 rows = zip(*columns.values())
 
                 # Markdown table header
-                append_line(depth, "| " + " | ".join(col_names) + " |")
-                append_line(depth, "| " + " | ".join("---" for _ in col_names) + " |")
+                append_line(layer, "| " + " | ".join(col_names) + " |")
+                append_line(layer, "| " + " | ".join("---" for _ in col_names) + " |")
 
                 # Table rows
                 for row in rows:
-                    append_line(depth, "| " + " | ".join(str(cell) for cell in row) + " |")
+                    append_line(layer, "| " + " | ".join(str(cell).replace("|", r"\|") for cell in row) + " |")
 
-                append_line(depth,"")
+                append_line(layer,"")
 
             else:
 
@@ -180,8 +186,8 @@ def generate_markdown_from_log(
                 pass
 
 
-    for depth, md_lines in md_line_dict.items():
-        output_path = output_dir / f"{stage}_depth_{depth}.md"
+    for layer, md_lines in md_line_dict.items():
+        output_path = output_dir / f"{stage}_layer_{layer}.md"
         logger.info(f"Trying to write to path: {output_path}")
         with open(output_path, "w", encoding="utf-8") as out:
             out.write("\n".join(md_lines))
@@ -198,9 +204,13 @@ def find_session_id(log_path: str) -> str | None:
     with open(log_path, "r", encoding="utf-8") as f:
         lines = f.readlines()
 
+    lines = group_logs(lines)
     for line in reversed(lines):
 
+        logger.info(f"Processing reversed line: {line}")
+
         extra = parse_extra_from_line(line)
+        logger.info(f"Obtained extra: {extra}")
 
         session_id = extra.get("session_id")
 

@@ -31,7 +31,7 @@ export async function removeKey(key_id: string) {
   if (error) {
     return { message: error };
   }
-  revalidatePath("rag/user_keys");
+  revalidatePath("rag/profile");
 }
 
 
@@ -81,7 +81,7 @@ export async function addKey(prevState: {}, formData: FormData) {
     return { message: typeof error.detail === "string" ? error.detail : "Failed to create key" };
   }
 
-  redirect("/rag/user_keys");
+  redirect("/rag/profile");
 }
 
 
