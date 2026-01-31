@@ -157,11 +157,12 @@ class ChunkerEvaluator(BaseEvaluator):
 
         # avoid
         output_chunks = output_chunks.copy()
+        self.logger.log_step(task="info_text", layer=1,log_text=f"Comparing current level {self.current_level} with target level {self.target_level}")
 
         if self.current_level != self.target_level or not output_chunks:
             return None
 
-        self.logger.log_step(task="header_2", layer=2, log_text=f"Running evaluation for input_chunk:\n {input_chunk}\n and output_chunks:\n {output_chunks}")
+        self.logger.log_step(task="info_text", layer=1, log_text=f"Running evaluation for input_chunk:\n {input_chunk}\n and output_chunks:\n {output_chunks}")
 
         await self.init_clients()
 

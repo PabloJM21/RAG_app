@@ -1006,9 +1006,11 @@ class BaseChunker:
         output_chunks = self.chunk_text(input_chunk)
 
 
-        self.logger.log_step(task="info_text", log_text="Can we run evaluation?")
+        self.logger.log_step(task="info_text", log_text=f"Can we run evaluation?. We have this evaluator: {self.evaluator}")
         # Evaluate Chunking
         if self.evaluator:
+            self.logger.log_step(task="info_text", log_text=f"Yes we can run it, with input chunk:\n {input_chunk}\n and output chunks:\n {output_chunks}")
+
             self.evaluator.run_evaluation(input_chunk=input_chunk, output_chunks=output_chunks)
 
 
