@@ -95,7 +95,15 @@ class Base(DeclarativeBase):
         # Filters
         filters = []
         for key, value in where_dict.items():
-            filters.append(getattr(cls, key) == value)
+            column = getattr(cls, key)
+
+            if value is None:
+                filters.append(column.is_(None))
+
+            elif isinstance(value, (list, tuple, set)):
+                filters.append(column.in_(value))
+            else:
+                filters.append(column == value)
 
 
         stmt = select(*select_columns)
@@ -125,7 +133,10 @@ class Base(DeclarativeBase):
         filters = []
         for key, value in where_dict.items():
             column = getattr(cls, key)
-            filters.append(column == value)
+            if isinstance(value, (list, tuple, set)):
+                filters.append(column.in_(value))
+            else:
+                filters.append(column == value)
 
         stmt = select(cls).where(and_(*filters))
         result = await db.execute(stmt)
@@ -339,15 +350,23 @@ class Paragraph(Base):
 
         # Filters
         filters = []
+
         for key, value in where_dict.items():
             if key in PARAGRAPH_KEYS:
-                filters.append(getattr(cls, key) == value)
+                column = getattr(cls, key)
             else:
-                filters.append(
-                    func.json_extract(
-                        cls.paragraph_metadata, f"$.{key}"
-                    ) == value
+                column = func.json_extract(
+                    cls.paragraph_metadata, f"$.{key}"
                 )
+
+            if value is None:
+                filters.append(column.is_(None))
+            elif isinstance(value, (list, tuple, set)):
+                filters.append(column.in_(value))
+            else:
+                filters.append(column == value)
+
+
 
         stmt = select(*select_columns)
         if filters:

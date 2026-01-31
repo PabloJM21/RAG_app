@@ -50,7 +50,7 @@ class BaseEvaluator:
         self.do_history = history
         self.history: list[dict[str, Any]] = []
 
-        self.max_chunk_size = 100  # max chunk size in characters
+        self.max_chunk_size = 5000  # max chunk size in characters
 
         # these instructions aim at replacing the content of a big chunk like "embedding_chunk" by a summary of its own input_content created previously by extracting its sections titles.
         # input_level can also refer to a child of output_level instead, which can also be a summary created previously, thus defining enrichment in a recursive manner, for example with numbered sections.
@@ -58,6 +58,11 @@ class BaseEvaluator:
     # ============================================================
     # INTERNAL HELPERS
     # ============================================================
+    @staticmethod
+    def unwrap_output(chat_output):
+        if isinstance(chat_output, dict):
+            return chat_output["Score"]
+        return chat_output
 
     def _get_system_prompt(self):
 
@@ -87,6 +92,8 @@ class BaseEvaluator:
 
         return system_prompt
 
+
+
     async def init_clients(self):
 
         user_key_list = await get_user_api_keys(user_id=self.user_id, base_api="https://chat-ai.academiccloud.de/v1",
@@ -97,20 +104,23 @@ class BaseEvaluator:
 
     def _call_orchestrator(self, system_prompt, user_prompt):
         if self.do_history:
-            output_dict = json.loads(
+            chat_output = json.loads(
                 self.chat_orchestrator.call_with_history(label=self.model, system_prompt=system_prompt,
                                                          user_prompt=user_prompt, history=self.history))
 
+            self.logger.log_step(task="info_text",
+                                 log_text=f"For user_prompt\n {user_prompt} \nObtained this output_dict: {chat_output}")
+
+            output_score = self.unwrap_output(chat_output)
+
             # update history list with user and assistant input of the new call
-            self.history += [{"role": "user", "content": user_prompt},
-                             {"role": "assistant", "content": output_dict["Output"]}]
+            self.history += [{"role": "user", "content": user_prompt}, {"role": "assistant", "content": str(output_score)}]
 
         else:
-            output_dict = json.loads(self.chat_orchestrator.call(label=self.model, system_prompt=system_prompt, user_prompt=user_prompt))
+            chat_output = json.loads(self.chat_orchestrator.call(label=self.model, system_prompt=system_prompt, user_prompt=user_prompt))
+            output_score = self.unwrap_output(chat_output)
 
-
-        self.logger(task="info_text", log_text=f"For user_prompt\n {user_prompt} \nObtained this output_dict: {output_dict}")
-        return output_dict["Output"]
+        return output_score
 
 
 
@@ -157,12 +167,12 @@ class ChunkerEvaluator(BaseEvaluator):
 
         # avoid
         output_chunks = output_chunks.copy()
-        self.logger.log_step(task="info_text", layer=1,log_text=f"Comparing current level {self.current_level} with target level {self.target_level}")
+        #self.logger.log_step(task="info_text", layer=1,log_text=f"Comparing current level {self.current_level} with target level {self.target_level}")
 
         if self.current_level != self.target_level or not output_chunks:
             return None
 
-        self.logger.log_step(task="info_text", layer=1, log_text=f"Running evaluation for input_chunk:\n {input_chunk}\n and output_chunks:\n {output_chunks}")
+        #self.logger.log_step(task="info_text", layer=1, log_text=f"Running evaluation for input_chunk:\n {input_chunk}\n and output_chunks:\n {output_chunks}")
 
         await self.init_clients()
 

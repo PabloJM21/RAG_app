@@ -7,9 +7,10 @@ import json
 
 
 from app.models import MainPipeline, DocPipelines
-from app.database import User, get_async_session
-from app.users import current_active_user
 
+
+from app.users import current_active_user, get_user_manager, UserManager   # adjust import paths
+from app.database import User, get_async_session            # adjust import paths
 
 from app.rag_services.retrieval_service import run_retrieval
 from app.mcp_tokens import create_jwt_token, decode_and_validate_mcp_token
@@ -19,8 +20,6 @@ from datetime import timedelta
 
 
 router = APIRouter(tags=["mcp"])
-
-
 
 
 
@@ -37,7 +36,7 @@ async def issue_mcp_url(
     )
 
     return {
-        "mcp_url": f"https://mcp.yourdomain.de/{token}"
+        "mcp_url": f"http://localhost:8000/mcp-proto/{token}"
     }
 
 
@@ -71,9 +70,11 @@ class PipelineResponse(BaseModel):
     reranker: MethodSpec
     generator: MethodSpec
 
+
+
 async def current_mcp_user(
     request: Request,
-    db: AsyncSession = Depends(get_async_session),
+    user_manager: UserManager = Depends(get_user_manager),
 ) -> User:
     auth = request.headers.get("Authorization")
     if not auth or not auth.startswith("Bearer "):
@@ -82,13 +83,21 @@ async def current_mcp_user(
     token = auth.removeprefix("Bearer ").strip()
 
     payload = decode_and_validate_mcp_token(token)
-    user_id = payload["sub"]
 
-    user = await User.get(db, user_id)
+    # payload["sub"] is a string; fastapi-users expects UUID for your setup
+    try:
+        user_id = UUID(payload["sub"])
+    except (ValueError, TypeError, KeyError):
+        raise HTTPException(status_code=401, detail="Invalid MCP token subject")
+
+    user = await user_manager.get(user_id)
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="Invalid MCP user")
 
     return user
+
+
+
 
 @router.post("/query", response_model=MCPQueryResponse)
 async def query_pipeline(
@@ -111,9 +120,55 @@ async def query_pipeline(
 
     output_content = await run_retrieval(query=payload.query, retrieval_dict=retrieval_dict, user_id=user.id, db=db)
 
+
+
+
     return output_content
 
 
 
 
+# --------- TEST ------------
 
+
+
+class MCPPingResponse(BaseModel):
+    ok: bool
+    user_id: str
+    email: str
+
+
+@router.post("/ping", response_model=MCPPingResponse)
+async def mcp_ping(
+    user: User = Depends(current_mcp_user),
+):
+    """
+    Minimal MCP auth test endpoint.
+    Confirms MCP token is valid and user is resolved.
+    """
+    return {
+        "ok": True,
+        "user_id": str(user.id),
+        "email": user.email,
+    }
+
+
+
+"""
+curl -s -X POST "http://localhost/mcp/<TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc":"2.0",
+    "id":2,
+    "method":"tools/call",
+    "params":{
+      "name":"ping",
+      "arguments":{}
+    }
+  }'
+
+
+{"jsonrpc":"2.0","id":3,"result":{"answer":"Hello pablo.jahnen@stud.uni-goettingen.de. You asked: What documents do I have indexed?","sources":[]}}
+
+
+"""

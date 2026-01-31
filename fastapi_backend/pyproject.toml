@@ -10,7 +10,7 @@ dependencies = [
     # Core backend
     "fastapi[standard]>=0.115.0,<0.116",
     "asyncpg>=0.29.0,<0.30",
-    "fastapi-users[sqlalchemy]>=13.0.0,<14",
+
     "pydantic-settings>=2.5.2,<3",
     "fastapi-mail>=1.4.1,<2",
     "fastapi-pagination==0.13.3",
@@ -30,6 +30,13 @@ dependencies = [
     "docling-core>=2.0,<3",
     "sqlite-vec>=0.1.6",
     "torch==2.2.2",
+    #FastAPI
+    "fastmcp==2.14.4",
+    "mcp==1.26.0",
+    "pyjwt[crypto]==2.10.1",
+    "fastapi-users[sqlalchemy]==14.0.1",
+
+
 ]
 
 [dependency-groups]

@@ -1322,6 +1322,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Conversion-Read Conversion Pipeline"
                 }
               }
@@ -1368,6 +1369,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
+                "additionalProperties": true,
                 "title": "Pipeline"
               }
             }
@@ -1473,7 +1475,8 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object"
+                    "type": "object",
+                    "additionalProperties": true
                   },
                   "title": "Response Conversion-Read Processing Pipeline"
                 }
@@ -1522,7 +1525,8 @@
               "schema": {
                 "type": "array",
                 "items": {
-                  "type": "object"
+                  "type": "object",
+                  "additionalProperties": true
                 },
                 "title": "Pipeline"
               }
@@ -1655,7 +1659,8 @@
                   "additionalProperties": {
                     "type": "array",
                     "items": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   },
                   "title": "Response Chunking-Read Chunking Pipeline"
@@ -1707,7 +1712,8 @@
                 "additionalProperties": {
                   "type": "array",
                   "items": {
-                    "type": "object"
+                    "type": "object",
+                    "additionalProperties": true
                   }
                 },
                 "title": "Pipeline"
@@ -1867,7 +1873,8 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object"
+                    "type": "object",
+                    "additionalProperties": true
                   },
                   "title": "Response Chunking-Read Chunking Results"
                 }
@@ -1916,7 +1923,8 @@
               "schema": {
                 "type": "array",
                 "items": {
-                  "type": "object"
+                  "type": "object",
+                  "additionalProperties": true
                 },
                 "title": "Result List"
               }
@@ -1977,7 +1985,8 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object"
+                    "type": "object",
+                    "additionalProperties": true
                   },
                   "title": "Response Chunking-Read Markdown Results"
                 }
@@ -2055,7 +2064,8 @@
                   "additionalProperties": {
                     "type": "array",
                     "items": {
-                      "type": "object"
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   },
                   "title": "Response Extraction-Read Extraction Pipeline"
@@ -2107,7 +2117,8 @@
                 "additionalProperties": {
                   "type": "array",
                   "items": {
-                    "type": "object"
+                    "type": "object",
+                    "additionalProperties": true
                   }
                 },
                 "title": "Pipeline"
@@ -2215,7 +2226,8 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object"
+                    "type": "object",
+                    "additionalProperties": true
                   },
                   "title": "Response Retrieval-Read Retrieval Pipeline"
                 }
@@ -2264,7 +2276,8 @@
               "schema": {
                 "type": "array",
                 "items": {
-                  "type": "object"
+                  "type": "object",
+                  "additionalProperties": true
                 },
                 "title": "Pipeline"
               }
@@ -2414,6 +2427,68 @@
                 "schema": {
                   "$ref": "#/components/schemas/MCPQueryResponse"
                 }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mcp/ping": {
+      "post": {
+        "tags": [
+          "mcp"
+        ],
+        "summary": "Mcp Ping",
+        "description": "Minimal MCP auth test endpoint.\nConfirms MCP token is valid and user is resolved.",
+        "operationId": "mcp_ping",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MCPPingResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mcp-proto/": {
+      "post": {
+        "tags": [
+          "mcp-proto"
+        ],
+        "summary": "Mcp Jsonrpc",
+        "description": "Minimal MCP-over-HTTP JSON-RPC endpoint:\n- tools/list\n- tools/call",
+        "operationId": "mcp_jsonrpc",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonRpcRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
               }
             }
           },
@@ -2592,6 +2667,50 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "JsonRpcRequest": {
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "title": "Jsonrpc",
+            "default": "2.0"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "method": {
+            "type": "string",
+            "title": "Method"
+          },
+          "params": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Params"
+          }
+        },
+        "type": "object",
+        "required": [
+          "method"
+        ],
+        "title": "JsonRpcRequest"
+      },
       "KeyReadData": {
         "properties": {
           "key_id": {
@@ -2615,6 +2734,29 @@
           "api_key"
         ],
         "title": "KeyReadData"
+      },
+      "MCPPingResponse": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok",
+          "user_id",
+          "email"
+        ],
+        "title": "MCPPingResponse"
       },
       "MCPQueryRequest": {
         "properties": {
@@ -2697,14 +2839,17 @@
       "PipelineResponse": {
         "properties": {
           "router": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Router"
           },
           "reranker": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Reranker"
           },
           "generator": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Generator"
           }

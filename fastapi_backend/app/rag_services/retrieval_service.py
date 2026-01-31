@@ -8,6 +8,8 @@ import time
 
 #Orchestrators
 from app.rag_apis.chat_api import ChatOrchestrator
+from app.rag_apis.embed_api import EmbeddingOrchestrator
+
 
 
 # helpers for disc paths
@@ -16,7 +18,7 @@ from app.rag_services.helpers import get_doc_paths, get_log_path, get_doc_title,
 
 #embeddings
 from openai import OpenAI
-from app.rag_apis.embed_api import EmbeddingOrchestrator
+
 
 
 #loggs
@@ -261,14 +263,13 @@ class BaseRetriever:
         if self.transformation_model:
             query = self.process_query(query)
 
-        start = time.time()
 
         retrieval_dict = await self.get_retrieval_content(filter_ids)
 
         # call to child method
         retrieval_output_ids = await self.run_retriever(query, retrieval_dict)
 
-        end = time.time()
+
 
         output_dict = {"retrieval_id": retrieval_output_ids}
 
@@ -308,6 +309,29 @@ class ReasonerRetriever(BaseRetriever):
 
         self.reasoner_model = reasoner_model
 
+        self.chat_orchestrator: Optional[ChatOrchestrator] = None
+
+
+
+
+
+
+    async def init_clients(self):
+
+        user_key_list = await get_user_api_keys(user_id=self.user_id, base_api="https://chat-ai.academiccloud.de/v1", db=self.db)
+
+        self.chat_orchestrator = ChatOrchestrator(user_key_list=user_key_list,  base_api="https://chat-ai.academiccloud.de/v1")
+
+    @staticmethod
+    def unwrap_retrieval_ids(chat_output):
+        if isinstance(chat_output, dict):
+            return list(chat_output["retrieval_ids"])
+
+        return list(chat_output)
+
+
+
+
 
     def _retrieve_ids(self, query: str, retrieval_input_chunks: str) -> List:
         # Qwen3-Coder is explicitly an instruction-tuned coder model, so its usage profile lines up with OpenAIs mini line
@@ -318,8 +342,8 @@ class ReasonerRetriever(BaseRetriever):
                 You are an assistant that must always respond in valid JSON following this schema:
 
                 {{
-                    "title": "Metadata",
-                    "description": "Structured metadata",
+                    "title": "Json",
+                    "description": "Structured Json",
                     "type": "object",
                     "properties": {{
                         "retrieval_ids": {{
@@ -348,20 +372,18 @@ class ReasonerRetriever(BaseRetriever):
 
         chat_orchestrator = ChatOrchestrator()
 
-        output_dict = json.loads(chat_orchestrator.call(self.reasoner_model, system_prompt, user_prompt))
+        chat_output = json.loads(chat_orchestrator.call(label=self.reasoner_model, system_prompt=system_prompt, user_prompt=user_prompt))
 
-        print("printing Chat Output: ", output_dict)
-
-        retrieval_output_ids = list(output_dict["retrieval_ids"])
+        output_ids = self.unwrap_retrieval_ids(chat_output)
 
 
-        return retrieval_output_ids
+        return output_ids
 
 
 
     async def run_retriever(self, query: str, retrieval_dict: dict):
 
-
+        await self.init_clients()
 
         retrieval_input_chunks = ""
         for retrieval_id, content in zip(retrieval_dict["retrieval_id"], retrieval_dict["content"]):
@@ -397,19 +419,34 @@ class EmbeddingRetriever(BaseRetriever):
         # self.client = OpenAI()
         self.embedding_model = embedding_model
 
+        self.embedding_orchestrator: Optional[EmbeddingOrchestrator] = None
+
 
 
     # ============================================================
     # INTERNAL HELPERS
     # ============================================================
 
+    async def init_clients(self):
+
+        user_key_list = await get_user_api_keys(user_id=self.user_id, base_api="https://chat-ai.academiccloud.de/v1", db=self.db)
+
+        self.embedding_orchestrator = EmbeddingOrchestrator(user_key_list=user_key_list,  base_api="https://chat-ai.academiccloud.de/v1")
+
+
+
+
+
     async def _embed(self, texts):
-        orchestrator = EmbeddingOrchestrator()
-        embeddings = await orchestrator.get_embedding(texts, label=self.embedding_model)  # embeddings
+
+        embeddings = await self.embedding_orchestrator.get_embedding(texts, label=self.embedding_model)  # embeddings
 
         return embeddings
 
     async def generate_embeddings(self, filter_ids: Optional[Iterable] = ()) -> None:
+
+        # initialize embedding orchestrator
+        await self.init_clients()
 
         # loggs
 
@@ -644,7 +681,9 @@ class BM25Retriever(BaseRetriever):
 
 
 
-
+# ============================================================
+# Generator
+# ============================================================
 
 
 
@@ -701,17 +740,7 @@ TYPE_MAPPER = {
 
 async def run_retrieval(query: str, retrieval_dict: Dict[str, Any], user_id: UUID, db: AsyncSession):
 
-    async def run_pipeline(retrieval_ids):
-        for method in doc_pipeline:
-            method.update({"logger": session_logger, "user_id": user_id, "doc_id": doc_id, "db": db})
-
-            method_type = method.pop("type")
-            method_instance = TYPE_MAPPER[method_type](**method)
-
-            output_dict = await method_instance.run_retrieval(query=query, filter_ids=retrieval_ids)
-            retrieval_ids = output_dict["retrieval_id"]
-
-        return retrieval_ids
+    
 
     log_path = await get_log_path(user_id, stage="retrieval")
     session_logger = InfoLogger(log_path=log_path, stage="retrieval")
@@ -727,41 +756,94 @@ async def run_retrieval(query: str, retrieval_dict: Dict[str, Any], user_id: UUI
         router_method.update({"logger": session_logger, "user_id": user_id, "db": db})
         router_instance = TYPE_MAPPER[router_type](**router_method)
 
-        output_dict = await router_instance.run_retrieval()
+        output_dict = await router_instance.run_retrieval(query=query)
         retrieval_ids = output_dict["retrieval_id"]
-        # use filter ids for further retrieval, in case there are any
+        # if there exists any document retriever, use filter ids for further retrieval
         if retrieval_dict:
-            doc_ids = output_dict["doc_id"]
+            doc_ids = list(set(output_dict["doc_id"])) # order doesn't matter
             output_ids = []
             for doc_id in doc_ids:
 
-                # log
+                # log start of document retrieval
                 doc_title = await get_doc_title(user_id, doc_id, db=db)
                 session_logger.log_step(task="header_1", log_text=f"Starting Retrieval for document: {doc_title}")
 
-                doc_pipeline = retrieval_dict[doc_id]
-                filter_ids = await run_pipeline(retrieval_ids)
+                # find exported pipeline for this doc_id
+                doc_pipeline = retrieval_dict[doc_id] if doc_id in retrieval_dict else []
+
+                # run pipeline
+                filter_ids = await run_document_pipeline(query=query, input_ids=retrieval_ids, input_pipeline=doc_pipeline,
+                                                         logger=session_logger, user_id=user_id, doc_id=doc_id, db=db)
+                # update output_ids
                 output_ids += filter_ids
 
             # Instead of "get_content", define new function that returns the content chunks and metadata
-            output_content = await get_content(user_id=user_id, retrieval_ids=filter_ids, db=db)
+            output_content = await get_content(user_id=user_id, retrieval_ids=output_ids, db=db)
         else:
             output_content = await get_content(user_id=user_id, retrieval_ids=retrieval_ids, db=db)
+
+
+
 
     # if there is no router
     elif retrieval_dict:
         output_ids = []
-        # run all pipelines with no filter IDs
+        # run all pipelines with no input IDs
         for doc_id, doc_pipeline in retrieval_dict.items():
-            filter_ids = await run_pipeline([])
+            filter_ids = await run_document_pipeline(query=query, input_ids=[], input_pipeline=doc_pipeline,
+                                                         logger=session_logger, user_id=user_id, doc_id=doc_id, db=db)
+
             output_ids += filter_ids
 
         output_content = await get_content(user_id=user_id, retrieval_ids=filter_ids, db=db)
 
+
+    # if there is no router and no document pipelines
+    else:
+        output_content = {"retrieval_id": [], "content": []}
+
     # Finally we export the logs to md
     await export_logs(log_path)
 
+
+
     return output_content
+
+
+
+
+
+async def run_document_pipeline(query, input_ids, input_pipeline, logger, user_id, doc_id, db):
+
+
+    if input_pipeline:
+        pipeline_output_ids = input_ids
+        for method in input_pipeline:
+            method.update({"logger": logger, "user_id": user_id, "doc_id": doc_id, "db": db})
+
+            method_type = method.pop("type")
+            method_instance = TYPE_MAPPER[method_type](**method)
+
+            pipeline_output_dict = await method_instance.run_retrieval(query=query, filter_ids=pipeline_output_ids)
+            pipeline_output_ids = pipeline_output_dict["retrieval_id"]
+
+    #if no pipeline was exported for this doc, just filter the input ids
+    else:
+
+        retrieval_rows, _ = await Retrieval.get_all(
+            columns=["retrieval_id"],
+            where_dict={"user_id": user_id, "retrieval_id": input_ids, "doc_id": doc_id},
+            db=db,
+        )
+        pipeline_output_ids = [row["retrieval_id"] for row in retrieval_rows]
+
+
+
+    return pipeline_output_ids
+
+
+
+
 
 
 # ============================================================

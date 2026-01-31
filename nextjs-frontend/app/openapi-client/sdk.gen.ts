@@ -153,6 +153,11 @@ import type {
   QueryPipelineData,
   QueryPipelineResponses,
   QueryPipelineErrors,
+  McpPingData,
+  McpPingResponses,
+  McpJsonrpcData,
+  McpJsonrpcResponses,
+  McpJsonrpcErrors,
 } from "./types.gen";
 import { client } from "./client.gen";
 
@@ -1405,6 +1410,49 @@ export const queryPipeline = <ThrowOnError extends boolean = false>(
   >({
     responseType: "json",
     url: "/mcp/query",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Mcp Ping
+ * Minimal MCP auth test endpoint.
+ * Confirms MCP token is valid and user is resolved.
+ */
+export const mcpPing = <ThrowOnError extends boolean = false>(
+  options?: Options<McpPingData, ThrowOnError>,
+) => {
+  return (options?.client ?? client).post<
+    McpPingResponses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: "json",
+    url: "/mcp/ping",
+    ...options,
+  });
+};
+
+/**
+ * Mcp Jsonrpc
+ * Minimal MCP-over-HTTP JSON-RPC endpoint:
+ * - tools/list
+ * - tools/call
+ */
+export const mcpJsonrpc = <ThrowOnError extends boolean = false>(
+  options: Options<McpJsonrpcData, ThrowOnError>,
+) => {
+  return (options.client ?? client).post<
+    McpJsonrpcResponses,
+    McpJsonrpcErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    url: "/mcp-proto/",
     ...options,
     headers: {
       "Content-Type": "application/json",

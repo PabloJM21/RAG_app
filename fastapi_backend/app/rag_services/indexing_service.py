@@ -1011,7 +1011,7 @@ class BaseChunker:
         if self.evaluator:
             self.logger.log_step(task="info_text", log_text=f"Yes we can run it, with input chunk:\n {input_chunk}\n and output chunks:\n {output_chunks}")
 
-            self.evaluator.run_evaluation(input_chunk=input_chunk, output_chunks=output_chunks)
+            await self.evaluator.run_evaluation(input_chunk=input_chunk, output_chunks=output_chunks)
 
 
 

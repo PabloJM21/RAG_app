@@ -16,6 +16,15 @@ from app.config import settings
 from app.database import create_db_and_tables, drop_tables, drop_specific_table
 
 
+
+
+
+
+
+
+
+
+
 """
 Docling compatibility patch.
 
@@ -44,11 +53,33 @@ if not hasattr(torch, "xpu"):
 
 
 
+
+
+"""
+from fastmcp.utilities.lifespan import combine_lifespans
+from contextlib import asynccontextmanager
+from app.mcp_server import mcp
+
+mcp_app = mcp.http_app(path="/")
+
+@asynccontextmanager
+async def app_lifespan(app: FastAPI):
+    await create_db_and_tables()
+    yield
+app = FastAPI(
+    generate_unique_id_function=simple_generate_unique_route_id,
+    openapi_url=settings.OPENAPI_URL,
+    lifespan=combine_lifespans(app_lifespan, mcp_app.lifespan),
+)
+
+"""
+
+
+
 app = FastAPI(
     generate_unique_id_function=simple_generate_unique_route_id,
     openapi_url=settings.OPENAPI_URL,
 )
-
 
 #await drop_tables()
 #await drop_specific_table("Retrievals")
@@ -103,5 +134,13 @@ app.include_router(chunking_router, prefix="/chunking")
 app.include_router(extraction_router, prefix="/extraction")
 app.include_router(retrieval_router, prefix="/retrieval")
 app.include_router(mcp_router, prefix="/mcp")
+
+
+
+# --- MCP protocol ---
+from app.routes.mcp_http import router as mcp_proto_router
+app.include_router(mcp_proto_router)
+
+
 
 add_pagination(app)

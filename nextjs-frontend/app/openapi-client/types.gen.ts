@@ -117,6 +117,30 @@ export type HttpValidationError = {
 };
 
 /**
+ * JsonRpcRequest
+ */
+export type JsonRpcRequest = {
+  /**
+   * Jsonrpc
+   */
+  jsonrpc?: string;
+  /**
+   * Id
+   */
+  id?: number | string | null;
+  /**
+   * Method
+   */
+  method: string;
+  /**
+   * Params
+   */
+  params?: {
+    [key: string]: unknown;
+  } | null;
+};
+
+/**
  * KeyReadData
  */
 export type KeyReadData = {
@@ -132,6 +156,24 @@ export type KeyReadData = {
    * Api Key
    */
   api_key: string;
+};
+
+/**
+ * MCPPingResponse
+ */
+export type McpPingResponse = {
+  /**
+   * Ok
+   */
+  ok: boolean;
+  /**
+   * User Id
+   */
+  user_id: string;
+  /**
+   * Email
+   */
+  email: string;
 };
 
 /**
@@ -1781,6 +1823,45 @@ export type QueryPipelineResponses = {
 
 export type QueryPipelineResponse =
   QueryPipelineResponses[keyof QueryPipelineResponses];
+
+export type McpPingData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/mcp/ping";
+};
+
+export type McpPingResponses = {
+  /**
+   * Successful Response
+   */
+  200: McpPingResponse;
+};
+
+export type McpPingResponse2 = McpPingResponses[keyof McpPingResponses];
+
+export type McpJsonrpcData = {
+  body: JsonRpcRequest;
+  path?: never;
+  query?: never;
+  url: "/mcp-proto/";
+};
+
+export type McpJsonrpcErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type McpJsonrpcError = McpJsonrpcErrors[keyof McpJsonrpcErrors];
+
+export type McpJsonrpcResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
 
 export type ClientOptions = {
   baseURL: `${string}://openapi.json` | (string & {});

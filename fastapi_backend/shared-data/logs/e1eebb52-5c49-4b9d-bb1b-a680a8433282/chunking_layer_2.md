@@ -24,18 +24,18 @@ This Pipeline consists of following methods:
 | --- | --- | --- | --- | --- | --- |
 | Paragraph Chunker | Section | ## |  |  | True |
 
-Chunking at Chapter level completed in 0.6 seconds
+Chunking at Chapter level completed in 0.65 seconds
 
-Chunking at Section level completed in 0.2 seconds
+Chunking at Section level completed in 6.42 seconds
 
-## Pipeline Evaluation completed for target level Section obtaining an average score of nan
+## Pipeline Evaluation completed for target level Section obtaining an average score of 90.46153846153847
 
-Completed chunking in 0.8 seconds
+Completed chunking in 7.08 seconds
 
-Chunking at Chapter level completed in 0.53 seconds
+Chunking at Chapter level completed in 1.01 seconds
 
-Chunking at Section level completed in 0.2 seconds
+Chunking at Section level completed in 9.56 seconds
 
-## Pipeline Evaluation completed for target level Section obtaining an average score of nan
+## Pipeline Evaluation completed for target level Section obtaining an average score of 90.22222222222223
 
-Completed chunking in 0.75 seconds
+Completed chunking in 10.58 seconds
