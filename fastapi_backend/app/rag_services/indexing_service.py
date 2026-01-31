@@ -3,7 +3,7 @@ import asyncio
 from typing import Any, Dict, List, Optional, Iterable
 import re
 import pandas as pd
-
+import copy
 
 import os
 import time
@@ -1609,7 +1609,7 @@ async def run_chunking(pipelines: dict[str, list[dict[str, Any]]], user_id: UUID
     sorted_items = sorted(list(pipelines.items()), key=lambda x: int(x[0].strip()))
     sorted_pipelines = [x[1] for x in sorted_items if x[1]]
     session_logger.log_step(task="info_text", log_text=f"Sorted pipelines look like this: {sorted_pipelines}")
-    evaluation_pipelines = sorted_pipelines.copy()
+    evaluation_pipelines = copy.deepcopy(sorted_pipelines)
 
 
     # If evaluator was instanced, run all pipelines and record their score. Finally run the highest scoring pipeline
@@ -1633,10 +1633,9 @@ async def run_chunking(pipelines: dict[str, list[dict[str, Any]]], user_id: UUID
 
         #  Overwrite last Retrieval content with the best chunking pipeline
         best_index = pipeline_scores.index(max(pipeline_scores))
-        session_logger.log_step(task="header_2", layer=2, log_text=f"Running Pipeline {best_index + 1}")
-        session_logger.log_step(task="info_text", log_text=f"This pipeline looks like this: {sorted_pipelines[best_index]}")
         best_pipeline = sorted_pipelines[best_index]
-        log_pipeline_methods(session_logger, best_pipeline)
+
+        session_logger.log_step(task="header_2", log_text=f"Found best pipeline: Pipeline {best_index}")
 
         await run_chunking_pipeline(method_list=best_pipeline, user_id=user_id, doc_id=doc_id, db=db, session_logger=session_logger, session_evaluator=evaluator_instance, input_path=input_path, log_path=log_path, doc_title=doc_title)
 
