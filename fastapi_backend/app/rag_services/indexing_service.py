@@ -1006,7 +1006,7 @@ class BaseChunker:
         output_chunks = self.chunk_text(input_chunk)
 
 
-
+        self.logger.log_step(task="info_text", log_text="Can we run evaluation?")
         # Evaluate Chunking
         if self.evaluator:
             self.evaluator.run_evaluation(input_chunk=input_chunk, output_chunks=output_chunks)
@@ -1730,10 +1730,6 @@ async def run_chunking_pipeline(method_list: list[dict[str, Any]], user_id: UUID
 
     session_logger.log_step(task="info_text", layer=2, log_text=f"Chunking at {first_method["level_name"]} level completed in {round(doc_end - doc_start, 2)} seconds ")
 
-    #Commit evaluation of the first method
-    if session_evaluator:
-        session_evaluator.commit_evaluation()
-
 
 
     new_chunk_array = []
@@ -1766,6 +1762,7 @@ async def run_chunking_pipeline(method_list: list[dict[str, Any]], user_id: UUID
 
             # Instance new method
             method_instance = CHUNKING_TYPE_MAPPER[method_type](**method)
+            session_logger.log_step(task="info_text", log_text="Can we generate offspring?")
 
             # Generate offspring based on past generation of chunks
             text_start = time.time()
@@ -1775,8 +1772,8 @@ async def run_chunking_pipeline(method_list: list[dict[str, Any]], user_id: UUID
             session_logger.log_step(task="info_text", layer=2, log_text=f"Chunking at {method["level_name"]} level completed in {round(text_end - text_start, 2)} seconds ")
 
             # Commit evaluation of method
-            if session_evaluator:
-                session_evaluator.commit_evaluation()
+            #if session_evaluator:
+                #session_evaluator.commit_evaluation()
 
 
 
@@ -1786,6 +1783,10 @@ async def run_chunking_pipeline(method_list: list[dict[str, Any]], user_id: UUID
 
 
     pipeline_end = time.time()
+
+    # Commit pipeline evaluation
+    if session_evaluator:
+        session_evaluator.commit_evaluation()
 
 
     # After all chunking iterations, we introduce the latest new_chunks into the "Paragraphs" table with all recorded level IDs

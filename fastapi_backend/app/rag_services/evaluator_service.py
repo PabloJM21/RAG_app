@@ -106,9 +106,10 @@ class BaseEvaluator:
                              {"role": "assistant", "content": output_dict["Output"]}]
 
         else:
-            output_dict = json.loads(
-                self.chat_orchestrator.call(label=self.model, system_prompt=system_prompt, user_prompt=user_prompt))
+            output_dict = json.loads(self.chat_orchestrator.call(label=self.model, system_prompt=system_prompt, user_prompt=user_prompt))
 
+
+        self.logger(task="info_text", log_text=f"For user_prompt\n {user_prompt} \nObtained this output_dict: {output_dict}")
         return output_dict["Output"]
 
 
@@ -154,27 +155,32 @@ class ChunkerEvaluator(BaseEvaluator):
 
     async def run_evaluation(self, input_chunk: str, output_chunks: list[str]):
 
+        # avoid
         output_chunks = output_chunks.copy()
 
         if self.current_level != self.target_level or not output_chunks:
             return None
 
-        #
+        self.logger.log_step(task="header_2", layer=2, log_text=f"Running evaluation for input_chunk:\n {input_chunk}\n and output_chunks:\n {output_chunks}")
+
         await self.init_clients()
 
-        if self.max_chunk_size:
-            chunk_limit = self.max_chunk_size // 2
-            input_chunk = input_chunk[:chunk_limit] + "... " + input_chunk[-chunk_limit:]
+        # Define input and output chunk limits
+        input_chunk_limit = self.max_chunk_size // 2
+        output_chunk_limit = input_chunk_limit // len(output_chunks)
 
-            output_chunk_limit = chunk_limit // len(output_chunks)
+
+        if input_chunk_limit < len(input_chunk)/2:
+            input_chunk = input_chunk[:input_chunk_limit] + "... " + input_chunk[-input_chunk_limit:]
+
+        avg_output_length = np.mean([len(chunk) for chunk in output_chunks])
+        if output_chunk_limit < np.divide(avg_output_length, 2):
             first_chunk = output_chunks.pop(0)
             output_string = first_chunk[:output_chunk_limit] + "... " + first_chunk[-output_chunk_limit:]
 
             for output_chunk in output_chunks:
                 new_string = output_chunk[:output_chunk_limit] + "... " + output_chunk[-output_chunk_limit:]
                 output_string += f"\n\n---\n\n {new_string}"
-
-
 
         else:
             output_string = "\n\n---\n\n".join(output_chunks)
@@ -191,8 +197,8 @@ class ChunkerEvaluator(BaseEvaluator):
 
     def commit_evaluation(self):
 
-        if self.current_level != self.target_level:
-            return None
+        #if self.current_level != self.target_level:
+            #return None
 
 
         scores = [item["score"] for item in self.method_calls]
