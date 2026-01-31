@@ -5,10 +5,24 @@ from pathlib import Path
 from loguru import logger
 import re
 
+
+
+
+
+
+# ------- HELPERS -------------
+
+
 UUID_RE = re.compile(r"UUID\('([0-9a-fA-F-]+)'\)")
-
-
 import ast
+import textwrap
+
+def escape_md_cell(text: str) -> str:
+    return text.replace("|", r"\|")
+
+def wrap_cell(text: str, max_width: int) -> str:
+    wrapped = textwrap.wrap(text, width=max_width) or [""]
+    return "\n".join(wrapped)
 
 
 
@@ -73,6 +87,9 @@ def group_logs(lines):
         logs.append("".join(current).rstrip())
 
     return logs
+
+
+# --------------- MAIN FUNCTIONS --------------------------------
 
 
 
@@ -157,7 +174,7 @@ def generate_markdown_from_log(
                 if log_text:
                     append_line(layer, f"{log_text}\n")
 
-                append_line(layer, f"\n")
+                append_line(layer, "\n")
 
                 columns = extra.get("table_data")
                 if isinstance(columns, list):
@@ -166,9 +183,20 @@ def generate_markdown_from_log(
                 for key, value in columns.items():
                     if not isinstance(value, (list, tuple)):
                         columns[key] = [str(value)]
+                    else:
+                        columns[key] = [str(v) for v in value]
 
                 col_names = list(columns.keys())
-                rows = zip(*columns.values())
+                rows = list(zip(*columns.values()))
+
+                # Compute max column width (based on content and header)
+                max_widths = []
+                for i, col in enumerate(col_names):
+                    max_len = max(
+                        [len(col)] +
+                        [len(str(row[i])) for row in rows]
+                    )
+                    max_widths.append(max_len)
 
                 # Markdown table header
                 append_line(layer, "| " + " | ".join(col_names) + " |")
@@ -176,9 +204,16 @@ def generate_markdown_from_log(
 
                 # Table rows
                 for row in rows:
-                    append_line(layer, "| " + " | ".join(str(cell).replace("|", r"\|") for cell in row) + " |")
+                    rendered_cells = []
+                    for i, cell in enumerate(row):
+                        cell = escape_md_cell(str(cell))
+                        cell = wrap_cell(cell, max_widths[i])
+                        rendered_cells.append(cell)
 
-                append_line(layer,"")
+                    append_line(layer, "| " + " | ".join(rendered_cells) + " |")
+
+                append_line(layer, "")
+
 
             else:
 

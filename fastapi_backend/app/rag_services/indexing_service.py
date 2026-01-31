@@ -1634,13 +1634,15 @@ async def run_chunking(pipelines: dict[str, list[dict[str, Any]]], user_id: UUID
         #  Overwrite last Retrieval content with the best chunking pipeline
         best_index = pipeline_scores.index(max(pipeline_scores))
         session_logger.log_step(task="header_2", layer=2, log_text=f"Running Pipeline {best_index + 1}")
-        log_pipeline_methods(session_logger, sorted_pipelines[best_index])
+        session_logger.log_step(task="info_text", log_text=f"This pipeline looks like this: {sorted_pipelines[best_index]}")
+        best_pipeline = sorted_pipelines[best_index]
+        log_pipeline_methods(session_logger, best_pipeline)
 
-        await run_chunking_pipeline(method_list=sorted_pipelines[best_index], user_id=user_id, doc_id=doc_id, db=db, session_logger=session_logger, session_evaluator=evaluator_instance, input_path=input_path, log_path=log_path, doc_title=doc_title)
+        await run_chunking_pipeline(method_list=best_pipeline, user_id=user_id, doc_id=doc_id, db=db, session_logger=session_logger, session_evaluator=evaluator_instance, input_path=input_path, log_path=log_path, doc_title=doc_title)
 
 
 
-    # If no evaluator is present, run the first pipeline only
+    # If there is no evaluator, run the first pipeline only
     else:
 
         pipeline = sorted_pipelines[0]
@@ -1650,6 +1652,9 @@ async def run_chunking(pipelines: dict[str, list[dict[str, Any]]], user_id: UUID
         await run_chunking_pipeline(method_list=pipeline, user_id=user_id, doc_id=doc_id, db=db, session_logger=session_logger, session_evaluator=None, input_path=input_path, log_path=log_path, doc_title=doc_title)
 
 
+
+    # Finally we export the logs to md
+    await export_logs(log_path)
 
 
 
@@ -1798,8 +1803,7 @@ async def run_chunking_pipeline(method_list: list[dict[str, Any]], user_id: UUID
         await Paragraph.insert_paragraphs(data_dict=chunk_dict, db=db)
 
 
-    # Finally we export the logs to md
-    await export_logs(log_path)
+
             
         
             
