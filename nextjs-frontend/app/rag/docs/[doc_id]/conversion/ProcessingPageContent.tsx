@@ -245,20 +245,25 @@ export function ProcessingEditor({
           zIndex: 10,
         }}
       >
-        <form action={addProcessingPipeline} style={{ margin: 0 }}>
-          <input type="hidden" name="doc_id" value={doc_id} />
-          <input
-            type="hidden"
-            name="pipeline"
-            value={JSON.stringify(pipeline)}
-          />
-          <SaveButton label="Pipeline" />
-        </form>
+        {isCompleteMethod(pipeline) && (
+          <form action={addProcessingPipeline} style={{ margin: 0 }}>
+            <input type="hidden" name="doc_id" value={doc_id} />
+            <input
+              type="hidden"
+              name="pipeline"
+              value={JSON.stringify(pipeline)}
+            />
+            <SaveButton label="Processing Pipeline" />
+          </form>
+        )}
 
-        <form action={runProcessing} style={{ margin: 0 }}>
-          <input type="hidden" name="doc_id" value={doc_id} />
-          <RunButton label="Processing" />
-        </form>
+        {isCompleteMethod(pipeline) && (
+          <form action={runProcessing} style={{ margin: 0 }}>
+            <input type="hidden" name="doc_id" value={doc_id} />
+            <RunButton label="Markdown Processing" />
+          </form>
+        )}
+
       </div>
 
       {/* ---------- Methods row (scrollable) ---------- */}

@@ -8,8 +8,8 @@ import {createPipeline, PipelineSpec, readPipeline, runPipeline} from "./sdk.gen
 
 
 
-export async function runExport(doc_id: string) {
-
+export async function runExport(formData: FormData) {
+  const doc_id = formData.get("doc_id") as string;
   const cookieStore = await cookies();
   const token = cookieStore.get("accessToken")?.value;
 

@@ -81,6 +81,12 @@ export function ConversionEditor({
       "Custom"
     );
 
+  const hasMethod =
+    pipeline.length > 0 &&
+    typeof pipeline[0]?.type === "string" &&
+    pipeline[0].type.length > 0;
+
+
   /* ---------------- Helpers ---------------- */
 
 
@@ -196,65 +202,67 @@ export function ConversionEditor({
           paddingBottom: 8
         }}
       >
-        {pipeline.map((method, index) => (
-          <div
-            key={index}
-            style={{
-              position: "relative",
-              border: "1px solid #ccc",
-              padding: 8,
-              minWidth: 260
-            }}
-          >
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => deleteMethod()}
-              className="absolute top-1 right-1 text-muted-foreground hover:text-destructive"
-              aria-label="Delete"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-
-            <table
+        {hasMethod &&
+          pipeline.map((method, index) => (
+            <div
+              key={index}
               style={{
-                borderCollapse: "collapse",
-                width: "100%"
+                position: "relative",
+                border: "1px solid #ccc",
+                padding: 8,
+                minWidth: 260
               }}
             >
-              <tbody>
-                {Object.entries(method).map(
-                  ([key, value]) => (
-                    <tr key={key}>
-                      <td
-                        style={{
-                          borderBottom:
-                            "1px solid #eee",
-                          padding: 4,
-                          fontWeight: 600
-                        }}
-                      >
-                        {key}
-                      </td>
-                      <td
-                        style={{
-                          borderBottom:
-                            "1px solid #eee",
-                          padding: 4
-                        }}
-                      >
-                        {renderValueEditor(
-                          key,
-                          value
-                        )}
-                      </td>
-                    </tr>
-                  )
-                )}
-              </tbody>
-            </table>
-          </div>
-        ))}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => deleteMethod()}
+                className="absolute top-1 right-1 text-muted-foreground hover:text-destructive"
+                aria-label="Delete"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+
+              <table
+                style={{
+                  borderCollapse: "collapse",
+                  width: "100%"
+                }}
+              >
+                <tbody>
+                  {Object.entries(method).map(
+                    ([key, value]) => (
+                      <tr key={key}>
+                        <td
+                          style={{
+                            borderBottom:
+                              "1px solid #eee",
+                            padding: 4,
+                            fontWeight: 600
+                          }}
+                        >
+                          {key}
+                        </td>
+                        <td
+                          style={{
+                            borderBottom:
+                              "1px solid #eee",
+                            padding: 4
+                          }}
+                        >
+                          {renderValueEditor(
+                            key,
+                            value
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  )}
+                </tbody>
+              </table>
+            </div>
+          ))
+        }
       </div>
 
       {/* ---------- Add method bar (bottom-left) ---------- */}
@@ -283,9 +291,9 @@ export function ConversionEditor({
           ))}
         </select>{" "}
         <button onClick={addMethod}>
-          {pipeline.length === 0
-            ? "Add method"
-            : "Replace method"}
+          {hasMethod
+            ? "Replace method"
+            : "Add method"}
         </button>
       </div>
     </section>

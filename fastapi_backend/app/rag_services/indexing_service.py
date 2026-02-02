@@ -49,7 +49,7 @@ from docling.document_converter import PdfFormatOption
 
 # helpers for disc paths
 
-from app.rag_services.helpers import get_doc_paths, get_log_path, get_doc_title, get_user_api_keys
+from app.rag_services.helpers import get_doc_paths, get_log_path, get_doc_title, get_user_api_keys, log_pipeline_methods
 
 
 #logs
@@ -869,11 +869,7 @@ class ItemFilter:
 
 
 
-def log_pipeline_methods(logger: InfoLogger, input_pipeline: list[dict[str, Any]]):
-    logger.log_step(task="info_text", layer=2, log_text=f"This Pipeline consists of following methods: ",
-                            table_data=input_pipeline)
-    for input_method in input_pipeline:
-        logger.log_step(task="table", layer=2, table_data=input_method)
+
 
 
 
@@ -1656,6 +1652,36 @@ async def run_chunking(pipelines: dict[str, list[dict[str, Any]]], user_id: UUID
 
     # Finally we export the logs to md
     await export_logs(log_path)
+
+
+
+
+
+
+
+
+"""
+
+_, input_path = await get_doc_paths(user_id, doc_id, db=db)
+log_path = await get_log_path(user_id, stage="chunking")
+session_logger = InfoLogger(log_path=log_path, stage="chunking")
+doc_title = await get_doc_title(user_id, doc_id, db=db)
+session_logger.log_step(task="header_1", log_text=f"Starting Chunking for document: {doc_title}")
+
+
+evaluator_args = {"user_id": user_id, "doc_id": doc_id, "db": db, "session_logger": session_logger}
+runner_args = {"user_id": user_id, "doc_id": doc_id, "db": db, "session_logger": session_logger, "input_path": input_path, "log_path": log_path, "doc_title": doc_title}
+
+
+"""
+
+
+
+
+
+
+
+
 
 
 

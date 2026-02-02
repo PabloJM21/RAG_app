@@ -7,6 +7,7 @@ import time
 import numpy as np
 import pandas as pd
 import os
+import copy
 
 #Orchestrators
 from app.rag_apis.chat_api import ChatOrchestrator
@@ -15,7 +16,7 @@ from app.rag_apis.chat_api import ChatOrchestrator
 from app.rag_services.evaluator_service import ChunkerEvaluator, EnricherEvaluator
 
 # helpers for disc paths
-from app.rag_services.helpers import get_doc_paths, get_log_path, get_doc_title, get_user_api_keys
+from app.rag_services.helpers import get_doc_paths, get_log_path, get_doc_title, get_user_api_keys, log_pipeline_methods
 
 #loggs
 from app.log_generator import InfoLogger
@@ -534,14 +535,19 @@ async def run_extraction(pipelines: dict[str, list[dict[str, Any]]], user_id: UU
     session_logger.log_step(task="header_1", layer=2, log_text=f"Starting Extraction for document: {doc_title}")
 
     # Init evaluator method
-    evaluator_method = pipelines.pop("evaluator")[0]
+    evaluator_array = []
+    if "evaluator" in pipelines:
+        evaluator_array = pipelines.pop("evaluator")
 
     # Run Pipelines
     sorted_items = sorted(list(pipelines.items()), key=lambda x: int(x[0].strip()))
-    sorted_pipelines = [x[1] for x in sorted_items]
+    sorted_pipelines = [x[1] for x in sorted_items if x[1]]
+    session_logger.log_step(task="info_text", log_text=f"Sorted pipelines look like this: {sorted_pipelines}")
+    evaluation_pipelines = copy.deepcopy(sorted_pipelines)
 
     # If evaluator was instanced, run all pipelines and record their score. Finally run the highest scoring pipeline
-    if evaluator_method:
+    if evaluator_array:
+        evaluator_method = evaluator_array[0]
         session_logger.log_step(task="header_2", layer=2, log_text=f"Starting Evaluation of Pipelines")
         session_logger.log_step(task="table", layer=2, log_text=f"using following Method: ", table_data=evaluator_method)
 
@@ -549,9 +555,10 @@ async def run_extraction(pipelines: dict[str, list[dict[str, Any]]], user_id: UU
         evaluator_method.update({"logger": session_logger, "user_id": user_id, "doc_id": doc_id, "db": db, "doc_title": doc_title})
         evaluator_instance = EVALUATOR_TYPE_MAPPER[evaluator_type](**evaluator_method)
         pipeline_scores = []
-        for i, pipeline in enumerate(sorted_pipelines):
+        for i, pipeline in enumerate(evaluation_pipelines):
             session_logger.log_step(task="info_text", layer=2, log_text=f"Pipeline {i + 1}")
-            session_logger.log_step(task="table", layer=2, log_text=f"This Pipeline consists of following methods: ", table_data=pipeline)
+            log_pipeline_methods(session_logger, pipeline)
+
 
             await run_extraction_pipeline(method_list=pipeline, user_id=user_id, doc_id=doc_id, db=db, session_logger=session_logger, session_evaluator=evaluator_instance, log_path=log_path)
 
@@ -559,8 +566,11 @@ async def run_extraction(pipelines: dict[str, list[dict[str, Any]]], user_id: UU
 
         #  Overwrite last Retrieval content with the best chunking pipeline
         best_index = pipeline_scores.index(max(pipeline_scores))
-        session_logger.log_step(task="header_2", layer=2, log_text=f"Running Pipeline {best_index}")
-        await run_extraction_pipeline(method_list=sorted_pipelines[best_index], user_id=user_id, doc_id=doc_id, db=db, session_logger=session_logger, session_evaluator=evaluator_instance, log_path=log_path)
+        best_pipeline = sorted_pipelines[best_index]
+
+        session_logger.log_step(task="header_2", log_text=f"Found best pipeline: Pipeline {best_index}")
+
+        await run_extraction_pipeline(method_list=best_pipeline, user_id=user_id, doc_id=doc_id, db=db, session_logger=session_logger, session_evaluator=evaluator_instance, log_path=log_path)
 
 
 
@@ -569,15 +579,20 @@ async def run_extraction(pipelines: dict[str, list[dict[str, Any]]], user_id: UU
 
         pipeline = sorted_pipelines[0]
         session_logger.log_step(task="header_2", layer=2, log_text=f"Running Pipeline 1")
-        session_logger.log_step(task="table", layer=2, log_text=f"This Pipeline consists of following methods: ", table_data=pipeline)
+        log_pipeline_methods(session_logger, pipeline)
 
         await run_extraction_pipeline(method_list=pipeline, user_id=user_id, doc_id=doc_id, db=db, session_logger=session_logger, session_evaluator=None, log_path=log_path)
 
 
+    # Finally we export the logs to md
+    await export_logs(log_path)
 
 
 
-TYPE_MAPPER = {
+
+# Run each Pipeline
+
+EXTRACTION_TYPE_MAPPER = {
     "Extractor": Extractor,
     "Enricher": Enricher,
     "Filter": Filter,
@@ -604,14 +619,16 @@ async def run_extraction_pipeline(method_list: list[dict[str, Any]], user_id: UU
 
 
         method_type = method.pop("type")
-        method_instance = TYPE_MAPPER[method_type](**method)
+        method_instance = EXTRACTION_TYPE_MAPPER[method_type](**method)
     
         await method_instance.run_method()
 
     # After running the pipeline we perform the evaluation
-    session_evaluator.commit_evaluation()
+    if session_evaluator:
+        session_evaluator.commit_evaluation()
 
-    await export_logs(log_path)
+
+
 
 
 

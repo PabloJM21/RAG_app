@@ -71,13 +71,14 @@ def decide_action(rate_headers):
 # Embedding Orchestrator
 # -------------------------------------------------
 class EmbeddingOrchestrator:
-    def __init__(self):
-        self.key_cycle = cycle(API_KEYS)
+    def __init__(self, base_api: str, user_key_list: list[str]):
+        self.key_cycle = cycle(user_key_list)
+        self.base_api = base_api
         self.max_retries = MAX_RETRIES
         AgentLogger.info("EmbeddingOrchestrator initialized", extra={"keys": len(API_KEYS)})
 
     async def _safe_call(self, client, api_key, model, inputs, model_queue, failure_count, retry_num=0):
-        url = f"{BASE_API.rstrip('/')}/embeddings"
+        url = f"{self.base_api.rstrip('/')}/embeddings"
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
         payload = {"model": model.value, "input": inputs, "encoding_format": "float"}
 

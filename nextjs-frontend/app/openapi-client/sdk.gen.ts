@@ -153,8 +153,6 @@ import type {
   QueryPipelineData,
   QueryPipelineResponses,
   QueryPipelineErrors,
-  McpPingData,
-  McpPingResponses,
   McpJsonrpcData,
   McpJsonrpcResponses,
   McpJsonrpcErrors,
@@ -1367,7 +1365,7 @@ export const exportAll = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/retrieval/run",
+    url: "/retrieval/export",
     ...options,
   });
 };
@@ -1415,25 +1413,6 @@ export const queryPipeline = <ThrowOnError extends boolean = false>(
       "Content-Type": "application/json",
       ...options.headers,
     },
-  });
-};
-
-/**
- * Mcp Ping
- * Minimal MCP auth test endpoint.
- * Confirms MCP token is valid and user is resolved.
- */
-export const mcpPing = <ThrowOnError extends boolean = false>(
-  options?: Options<McpPingData, ThrowOnError>,
-) => {
-  return (options?.client ?? client).post<
-    McpPingResponses,
-    unknown,
-    ThrowOnError
-  >({
-    responseType: "json",
-    url: "/mcp/ping",
-    ...options,
   });
 };
 

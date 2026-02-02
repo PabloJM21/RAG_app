@@ -4,6 +4,11 @@ import {useEffect, useState} from "react";
 import {addRetrievalPipeline, fetchRetrievalPipeline, runExport} from "@/app/api/rag/docs/[doc_id]/retrieval/retrieval-action";
 import { fetchLevels } from "@/app/api/rag/docs/[doc_id]/chunking/chunking-action";
 
+import {SaveButton} from "@/components/custom-ui/SaveButton";
+import {RunButton} from "@/components/custom-ui/RunButton";
+import {X} from "lucide-react";
+import {Button} from "@/components/ui/button";
+
 
 
 type MethodSpec = Record<string, any>;
@@ -109,7 +114,9 @@ export function RetrievalEditor({
   }
 
   function addMethod() {
-    const template = structuredClone(templateFor(selectedType));
+    const template = structuredClone(
+      templateFor(selectedType));
+
     setPipeline([...pipeline, template]);
   }
   
@@ -237,6 +244,39 @@ export function RetrievalEditor({
     <section>
       <h2>Retrieval</h2>
 
+      {/* ---------- Floating actions (top-right) ---------- */}
+      <div
+        style={{
+          position: "absolute",
+          top: 8,
+          right: 8,
+          display: "flex",
+          flexDirection: "column",
+          gap: 12,
+          zIndex: 10,
+        }}
+      >
+        {isCompleteMethod(pipeline) && (
+          <form action={addRetrievalPipeline} style={{ margin: 0 }}>
+            <input type="hidden" name="doc_id" value={doc_id} />
+            <input
+              type="hidden"
+              name="pipeline"
+              value={JSON.stringify(pipeline)}
+            />
+            <SaveButton label="Retrieval Pipeline" />
+          </form>
+        )}
+
+        {isCompleteMethod(pipeline) && (
+          <form action={runExport} style={{ margin: 0 }}>
+            <input type="hidden" name="doc_id" value={doc_id} />
+            <RunButton label="Export" />
+          </form>
+        )}
+
+      </div>
+
       {/* ---------- Methods row ---------- */}
       <div
         style={{
@@ -256,20 +296,15 @@ export function RetrievalEditor({
               minWidth: 260
             }}
           >
-            {/* ❌ Delete */}
-            <button
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => deleteMethod(index)}
-              style={{
-                position: "absolute",
-                top: 4,
-                right: 4,
-                border: "none",
-                background: "transparent",
-                cursor: "pointer"
-              }}
+              className="absolute top-1 right-1 text-muted-foreground hover:text-destructive"
+              aria-label="Delete"
             >
-              ❌
-            </button>
+              <X className="h-4 w-4" />
+            </Button>
 
             <table
               style={{
@@ -314,14 +349,21 @@ export function RetrievalEditor({
         ))}
       </div>
 
-      {/* ---------- Add method ---------- */}
-      <div style={{ marginTop: 12 }}>
+      {/* ---------- Add method bar (bottom-left) ---------- */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: 8,
+          left: 8,
+          display: "flex",
+          gap: 8,
+          alignItems: "center",
+        }}
+      >
         <select
           value={selectedType}
           onChange={(e) =>
-            setSelectedType(
-              e.target.value as any
-            )
+            setSelectedType(e.target.value as any)
           }
         >
           {RETRIEVER_TYPES.map((t) => (
@@ -329,45 +371,13 @@ export function RetrievalEditor({
               {t}
             </option>
           ))}
-        </select>{" "}
+        </select>
+
         <button onClick={addMethod}>
-          Add method
+          + Add method
         </button>
       </div>
 
-      {/* ---------- Save ---------- */}
-      <div style={{ marginTop: 12 }}>
-        {isCompleteMethod(pipeline) && (
-          <form action={addRetrievalPipeline}>
-
-              <input
-                type="hidden"
-                name="doc_id"
-                value={doc_id}
-              />
-
-              <input
-                type="hidden"
-                name="pipeline"
-                value={JSON.stringify(pipeline)}
-              />
-              <button type="submit">
-                Save Pipeline
-              </button>
-          </form>
-        )}
-      </div>
-
-      <div style={{ marginTop: 12 }}>
-        {isCompleteMethod(pipeline) && (
-          <button
-            onClick={() => runExport(doc_id)}
-            style={{ marginLeft: 8 }}
-          >
-            Export Pipeline
-          </button>
-        )}
-      </div>
 
     </section>
   );

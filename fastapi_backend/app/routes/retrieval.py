@@ -70,7 +70,7 @@ async def add_retrieval_pipeline(
 
 
 
-@router.post("/{doc_id}/export")
+@router.post("/{doc_id}/run")
 async def export_pipeline(
         doc_id: UUID,
         db: AsyncSession = Depends(get_async_session),
@@ -85,7 +85,8 @@ async def export_pipeline(
         raise HTTPException(status_code=404, detail="No pipeline was saved")
 
     # same behavior if the "chunking" stage isn't fulfilled
-    if not int(row.chunked):
+    is_chunked = int(row.chunked)
+    if not is_chunked:
         raise HTTPException(status_code=404, detail="No chunks exist or are outdated")
 
     # export pipeline to MainPipeline table
@@ -125,11 +126,11 @@ async def export_all(
 
     for doc_id in doc_ids:
         row = await DocPipelines.get_row(where_dict={"user_id": user.id, "doc_id": doc_id}, db=db)
-        retrieval_pipeline = json.loads(row.retrieval_pipeline)
+
 
         # 2. filter: output error if the pipeline is created but not saved, and there is no previous pipeline
-        if retrieval_pipeline:
-
+        if row.retrieval_pipeline:
+            retrieval_pipeline = json.loads(row.retrieval_pipeline)
             await export_doc_pipeline(retrieval_pipeline, user.id, doc_id, db)
 
             # NEXT: Set exported=1

@@ -159,24 +159,6 @@ export type KeyReadData = {
 };
 
 /**
- * MCPPingResponse
- */
-export type McpPingResponse = {
-  /**
-   * Ok
-   */
-  ok: boolean;
-  /**
-   * User Id
-   */
-  user_id: string;
-  /**
-   * Email
-   */
-  email: string;
-};
-
-/**
  * MCPQueryRequest
  */
 export type McpQueryRequest = {
@@ -1774,7 +1756,7 @@ export type ExportAllData = {
   body?: never;
   path?: never;
   query?: never;
-  url: "/retrieval/run";
+  url: "/retrieval/export";
 };
 
 export type ExportAllResponses = {
@@ -1823,22 +1805,6 @@ export type QueryPipelineResponses = {
 
 export type QueryPipelineResponse =
   QueryPipelineResponses[keyof QueryPipelineResponses];
-
-export type McpPingData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: "/mcp/ping";
-};
-
-export type McpPingResponses = {
-  /**
-   * Successful Response
-   */
-  200: McpPingResponse;
-};
-
-export type McpPingResponse2 = McpPingResponses[keyof McpPingResponses];
 
 export type McpJsonrpcData = {
   body: JsonRpcRequest;

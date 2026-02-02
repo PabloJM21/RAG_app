@@ -42,8 +42,6 @@ async def issue_mcp_url(
 
 
 
-
-
 # ---------------------------------------
 # Query
 # ---------------------------------------
@@ -132,40 +130,21 @@ async def query_pipeline(
 
 
 
-class MCPPingResponse(BaseModel):
-    ok: bool
-    user_id: str
-    email: str
-
-
-@router.post("/ping", response_model=MCPPingResponse)
-async def mcp_ping(
-    user: User = Depends(current_mcp_user),
-):
-    """
-    Minimal MCP auth test endpoint.
-    Confirms MCP token is valid and user is resolved.
-    """
-    return {
-        "ok": True,
-        "user_id": str(user.id),
-        "email": user.email,
-    }
-
-
-
 """
 curl -s -X POST "http://localhost/mcp/<TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc":"2.0",
-    "id":2,
+    "id":3,
     "method":"tools/call",
     "params":{
-      "name":"ping",
-      "arguments":{}
+      "name":"rag_query",
+      "arguments":{
+        "query":"What documents do I have indexed?"
+      }
     }
   }'
+
 
 
 {"jsonrpc":"2.0","id":3,"result":{"answer":"Hello pablo.jahnen@stud.uni-goettingen.de. You asked: What documents do I have indexed?","sources":[]}}

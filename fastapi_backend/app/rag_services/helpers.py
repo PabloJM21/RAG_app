@@ -6,6 +6,28 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import DocPipelines
 
+#logs
+from app.log_generator import InfoLogger
+
+#typing
+from typing import Any, Dict, List, Optional, Iterable
+
+
+# API Keys
+
+from cryptography.fernet import Fernet
+import json
+from app.models import ApiKey
+# fastapi exceptions
+from fastapi import HTTPException
+from dotenv import load_dotenv
+load_dotenv()
+
+
+
+
+
+
 
 async def get_doc_paths(user_id: UUID, doc_id: UUID, db: AsyncSession):
     row = await DocPipelines.get_row(where_dict={"user_id": user_id, "doc_id": doc_id}, db=db)
@@ -34,17 +56,23 @@ async def get_log_path(user_id: UUID, stage: str):
     return log_path
 
 
+def log_pipeline_methods(logger: InfoLogger, input_pipeline: list[dict[str, Any]]):
+    logger.log_step(task="info_text", layer=2, log_text=f"This Pipeline consists of following methods: ",
+                            table_data=input_pipeline)
+    for input_method in input_pipeline:
+        logger.log_step(task="table", layer=2, table_data=input_method)
 
 
+
+
+
+
+
+# -----------------------------------------
 # API KEY SERVICE
-from typing import Any, Dict, List, Optional, Iterable
-from cryptography.fernet import Fernet
-import json
-from app.models import ApiKey
-# fastapi exceptions
-from fastapi import HTTPException
-from dotenv import load_dotenv
-load_dotenv()
+# -----------------------------------------
+
+
 
 
 fernet = Fernet(os.environ["FERNET_SECRET_KEY"])
@@ -97,7 +125,7 @@ async def get_user_api_keys(
 
 
 
-# CALL APIS
+
 
 
 

@@ -48,10 +48,13 @@ CHAT_SUBCATEGORIES = {
 }
 
 # This extension allows to call the models directly (lower case)
-CHAT_SUBCATEGORIES |= {
-    model.value: model
+explicit_models = {
+    model.value: [model]   # wrap in list
     for model in ChatModels
 }
+
+CHAT_SUBCATEGORIES.update(explicit_models)
+
 
 
 
@@ -111,6 +114,14 @@ EMBEDDING_SUBCATEGORIES = {
 
 }
 
+
+# This extension allows to call the models directly (lower case)
+explicit_embedding_models = {
+    model.value: [model]   # wrap in list
+    for model in EmbeddingModels
+}
+
+EMBEDDING_SUBCATEGORIES.update(explicit_embedding_models)
 
 # ───────────────────────────────────────────────
 # Models and Subcategories

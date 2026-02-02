@@ -13,7 +13,7 @@ from app.rag_apis.embed_api import EmbeddingOrchestrator
 
 
 # helpers for disc paths
-from app.rag_services.helpers import get_doc_paths, get_log_path, get_doc_title, get_user_api_keys
+from app.rag_services.helpers import get_doc_paths, get_log_path, get_doc_title, get_user_api_keys, log_pipeline_methods
 
 
 #embeddings
@@ -32,6 +32,158 @@ from app.models import DocPipelines, MainPipeline, Paragraph, Retrieval, Embeddi
 
 
 
+
+
+# ---------------------------------------------
+
+# ---------------- GENERATOR --------------------
+
+# ---------------------------------------------
+
+
+
+class ChatGenerator:
+    """"
+    Provides final answer based on retrieval_output and input query
+
+    """
+
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, level: str, generator_model: str, generator_prompt: str, query_transformation_model: str, query_transformation_prompt: Optional[str] = "A new version of this query in the same language, suited for chunk retrieval with LLMs", doc_id: Optional[UUID] = None):
+        self.db = db
+        self.logger = logger
+        self.user_id = user_id
+        self.doc_id = doc_id
+        self.level = level
+
+        self.query_transformation_model = query_transformation_model
+        self.query_transformation_prompt = query_transformation_prompt
+
+        self.generator_model = generator_model
+        self.generator_prompt = generator_prompt
+
+        self.chat_orchestrator: Optional[ChatOrchestrator] = None
+
+
+
+    async def init_chat_client(self):
+
+        user_key_list = await get_user_api_keys(user_id=self.user_id, base_api="https://chat-ai.academiccloud.de/v1", db=self.db)
+
+        self.chat_orchestrator = ChatOrchestrator(user_key_list=user_key_list,  base_api="https://chat-ai.academiccloud.de/v1")
+
+
+
+    @staticmethod
+    def unwrap_answer(chat_output):
+        if isinstance(chat_output, dict):
+            return str(chat_output["Output"])
+
+        return str(chat_output)
+
+
+    async def _process_query(self, query: str) -> str:
+        # Qwen3-Coder is explicitly an instruction-tuned coder model, so its usage profile lines up with OpenAIs mini line
+
+        system_prompt = f"""You are an assistant that must always respond in valid JSON following this schema:
+
+                           {{
+                               "title": "Json",
+                               "description": "Structured Json for a text query.",
+                               "type": "object",
+                               "properties": {{
+                                   "Output": {{
+                                       "title": "Output",
+                                       "description": {self.query_transformation_prompt},
+                                       "type": "string",
+                               }}
+                           }}"""
+
+        user_prompt = f"""
+               Please analyze following Query and generate the specified Output. 
+
+               Query:
+               ---
+               {query}
+
+               """
+
+        chat_output = json.loads(self.chat_orchestrator.call(self.query_transformation_model, system_prompt, user_prompt))
+
+        return self.unwrap_answer(chat_output)
+
+
+
+    def _generate_content(self, query: str, retrieval_input_chunks: str)-> str:
+        # Qwen3-Coder is explicitly an instruction-tuned coder model, so its usage profile lines up with OpenAIs mini line
+
+        # QWEN2.5_CODER_32B_INSTRUCT
+
+        system_prompt = f"""You are an assistant that must always respond in valid JSON following this schema:
+
+                {{
+                    "title": "Json",
+                    "description": "Structured Json",
+                    "type": "object",
+                    "properties": {{
+                        "Output": {{
+                            "title": "Output",
+                            "description": {self.generator_prompt},
+                            "type": "string",
+                        }}
+                    }}
+                }}"""
+
+        user_prompt = f"""Please analyze following QUERY and CHUNKS, and generate the specified object. 
+
+            QUERY:
+            ---
+            {query}
+            ---
+            CHUNKS:
+            ---
+            {retrieval_input_chunks}"""
+
+
+        chat_output = json.loads(self.chat_orchestrator.call(label=self.generator_model, system_prompt=system_prompt, user_prompt=user_prompt))
+
+        text_output = self.unwrap_answer(chat_output)
+
+
+        return text_output
+
+
+
+    async def run_generation(self, query: str, input_chunks: list[str])-> str:
+
+        await self.init_chat_client()
+
+        # first process query if required
+        if self.query_transformation_model:
+            query = self._process_query(query)
+
+
+        retrieval_input_chunks = "\n\n[NEW_CHUNK]\n\n".join(input_chunks)
+
+        output_answer = self._generate_content(query, retrieval_input_chunks)
+
+
+        return output_answer
+
+
+
+
+
+
+
+
+
+
+
+# ---------------------------------------------
+
+# ---------------- RETRIEVERS --------------------
+
+# ---------------------------------------------
 
 
 
@@ -56,6 +208,8 @@ class BaseRetriever:
 
         self.transformation_model = query_transformation_model
         self.query_transformation_prompt = query_transformation_prompt
+
+        self.chat_orchestrator: Optional[ChatOrchestrator] = None
 
     # ---------------------------------------------------------
     # Internal helpers
@@ -83,6 +237,21 @@ class BaseRetriever:
             if retrieval_id in output_dict["retrieval_id"]:
                 output_dict["doc_id"].append(retrieval_dict["doc_id"][i])
 
+    @staticmethod
+    def unwrap_answer(chat_output):
+        if isinstance(chat_output, dict):
+            return str(chat_output["Output"])
+
+        return str(chat_output)
+
+
+
+
+    async def init_chat_client(self):
+
+        user_key_list = await get_user_api_keys(user_id=self.user_id, base_api="https://chat-ai.academiccloud.de/v1", db=self.db)
+
+        self.chat_orchestrator = ChatOrchestrator(user_key_list=user_key_list,  base_api="https://chat-ai.academiccloud.de/v1")
 
 
 
@@ -129,13 +298,31 @@ class BaseRetriever:
         """
         Return a list of content strings for the given retrieval_ids.
         """
-        where = {"user_id": self.user_id, "retrieval_id": retrieval_ids}
+        # the reranker child class is running retrieval
+        if retrieval_ids:
+            where = {"user_id": self.user_id, "retrieval_id": retrieval_ids}
 
-        retrieval_rows, columns = await Retrieval.get_all(
-            columns=["retrieval_id", "content"],
-            where_dict=where,
-            db=self.db,
-        )
+            retrieval_rows, columns = await Retrieval.get_all(
+                columns=["retrieval_id", "content"],
+                where_dict=where,
+                db=self.db,
+            )
+
+
+        # the reranker child class is running embeddings
+        elif self.doc_id:
+
+            where = {"user_id": self.user_id, "doc_id": self.doc_id, "level": self.level}
+
+            retrieval_rows, columns = await Retrieval.get_all(
+                columns=["retrieval_id", "content"],
+                where_dict=where,
+                db=self.db,
+            )
+
+        # the reranker child class is the router (impossible) and running embeddings.
+        else:
+            retrieval_rows = []
 
 
         return self.rows_to_columns(retrieval_rows)
@@ -149,7 +336,7 @@ class BaseRetriever:
 
         columns = ["retrieval_id", "content"]
 
-        # if retriever is not router (if doc_id) and there are filter_ids
+        # if this retriever is not the router and there are filter_ids. In this case the child class is running retrieval.
         if filter_ids and self.doc_id:
             level_ids = await self._find_source_data(filter_ids)
 
@@ -161,7 +348,10 @@ class BaseRetriever:
             }
 
 
-        # if retriever is not router but there are no filter_ids, in which case there is no router
+        # if this retriever is not the router but there are no filter_ids.
+        # This can happen in two scenarios:
+            # 1. the child class is running retrieval and there is no router.
+            # 2. the child class is running embeddings.
         elif self.doc_id:
             where = {
                 "user_id": self.user_id,
@@ -169,8 +359,15 @@ class BaseRetriever:
                 "level": self.level,
             }
 
+        # if this retriever is the router and there are filter_ids. Never happens
+        elif filter_ids:
+            pass
 
-        # if retriever is router (no doc_id). In this case, there are never filter_ids
+
+        # if this retriever is the router and there are no filter_ids.
+        # This can happen in two scenarios:
+            # 1. the child class is running retrieval.
+            # 2. the child class is running embeddings.
         else:
             where = {
                 "user_id": self.user_id,
@@ -179,6 +376,8 @@ class BaseRetriever:
 
             # we need the doc_id to decide which pipelines to run next
             columns = ["doc_id", "retrieval_id", "content"]
+
+
 
         retrieval_rows, columns = await Retrieval.get_all(
             columns=columns,
@@ -206,43 +405,23 @@ class BaseRetriever:
 
 
 
-    def _get_system_prompt(self):
-
-        # "title": "Summary",
-
-        specific_prompt = f"""
-               processed_query: {{
-                               "description": {self.query_transformation_prompt},
-                               "type": "string"
-                           }},
-                           """
-
-        system_prompt = f"""
-                   You are an assistant that must always respond in valid JSON following this schema:
-
-                   {{
-                       "title": "Output",
-                       "description": "Structured Output for a text query.",
-                       "type": "object",
-                       "properties": {{
-                           {specific_prompt}
-                       }}
-                   }}
-
-                   """
-
-        return system_prompt
-
-
 
     async def process_query(self, query: str) -> str:
         # Qwen3-Coder is explicitly an instruction-tuned coder model, so its usage profile lines up with OpenAIs mini line
 
-        user_key_list = await get_user_api_keys(user_id=self.user_id, base_api="https://chat-ai.academiccloud.de/v1", db=self.db)
+        system_prompt = f"""You are an assistant that must always respond in valid JSON following this schema:
 
-        chat_orchestrator = ChatOrchestrator(user_key_list=user_key_list, base_api="https://chat-ai.academiccloud.de/v1")
-
-        system_prompt = self._get_system_prompt()
+                           {{
+                               "title": "Json",
+                               "description": "Structured Json for a text query.",
+                               "type": "object",
+                               "properties": {{
+                                   "Output": {{
+                                       "title": "Output",
+                                       "description": {self.query_transformation_prompt},
+                                       "type": "string",
+                               }}
+                           }}"""
 
         user_prompt = f"""
                Please analyze following Query and generate the specified Output. 
@@ -253,11 +432,14 @@ class BaseRetriever:
 
                """
 
-        output_dict = json.loads(chat_orchestrator.call(self.transformation_model, system_prompt, user_prompt))
+        chat_output = json.loads(self.chat_orchestrator.call(self.transformation_model, system_prompt, user_prompt))
 
-        return output_dict["Output"]
+        return self.unwrap_answer(chat_output)
 
     async def run_retrieval(self, query: str, filter_ids: Optional[Iterable] = ()) -> Dict[str, List]:
+
+        # first of all instance chat orchestrator
+        await self.init_chat_client()
 
         # first process query if required
         if self.transformation_model:
@@ -283,11 +465,7 @@ class BaseRetriever:
 
 
 
-# ---------------------------------------------
 
-# ----------------CHUNKERS --------------------
-
-# ---------------------------------------------
 # Requirement for new Retriever classes: "run_retriever" method with the specified input and output types
 
 
@@ -309,18 +487,9 @@ class ReasonerRetriever(BaseRetriever):
 
         self.reasoner_model = reasoner_model
 
-        self.chat_orchestrator: Optional[ChatOrchestrator] = None
 
 
 
-
-
-
-    async def init_clients(self):
-
-        user_key_list = await get_user_api_keys(user_id=self.user_id, base_api="https://chat-ai.academiccloud.de/v1", db=self.db)
-
-        self.chat_orchestrator = ChatOrchestrator(user_key_list=user_key_list,  base_api="https://chat-ai.academiccloud.de/v1")
 
     @staticmethod
     def unwrap_retrieval_ids(chat_output):
@@ -338,8 +507,7 @@ class ReasonerRetriever(BaseRetriever):
 
         # QWEN2.5_CODER_32B_INSTRUCT
 
-        system_prompt = f"""
-                You are an assistant that must always respond in valid JSON following this schema:
+        system_prompt = f"""You are an assistant that must always respond in valid JSON following this schema:
 
                 {{
                     "title": "Json",
@@ -355,12 +523,11 @@ class ReasonerRetriever(BaseRetriever):
                             }}
                         }}
                     }}
-                }}
+                }}"""
 
-        """
 
-        user_prompt = f"""
-            Please analyze following QUERY and CHUNK_IDs, and generate the specified object. 
+
+        user_prompt = f"""Please analyze following QUERY and CHUNK_IDs, and generate the specified object. 
 
             QUERY:
             ---
@@ -370,9 +537,9 @@ class ReasonerRetriever(BaseRetriever):
 
             """
 
-        chat_orchestrator = ChatOrchestrator()
 
-        chat_output = json.loads(chat_orchestrator.call(label=self.reasoner_model, system_prompt=system_prompt, user_prompt=user_prompt))
+        # chat orchestrator already instanced by BaseRetriever
+        chat_output = json.loads(self.chat_orchestrator.call(label=self.reasoner_model, system_prompt=system_prompt, user_prompt=user_prompt))
 
         output_ids = self.unwrap_retrieval_ids(chat_output)
 
@@ -383,7 +550,7 @@ class ReasonerRetriever(BaseRetriever):
 
     async def run_retriever(self, query: str, retrieval_dict: dict):
 
-        await self.init_clients()
+
 
         retrieval_input_chunks = ""
         for retrieval_id, content in zip(retrieval_dict["retrieval_id"], retrieval_dict["content"]):
@@ -427,7 +594,7 @@ class EmbeddingRetriever(BaseRetriever):
     # INTERNAL HELPERS
     # ============================================================
 
-    async def init_clients(self):
+    async def init_embedding_client(self):
 
         user_key_list = await get_user_api_keys(user_id=self.user_id, base_api="https://chat-ai.academiccloud.de/v1", db=self.db)
 
@@ -445,71 +612,39 @@ class EmbeddingRetriever(BaseRetriever):
 
     async def generate_embeddings(self, filter_ids: Optional[Iterable] = ()) -> None:
 
+        # filter_ids are always empty, since embeddings are generated before retrieval
+
+        # Delete previous embeddings of this doc and level in the "Embeddings" table
+        await Retrieval.delete_data(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.level}, db=self.db)
+
         # initialize embedding orchestrator
-        await self.init_clients()
+        await self.init_embedding_client()
 
-        # loggs
 
-        filter_prompt = ""
-        #if filter_ids:
-            #filter_prompt += f", filtering on previous retrieval_ids={", ".join(map(str, filter_ids))}"
 
-        self.logger.log_step(log_text=f"Embedding the retrieval input of each {self.level}" + filter_prompt)
+        self.logger.log_step(log_text=f"Embedding the retrieval input of each {self.level}")
 
         retrieval_dict = await self.get_retrieval_content(filter_ids)
 
 
+        # Embed the retrieval input content asynchronously
+        async def embed_columns(input_dict):
 
-        # 1. Embed the retrieval input content asynchronously
-        async def embed_columns(retrieval_dict):
+            embeddings = await self._embed(input_dict["content"])
 
-            print(retrieval_dict["content"])
-            embeddings = await self._embed(retrieval_dict["content"])
-            print(f"Generated embeddings for {self.level}")
-            # Convert to list of Python lists
             embeddings = [np.array(e, dtype=np.float32).tobytes() for e in embeddings]
 
-            output_df = pd.DataFrame({"user_id": [self.user_id] * len(embeddings), "retrieval_id": retrieval_dict["retrieval_id"], "embedding": embeddings})
+            output_list = [{"user_id": self.user_id, "retrieval_id": input_dict["retrieval_id"][i], "embedding": embeddings[i]} for i in range(len(embeddings))]
+
+            return output_list
+
+        retrieval_list = await embed_columns(retrieval_dict)
 
 
-            return output_df
+        for insert_dict in retrieval_list:
+            await Embedding.insert_data(data_dict=insert_dict, db=self.db)
 
-        embedding_df = await embed_columns(retrieval_dict)
-
-
-        # get current retrieval ids
-        rows, columns = await Embedding.get_all(where_dict={"user_id": self.user_id}, db=self.db)
-        dict_df = pd.DataFrame(rows, columns=columns)
-        current_retrieval_ids = list(set(dict_df["retrieval_id"].values)) if not dict_df.empty else []
-
-
-        mask_update = embedding_df["retrieval_id"].isin(current_retrieval_ids)
-
-        update_df = embedding_df[mask_update]
-
-        # print("embedding_df after return 2: ", input_df)
-        insert_df = embedding_df[~mask_update]
-        # print("embedding_df: ", update_df)
-
-        # 5. Insert embeddings
-        if not insert_df.empty:
-            dict_list = insert_df.to_dict(orient="records")
-            for insert_dict in dict_list:
-                await Embedding.insert_data(data_dict=insert_dict, db=self.db)
-
-            await self.db.commit()
-
-        # 6. Update embeddings
-        if not update_df.empty:
-
-            dict_list = update_df.to_dict(orient="records")
-
-            for embedding_dict in dict_list:
-                embedding_bytes = embedding_dict["embedding"]
-                embedding = np.frombuffer(embedding_bytes, dtype=np.float32)  # or dtype used originally
-                print("embedding dimensions:", embedding.shape)
-
-                await Embedding.update_data(data_dict=embedding_dict, where_dict={"retrieval_id": embedding_dict["retrieval_id"]}, db=self.db)
+        await self.db.commit()
 
 
 
@@ -729,8 +864,6 @@ async def get_content(db: AsyncSession, user_id: UUID, retrieval_ids: Iterable =
 
 
 
-
-
 TYPE_MAPPER = {
     "ReasonerRetriever": ReasonerRetriever,
     "EmbeddingRetriever": EmbeddingRetriever,
@@ -740,14 +873,19 @@ TYPE_MAPPER = {
 
 async def run_retrieval(query: str, retrieval_dict: Dict[str, Any], user_id: UUID, db: AsyncSession):
 
-    
 
     log_path = await get_log_path(user_id, stage="retrieval")
     session_logger = InfoLogger(log_path=log_path, stage="retrieval")
 
+    # init main pipeline methods
     router_method = retrieval_dict.pop("router")
+    reranker_method = retrieval_dict.pop("reranker")
+    generator_method = retrieval_dict.pop("generator")
 
-    # if there is router
+    # --- RERANKING -----
+
+
+    # with router
     if router_method:
         # log
         session_logger.log_step(task="table", log_text=f"Using following retriever as router: ", table_data=router_method)
@@ -756,11 +894,12 @@ async def run_retrieval(query: str, retrieval_dict: Dict[str, Any], user_id: UUI
         router_method.update({"logger": session_logger, "user_id": user_id, "db": db})
         router_instance = TYPE_MAPPER[router_type](**router_method)
 
-        output_dict = await router_instance.run_retrieval(query=query)
-        retrieval_ids = output_dict["retrieval_id"]
-        # if there exists any document retriever, use filter ids for further retrieval
+        router_dict = await router_instance.run_retrieval(query=query)
+        input_ids = router_dict["retrieval_id"]
+
+        # if document retrievers, compute filter_ids for further retrieval
         if retrieval_dict:
-            doc_ids = list(set(output_dict["doc_id"])) # order doesn't matter
+            doc_ids = list(set(router_dict["doc_id"])) # order doesn't matter
             output_ids = []
             for doc_id in doc_ids:
 
@@ -772,20 +911,20 @@ async def run_retrieval(query: str, retrieval_dict: Dict[str, Any], user_id: UUI
                 doc_pipeline = retrieval_dict[doc_id] if doc_id in retrieval_dict else []
 
                 # run pipeline
-                filter_ids = await run_document_pipeline(query=query, input_ids=retrieval_ids, input_pipeline=doc_pipeline,
+                filter_ids = await run_document_pipeline(query=query, input_ids=input_ids, input_pipeline=doc_pipeline,
                                                          logger=session_logger, user_id=user_id, doc_id=doc_id, db=db)
                 # update output_ids
                 output_ids += filter_ids
 
-            # Instead of "get_content", define new function that returns the content chunks and metadata
-            output_content = await get_content(user_id=user_id, retrieval_ids=output_ids, db=db)
+
+        # if not document retriever, use ids provided by router
         else:
-            output_content = await get_content(user_id=user_id, retrieval_ids=retrieval_ids, db=db)
+            output_ids = input_ids
 
 
 
 
-    # if there is no router
+    # w/o router
     elif retrieval_dict:
         output_ids = []
         # run all pipelines with no input IDs
@@ -795,19 +934,41 @@ async def run_retrieval(query: str, retrieval_dict: Dict[str, Any], user_id: UUI
 
             output_ids += filter_ids
 
-        output_content = await get_content(user_id=user_id, retrieval_ids=filter_ids, db=db)
+        #output_content = await get_content(user_id=user_id, retrieval_ids=output_ids, db=db)
 
 
     # if there is no router and no document pipelines
     else:
-        output_content = {"retrieval_id": [], "content": []}
+        #output_content = {"retrieval_id": [], "content": []}
+        output_ids = []
+
+    # --- RERANKING -----
+
+
+
+    if reranker_method:
+
+        reranker_type = reranker_method.pop("type")
+        reranker_method.update({"logger": session_logger, "user_id": user_id, "db": db, "level": "rerank"})
+        reranker_instance = TYPE_MAPPER[reranker_type](**reranker_method)
+        reranker_dict = await reranker_instance.run_retrieval(query=query, filter_ids=output_ids)
+        output_ids = reranker_dict["retrieval_id"]
+
+
+    # --- GENERATION -----
+    # after retrieval pass chunks and query to generator
+
+    output_content = await get_content(user_id=user_id, retrieval_ids=output_ids, db=db)
+    chunk_list = output_content["content"]
+    output_answer = await generator_method.run_generation(query=query, input_chunks=chunk_list)
+
 
     # Finally we export the logs to md
     await export_logs(log_path)
 
 
 
-    return output_content
+    return output_answer, chunk_list
 
 
 
@@ -860,8 +1021,8 @@ async def run_embeddings(method_list: list[dict[str, Any]], user_id: UUID, doc_i
 
     # logg
     doc_title = await get_doc_title(user_id, doc_id, db=db)
-    session_logger.log_step(task="header_1", log_text=f"Generating Embeddings for document: {doc_title}")
-    session_logger.log_step(task="table", log_text=f"Using following methods: ", table_data=method_list)
+    session_logger.log_step(task="header_1", layer=2, log_text=f"Generating Embeddings for document: {doc_title}")
+    log_pipeline_methods(session_logger, method_list)
 
     for method in method_list:
         method_type = method.pop("type")
@@ -897,8 +1058,10 @@ async def export_doc_pipeline(retrieval_pipeline, user_id, doc_id, db: AsyncSess
     # Finally, we export the pipeline to the MainPipeline table
 
     main_pipeline = await MainPipeline.get_row(where_dict={"user_id": user_id}, db=db)
-    doc_pipelines = json.loads(main_pipeline.doc_pipelines)
-    if doc_pipelines:
+
+
+    if main_pipeline.doc_pipelines:
+        doc_pipelines = json.loads(main_pipeline.doc_pipelines)
         doc_pipelines[doc_id] = retrieval_pipeline
     else:
         doc_pipelines = {doc_id: retrieval_pipeline}

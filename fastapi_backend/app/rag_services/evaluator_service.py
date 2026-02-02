@@ -5,13 +5,13 @@ from unittest.mock import inplace
 import time
 import numpy as np
 import pandas as pd
-
+import copy
 
 #Orchestrators
 from app.rag_apis.chat_api import ChatOrchestrator
 
 # helpers for disc paths
-from app.rag_services.helpers import get_doc_paths, get_log_path, get_doc_title, get_user_api_keys
+from app.rag_services.helpers import get_doc_paths, get_log_path, get_doc_title, get_user_api_keys, log_pipeline_methods
 
 #loggs
 from app.log_generator import InfoLogger
@@ -306,3 +306,71 @@ class EnricherEvaluator(BaseEvaluator):
         return None
 
 
+
+
+
+
+
+EVALUATOR_TYPE_MAPPER = {
+    "Chunking": ChunkerEvaluator,
+    "Enriching": EnricherEvaluator,
+}
+
+async def evaluation_wrapper(pipelines: dict[str, list[dict[str, Any]]], evaluator_args: dict, runner_args: dict,
+                             session_logger, log_path, runner_fn):
+    # Init evaluator method
+    evaluator_array = []
+    if "evaluator" in pipelines:
+        evaluator_array = pipelines.pop("evaluator")
+
+    # Run Pipelines
+    sorted_items = sorted(list(pipelines.items()), key=lambda x: int(x[0].strip()))
+    sorted_pipelines = [x[1] for x in sorted_items if x[1]]
+    session_logger.log_step(task="info_text", log_text=f"Sorted pipelines look like this: {sorted_pipelines}")
+    evaluation_pipelines = copy.deepcopy(sorted_pipelines)
+
+    # If evaluator was instanced, run all pipelines and record their score. Finally run the highest scoring pipeline
+    if evaluator_array:
+        evaluator_method = evaluator_array[0]
+        session_logger.log_step(task="header_2", layer=2, log_text=f"Starting Evaluation of Pipelines")
+        session_logger.log_step(task="table", layer=2, log_text=f"using following Method: ",
+                                table_data=evaluator_method)
+
+        evaluator_type = evaluator_method.pop("type")
+        evaluator_method.update(**evaluator_args)
+        evaluator_instance = EVALUATOR_TYPE_MAPPER[evaluator_type](**evaluator_method)
+
+        pipeline_scores = []
+        for i, pipeline in enumerate(evaluation_pipelines):
+            session_logger.log_step(task="info_text", layer=2, log_text=f"Pipeline {i + 1}")
+            log_pipeline_methods(session_logger, pipeline)
+
+            pipeline_args = {**runner_args, "method_list": pipeline, "session_evaluator": evaluator_instance}
+
+            await runner_fn(**pipeline_args)
+
+            pipeline_scores.append(evaluator_instance.pipeline_score)
+
+        #  Overwrite last Retrieval content with the best chunking pipeline
+        best_index = pipeline_scores.index(max(pipeline_scores))
+        best_pipeline = sorted_pipelines[best_index]
+
+        session_logger.log_step(task="header_2", log_text=f"Found best pipeline: Pipeline {best_index}")
+
+        best_pipeline_args = {**runner_args, "method_list": best_pipeline, "session_evaluator": evaluator_instance}
+        await runner_fn(**best_pipeline_args)
+
+
+
+    # If there is no evaluator, run the first pipeline only
+    else:
+
+        pipeline = sorted_pipelines[0]
+        session_logger.log_step(task="header_2", layer=2, log_text=f"Running Pipeline 1")
+        log_pipeline_methods(session_logger, pipeline)
+
+        first_pipeline_args = {**runner_args, "method_list": pipeline, "session_evaluator": None}
+        await runner_fn(**first_pipeline_args)
+
+    # Finally we export the logs to md
+    await export_logs(log_path)

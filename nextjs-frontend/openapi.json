@@ -2352,7 +2352,7 @@
         }
       }
     },
-    "/retrieval/run": {
+    "/retrieval/export": {
       "post": {
         "tags": [
           "retrieval"
@@ -2436,28 +2436,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/mcp/ping": {
-      "post": {
-        "tags": [
-          "mcp"
-        ],
-        "summary": "Mcp Ping",
-        "description": "Minimal MCP auth test endpoint.\nConfirms MCP token is valid and user is resolved.",
-        "operationId": "mcp_ping",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MCPPingResponse"
                 }
               }
             }
@@ -2734,29 +2712,6 @@
           "api_key"
         ],
         "title": "KeyReadData"
-      },
-      "MCPPingResponse": {
-        "properties": {
-          "ok": {
-            "type": "boolean",
-            "title": "Ok"
-          },
-          "user_id": {
-            "type": "string",
-            "title": "User Id"
-          },
-          "email": {
-            "type": "string",
-            "title": "Email"
-          }
-        },
-        "type": "object",
-        "required": [
-          "ok",
-          "user_id",
-          "email"
-        ],
-        "title": "MCPPingResponse"
       },
       "MCPQueryRequest": {
         "properties": {

@@ -84,14 +84,8 @@ export function ExtractionEditor({
 
   /* ---------------- Helpers ---------------- */
 
-  function updatePipeline(
-    index: number,
-    key: string,
-    value: any
-  ) {
-    const next = [...methods];
-    next[index] = { ...next[index], [key]: value };
-    onChange(next);
+  function updatePipeline(index: number, key: string, value: any) {
+    onChange(methods.map((m, i) => i === index ? { ...m, [key]: value } : m));
   }
 
   function deleteMethod(index: number) {
