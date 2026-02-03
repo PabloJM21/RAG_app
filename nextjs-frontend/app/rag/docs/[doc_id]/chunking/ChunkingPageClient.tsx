@@ -12,8 +12,12 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 
+import {Tabs, TabsList, TabsTrigger} from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
+
 import { EvaluatorEditor } from "@/components/Editors/EvaluatorEditor";
 import { ChunkingEditor } from "@/components/Editors/ChunkingEditor";
+import {PipelineTabsBar} from "@/components/custom-ui/PipelineTabsBar";
 
 type MethodSpec = Record<string, any>;
 type PipelineSpec = Record<string, MethodSpec[]>;
@@ -73,7 +77,7 @@ export default function ChunkingPageClient({
       const id = nextPipelineId(prev);
       // ensure selection updates
       setPipelineId(id);
-      return { ...prev, [id]: [] };
+      return {...prev, [id]: []};
     });
   }, []);
 
@@ -81,13 +85,13 @@ export default function ChunkingPageClient({
     setPipeline((prev) => {
       if (prev.evaluator) return prev;
       setPipelineId("evaluator");
-      return { ...prev, evaluator: [] };
+      return {...prev, evaluator: []};
     });
   }, []);
 
   const deletePipeline = useCallback((id: string) => {
     setPipeline((prev) => {
-      const copy = { ...prev };
+      const copy = {...prev};
       delete copy[id];
 
       if (pipelineId === id) {
@@ -111,9 +115,9 @@ export default function ChunkingPageClient({
       if (!pipelineId) return prev;
 
       if (pipelineId === "evaluator") {
-        return { ...prev, evaluator: methods };
+        return {...prev, evaluator: methods};
       }
-      return { ...prev, [pipelineId]: methods };
+      return {...prev, [pipelineId]: methods};
     });
   }, [pipelineId]);
 
@@ -121,56 +125,9 @@ export default function ChunkingPageClient({
 
 
   return (
-    <div style={{ display: "flex", height: "100%" }}>
-      {/* ---------- Side pane (LEFT) ---------- */}
-      <div
-        style={{
-          width: 160,
-          borderRight: "1px solid #ddd",
-          padding: 8,
-          display: "flex",
-          flexDirection: "column",
-          gap: 8,
-        }}
-      >
-        {Object.keys(pipeline).map((id) => (
-          <div key={id} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <button
-              onClick={() => setPipelineId(id)}
-              style={{
-                flex: 1,
-                fontWeight: pipelineId === id ? "bold" : "normal",
-                background: pipelineId === id ? "#eee" : "transparent",
-              }}
-            >
-              {id}
-            </button>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button>…</button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  className="text-red-500 cursor-pointer"
-                  onClick={() => deletePipeline(id)}
-                >
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        ))}
-
-        <button onClick={addPipeline}>+ Add Pipeline</button>
-
-        <button onClick={addEvaluator} disabled={!!pipeline.evaluator}>
-          + Add Evaluator
-        </button>
-      </div>
-
+    <div style={{display: "flex", flexDirection: "column", height: "100%"}}>
       {/* ---------- Main ---------- */}
-      <div style={{ flex: 1, position: "relative" }}>
+      <div style={{flex: 1, position: "relative"}}>
         {/* Floating buttons */}
         <div
           style={{
@@ -183,15 +140,15 @@ export default function ChunkingPageClient({
             zIndex: 10,
           }}
         >
-          <form action={addChunkingPipeline} style={{ margin: 0 }}>
-            <input type="hidden" name="doc_id" value={doc_id} />
-            <input type="hidden" name="pipeline" value={pipelineJson} />
-            <SaveButton label="Pipeline" />
+          <form action={addChunkingPipeline} style={{margin: 0}}>
+            <input type="hidden" name="doc_id" value={doc_id}/>
+            <input type="hidden" name="pipeline" value={pipelineJson}/>
+            <SaveButton label="Pipeline"/>
           </form>
 
-          <form action={runChunking} style={{ margin: 0 }}>
-            <input type="hidden" name="doc_id" value={doc_id} />
-            <RunButton label="Chunking" />
+          <form action={runChunking} style={{margin: 0}}>
+            <input type="hidden" name="doc_id" value={doc_id}/>
+            <RunButton label="Chunking"/>
           </form>
         </div>
 
@@ -201,6 +158,17 @@ export default function ChunkingPageClient({
           onChange={handleMethodsChange}
         />
       </div>
+
+      {/* ---------- Side pane (BOTTOM) ---------- */}
+      <PipelineTabsBar
+        pipeline={pipeline}
+        pipelineId={pipelineId}
+        setPipelineId={setPipelineId}
+        addPipeline={addPipeline}
+        addEvaluator={addEvaluator}
+        deletePipeline={deletePipeline}
+      />
+
     </div>
   );
 }

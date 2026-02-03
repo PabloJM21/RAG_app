@@ -1,7 +1,16 @@
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import ChunkingPageContent from "./ChunkingPageContent";
-import ExtractionPageContent from "./ExtractionPageContent";
+import IndexingTabs from "./IndexingTabs";
+
+import { fetchExtractionPipeline } from "@/app/api/rag/docs/[doc_id]/extraction/extraction-action";
+import {
+  fetchLevels,
+  fetchChunkingPipeline,
+} from "@/app/api/rag/docs/[doc_id]/chunking/chunking-action";
+
+import { fetchResults } from "@/app/api/rag/docs/[doc_id]/indexing_results/table-action";
+
+
+type MethodSpec = Record<string, any>;
+type PipelineSpec = Record<string, MethodSpec[]>;
 
 export default async function IndexingPage({
   params,
@@ -10,34 +19,24 @@ export default async function IndexingPage({
 }) {
   const { doc_id } = await params;
 
+  const [chunkingPipeline, extractionPipeline, levels, results] = await Promise.all([
+    fetchChunkingPipeline(doc_id),
+    fetchExtractionPipeline(doc_id),
+    fetchLevels(doc_id),
+    fetchResults(doc_id),
+  ]);
+
   return (
-    <div className="h-screen flex flex-col">
-      {/* HEADER */}
-      <header className="flex justify-end mb-4">
-        <Link href={`/rag/docs/${doc_id}/chunking/chunks`}>
-          <Button variant="outline" className="text-lg px-4 py-2">
-            Chunks
-          </Button>
-        </Link>
-      </header>
-
-      {/* CONTENT */}
-      <div
-        className="flex-1 grid overflow-hidden"
-        style={{ gridTemplateRows: "1fr 1fr" }}
-      >
-        {/* TOP */}
-        <section className="p-4 overflow-auto border-b">
-          <ChunkingPageContent doc_id={doc_id} />
-        </section>
-
-        {/* BOTTOM */}
-        <section className="p-4 overflow-auto">
-          <ExtractionPageContent doc_id={doc_id} />
-        </section>
+    <div className="h-screen flex flex-col overflow-hidden">
+      <div className="flex-1 overflow-hidden">
+        <IndexingTabs
+          doc_id={doc_id}
+          initialChunking={(chunkingPipeline ?? {}) as PipelineSpec}
+          initialExtraction={(extractionPipeline ?? {}) as PipelineSpec}
+          levels={(levels ?? []) as string[]}
+          results={(results ?? [])}
+        />
       </div>
     </div>
   );
 }
-
-

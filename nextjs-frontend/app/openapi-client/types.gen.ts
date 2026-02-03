@@ -225,6 +225,24 @@ export type PipelineResponse = {
 };
 
 /**
+ * PipelineUpdate
+ */
+export type PipelineUpdate = {
+  /**
+   * Router
+   */
+  router?: unknown | null;
+  /**
+   * Reranker
+   */
+  reranker?: unknown | null;
+  /**
+   * Generator
+   */
+  generator?: unknown | null;
+};
+
+/**
  * UserCreate
  */
 export type UserCreate = {
@@ -1067,7 +1085,7 @@ export type ReadPipelineResponse =
   ReadPipelineResponses[keyof ReadPipelineResponses];
 
 export type AddPipelineData = {
-  body: PipelineResponse;
+  body: PipelineUpdate;
   path?: never;
   query?: never;
   url: "/main-pipeline/pipeline/data/";
@@ -1732,7 +1750,7 @@ export type ExportPipelineData = {
     doc_id: string;
   };
   query?: never;
-  url: "/retrieval/{doc_id}/export";
+  url: "/retrieval/{doc_id}/run";
 };
 
 export type ExportPipelineErrors = {
@@ -1756,7 +1774,7 @@ export type ExportAllData = {
   body?: never;
   path?: never;
   query?: never;
-  url: "/retrieval/export";
+  url: "/retrieval/run";
 };
 
 export type ExportAllResponses = {

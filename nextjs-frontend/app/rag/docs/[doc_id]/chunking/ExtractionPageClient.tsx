@@ -18,6 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {PipelineTabsBar} from "@/components/custom-ui/PipelineTabsBar";
 
 type MethodSpec = Record<string, any>;
 type PipelineSpec = Record<string, MethodSpec[]>;
@@ -133,53 +134,7 @@ export default function ExtractionPageClient({
   );
 
   return (
-    <div style={{ display: "flex", height: "100%" }}>
-      {/* ---------- Side pane (LEFT) ---------- */}
-      <div
-        style={{
-          width: 160,
-          borderRight: "1px solid #ddd",
-          padding: 8,
-          display: "flex",
-          flexDirection: "column",
-          gap: 8,
-        }}
-      >
-        {Object.keys(pipeline).map((id) => (
-          <div key={id} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <button
-              onClick={() => setPipelineId(id)}
-              style={{
-                flex: 1,
-                fontWeight: pipelineId === id ? "bold" : "normal",
-                background: pipelineId === id ? "#eee" : "transparent",
-              }}
-            >
-              {id}
-            </button>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button>…</button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  className="text-red-500 cursor-pointer"
-                  onClick={() => deletePipeline(id)}
-                >
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        ))}
-
-        <button onClick={addPipeline}>+ Add Pipeline</button>
-
-        <button onClick={addEvaluator} disabled={!!pipeline.evaluator}>
-          + Add Evaluator
-        </button>
-      </div>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
 
       {/* ---------- Main ---------- */}
       <div style={{ flex: 1, position: "relative" }}>
@@ -214,6 +169,16 @@ export default function ExtractionPageClient({
           onChange={handleMethodsChange}
         />
       </div>
+      {/* ---------- Side pane (BOTTOM) ---------- */}
+      <PipelineTabsBar
+        pipeline={pipeline}
+        pipelineId={pipelineId}
+        setPipelineId={setPipelineId}
+        addPipeline={addPipeline}
+        addEvaluator={addEvaluator}
+        deletePipeline={deletePipeline}
+      />
+
     </div>
   );
 }

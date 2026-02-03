@@ -7,8 +7,14 @@ import {
 } from "@/app/api/rag/main-pipeline/pipeline-action";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
 import {FlexibleMethodCard} from "@/components/custom-ui/FlexibleMethodCard";
+import {SaveButton} from "@/components/custom-ui/SaveButton";
+
+
+import { GENERATOR_PROMPTS, EMBEDDING_QUERY_PROMPTS, REASONER_QUERY_PROMPTS,
+  BM25_QUERY_PROMPTS, GENERATOR_QUERY_PROMPTS } from "@/components/frontend_data/Prompts";
+
+import { EMBEDDING_MODELS, GENERATOR_MODELS } from "@/components/frontend_data/models";
 
 /* ---------- Types ---------- */
 
@@ -16,7 +22,10 @@ type MethodSpec = Record<string, any>;
 type PipelineSlot = "router" | "reranker" | "generator";
 type PipelineSpec = Partial<Record<PipelineSlot, MethodSpec>>;
 
+type RetrieverType = (typeof RETRIEVER_TYPES)[number];
+
 /* ---------- Domain options ---------- */
+
 
 const RETRIEVER_TYPES = [
   "EmbeddingRetriever",
@@ -26,34 +35,6 @@ const RETRIEVER_TYPES = [
 
 
 const RETRIEVER_LEVELS = ["section", "chapter", "document"];
-
-const EMBEDDING_MODELS = ["e5-mistral-7b-instruct", "multilingual-e5-large-instruct", "qwen3-embedding-4b"];
-
-//query_transformation_model, reasoner_model, generator_model
-const GENERATOR_MODELS = ["coder", "thinker", "classifier", "generator", "reasoner"];
-
-//generator_prompt
-const GENERATOR_PROMPTS = [
-  "A complete answer to this QUERY based only on the provided CHUNKS",
-];
-
-const EMBEDDING_QUERY_PROMPTS = [
-  "A new string matching this QUERY suited for retrieving text chunks based on embeddings and cosine similarity",
-];
-
-const REASONER_QUERY_PROMPTS = [
-  "A new string matching this QUERY suited for retrieving text chunks based on direct LLM calls",
-];
-
-const BM25_QUERY_PROMPTS = [
-  "A new string matching this QUERY suited for retrieving text chunks based on the BM25 method",
-];
-
-const GENERATOR_QUERY_PROMPTS = [
-  "A new string matching this QUERY that can be directly combined with some text chunks to provide a RAG answer",
-];
-
-
 
 
 
@@ -135,6 +116,7 @@ function isCompletePipeline(
 
 /* ---------- Slot Editor ---------- */
 
+
 function SlotEditor({
   slot,
   label,
@@ -147,8 +129,11 @@ function SlotEditor({
   slot: PipelineSlot;
   label: string;
   method: MethodSpec | undefined;
-  selectedType: string;
-  setSelectedType: (v: string) => void;
+
+  // Only used for router/reranker, generator passes undefined
+  selectedType?: RetrieverType;
+  setSelectedType: (v: RetrieverType) => void;
+
   setSlot: (slot: PipelineSlot, method: MethodSpec | null) => void;
   updateField: (slot: PipelineSlot, key: string, value: any) => void;
 }) {
@@ -164,9 +149,7 @@ function SlotEditor({
       return (
         <select
           value={String(value)}
-          onChange={(e) =>
-            updateField(slot, key, e.target.value === "true")
-          }
+          onChange={(e) => updateField(slot, key, e.target.value === "true")}
         >
           <option value="true">true</option>
           <option value="false">false</option>
@@ -180,12 +163,7 @@ function SlotEditor({
       key === "query_transformation_model"
     ) {
       return (
-        <select
-          value={value}
-          onChange={(e) =>
-            updateField(slot, key, e.target.value)
-          }
-        >
+        <select value={value} onChange={(e) => updateField(slot, key, e.target.value)}>
           <option value="">—</option>
           {GENERATOR_MODELS.map((m) => (
             <option key={m} value={m}>
@@ -198,12 +176,7 @@ function SlotEditor({
 
     if (key === "embedding_model") {
       return (
-        <select
-          value={value}
-          onChange={(e) =>
-            updateField(slot, key, e.target.value)
-          }
-        >
+        <select value={value} onChange={(e) => updateField(slot, key, e.target.value)}>
           <option value="">—</option>
           {EMBEDDING_MODELS.map((m) => (
             <option key={m} value={m}>
@@ -221,9 +194,7 @@ function SlotEditor({
             list="generator-prompts"
             type="text"
             value={String(value ?? "")}
-            onChange={(e) =>
-              updateField(slot, key, e.target.value)
-            }
+            onChange={(e) => updateField(slot, key, e.target.value)}
             style={{ width: "100%" }}
           />
           <datalist id="generator-prompts">
@@ -235,19 +206,14 @@ function SlotEditor({
       );
     }
 
-    if (
-      key === "query_transformation_prompt" &&
-      method?.type === "EmbeddingRetriever"
-    ) {
+    if (key === "query_transformation_prompt" && method?.type === "EmbeddingRetriever") {
       return (
         <>
           <input
             list="embedding-query-prompts"
             type="text"
             value={String(value ?? "")}
-            onChange={(e) =>
-              updateField(slot, key, e.target.value)
-            }
+            onChange={(e) => updateField(slot, key, e.target.value)}
             style={{ width: "100%" }}
           />
           <datalist id="embedding-query-prompts">
@@ -259,19 +225,14 @@ function SlotEditor({
       );
     }
 
-    if (
-      key === "query_transformation_prompt" &&
-      method?.type === "BM25Retriever"
-    ) {
+    if (key === "query_transformation_prompt" && method?.type === "BM25Retriever") {
       return (
         <>
           <input
             list="bm25-query-prompts"
             type="text"
             value={String(value ?? "")}
-            onChange={(e) =>
-              updateField(slot, key, e.target.value)
-            }
+            onChange={(e) => updateField(slot, key, e.target.value)}
             style={{ width: "100%" }}
           />
           <datalist id="bm25-query-prompts">
@@ -283,19 +244,14 @@ function SlotEditor({
       );
     }
 
-    if (
-      key === "query_transformation_prompt" &&
-      method?.type === "ReasonerRetriever"
-    ) {
+    if (key === "query_transformation_prompt" && method?.type === "ReasonerRetriever") {
       return (
         <>
           <input
             list="reasoner-query-prompts"
             type="text"
             value={String(value ?? "")}
-            onChange={(e) =>
-              updateField(slot, key, e.target.value)
-            }
+            onChange={(e) => updateField(slot, key, e.target.value)}
             style={{ width: "100%" }}
           />
           <datalist id="reasoner-query-prompts">
@@ -307,19 +263,14 @@ function SlotEditor({
       );
     }
 
-    if (
-      key === "query_transformation_prompt" &&
-      method?.type === "Generator"
-    ) {
+    if (key === "query_transformation_prompt" && method?.type === "Generator") {
       return (
         <>
           <input
             list="generator-query-prompts"
             type="text"
             value={String(value ?? "")}
-            onChange={(e) =>
-              updateField(slot, key, e.target.value)
-            }
+            onChange={(e) => updateField(slot, key, e.target.value)}
             style={{ width: "100%" }}
           />
           <datalist id="generator-query-prompts">
@@ -335,12 +286,13 @@ function SlotEditor({
       <input
         type="text"
         value={String(value)}
-        onChange={(e) =>
-          updateField(slot, key, e.target.value)
-        }
+        onChange={(e) => updateField(slot, key, e.target.value)}
       />
     );
   }
+
+  // Typed fallback (only relevant for non-generator slots)
+  const typeToUse: RetrieverType = selectedType ?? RETRIEVER_TYPES[0];
 
   return (
     <div style={{ border: "1px solid #eee", padding: 12 }}>
@@ -358,12 +310,9 @@ function SlotEditor({
         {slot !== "generator" ? (
           <>
             <select
-              value={selectedType}
-              onChange={(e) =>
-                setSelectedType(e.target.value)
-              }
+              value={typeToUse}
+              onChange={(e) => setSelectedType(e.target.value as RetrieverType)}
             >
-              <option value="">—</option>
               {RETRIEVER_TYPES.map((t) => (
                 <option key={t} value={t}>
                   {t}
@@ -371,25 +320,12 @@ function SlotEditor({
               ))}
             </select>
 
-            <button
-              onClick={() =>
-                setSlot(
-                  slot,
-                  createRetriever(
-                    selectedType || RETRIEVER_TYPES[0]
-                  )
-                )
-              }
-            >
+            <button onClick={() => setSlot(slot, createRetriever(typeToUse))}>
               {hasMethod ? `Replace ${slot}` : `Add ${slot}`}
             </button>
           </>
         ) : (
-          <button
-            onClick={() =>
-              setSlot(slot, structuredClone(GENERATOR_TEMPLATE))
-            }
-          >
+          <button onClick={() => setSlot(slot, structuredClone(GENERATOR_TEMPLATE))}>
             {hasMethod ? `Replace ${slot}` : `Add ${slot}`}
           </button>
         )}
@@ -412,7 +348,10 @@ function SlotEditor({
 }
 
 
+
 /* ---------- MainPipelineEditor (now composes 3 editors) ---------- */
+
+
 
 export function MainPipelineEditor({
   initialPipeline,
@@ -421,11 +360,14 @@ export function MainPipelineEditor({
 }) {
   const [pipeline, setPipeline] = useState<PipelineSpec>(initialPipeline);
 
+  // Only slots that actually use retriever selection need this,
+  // but it's fine to keep it keyed by PipelineSlot.
   const [selected, setSelected] = useState<
-    Partial<Record<PipelineSlot, string>>
+    Partial<Record<PipelineSlot, RetrieverType>>
   >({
-    router: "",
-    reranker: "",
+    router: RETRIEVER_TYPES[0],
+    reranker: RETRIEVER_TYPES[0],
+    // generator omitted (doesn't use retriever types)
   });
 
   function setSlot(slot: PipelineSlot, method: MethodSpec | null) {
@@ -450,7 +392,6 @@ export function MainPipelineEditor({
     });
   }
 
-  const canSave = useMemo(() => isCompletePipeline(pipeline), [pipeline]);
 
   return (
     <section className="w-full">
@@ -469,8 +410,10 @@ export function MainPipelineEditor({
           slot="router"
           label="Router"
           method={pipeline.router}
-          selectedType={selected.router ?? ""}
-          setSelectedType={(v) => setSelected((p) => ({ ...p, router: v }))}
+          selectedType={selected.router} // RetrieverType | undefined
+          setSelectedType={(v: RetrieverType) =>
+            setSelected((p) => ({ ...p, router: v }))
+          }
           setSlot={setSlot}
           updateField={updateField}
         />
@@ -479,8 +422,10 @@ export function MainPipelineEditor({
           slot="reranker"
           label="Reranker"
           method={pipeline.reranker}
-          selectedType={selected.reranker ?? ""}
-          setSelectedType={(v) => setSelected((p) => ({ ...p, reranker: v }))}
+          selectedType={selected.reranker} // RetrieverType | undefined
+          setSelectedType={(v: RetrieverType) =>
+            setSelected((p) => ({ ...p, reranker: v }))
+          }
           setSlot={setSlot}
           updateField={updateField}
         />
@@ -489,8 +434,8 @@ export function MainPipelineEditor({
           slot="generator"
           label="Generator"
           method={pipeline.generator}
-          selectedType="" // not used
-          setSelectedType={() => {}}
+          selectedType={undefined} // not used
+          setSelectedType={(_v: RetrieverType) => {}} // keep prop type compatible
           setSlot={setSlot}
           updateField={updateField}
         />
@@ -498,16 +443,14 @@ export function MainPipelineEditor({
 
       {/* Save */}
       <div style={{ marginTop: 12 }}>
-        {canSave && (
-          <form action={addPipeline}>
+        <form action={addPipeline} style={{ margin: 0 }}>
             <input
               type="hidden"
               name="pipeline"
               value={JSON.stringify(pipeline)}
             />
-            <button type="submit">Save</button>
+            <SaveButton label="Pipeline" />
           </form>
-        )}
       </div>
 
       {/* Run buttons */}
@@ -541,6 +484,7 @@ export function MainPipelineEditor({
     </section>
   );
 }
+
 
 
 

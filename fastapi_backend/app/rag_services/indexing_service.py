@@ -992,6 +992,9 @@ class BaseChunker:
 
         return meta_list
 
+
+
+
     async def run_text_chunking(self, meta_dict: Dict[str, Any])-> List[Dict[str, Any]]:
 
         input_chunk = meta_dict.pop("paragraph")

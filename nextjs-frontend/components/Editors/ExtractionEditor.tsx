@@ -11,10 +11,14 @@ type PipelineSpec = MethodSpec[]
 const METHOD_TYPES = ["Extractor", "Enricher", "Filter", "Reset"] as const;
 
 const EXTRACTOR_WHAT = ["content", "title"];
+const EXTRACTOR_CAPTIONS = ["A section title of this document", "Context"]
+
 const ENRICHER_POSITION = ["top", "bottom", "replace"];
 const ENRICHER_MODELS = ["coder", "thinker", "classifier", "generator", "reasoner"]
 const ENRICHER_PROMPTS = ["A concise 1-2 sentence summary of the chunk in the same language.", "A list of 5-7 key topics or entities mentioned in this chunk in the same language.", "A list of 3-5 questions this chunk could answer."]
-const FILTER_PROMPTS = ["A boolean that is False if the chunk's content doesn't align with the provided context, and True otherwise"]
+const ENRICHER_CAPTIONS = ["Summary", "Key Words", "Hypothetical Questions"]
+
+const FILTER_PROMPTS = ["A boolean that is True if the chunk's content could be study material, and False if it's empty or personal data.", "A boolean that is False if the chunk's content doesn't align with the provided context, and True otherwise"]
 
 /* ---------- Templates ---------- */
 
@@ -168,6 +172,9 @@ export function ExtractionEditor({
       );
     }
 
+
+    // Extractor-specific dropdowns
+
     if (method.type === "Extractor" && key === "what") {
       return (
         <select
@@ -183,6 +190,29 @@ export function ExtractionEditor({
             </option>
           ))}
         </select>
+      );
+    }
+
+
+    if (method.type === "Extractor" && key === "caption") {
+      return (
+        <>
+          <input
+            list="extractor-captions"
+            type="text"
+            value={String(value ?? "")}
+            onChange={(e) =>
+              updatePipeline(index, key, e.target.value)
+            }
+            style={{ width: "100%" }}
+          />
+
+          <datalist id="extractor-captions">
+            {EXTRACTOR_CAPTIONS.map((w) => (
+              <option key={w} value={w} />
+            ))}
+          </datalist>
+        </>
       );
     }
 
@@ -204,6 +234,29 @@ export function ExtractionEditor({
 
           <datalist id="enricher-prompts">
             {ENRICHER_PROMPTS.map((w) => (
+              <option key={w} value={w} />
+            ))}
+          </datalist>
+        </>
+      );
+    }
+
+
+    if (method.type === "Enricher" && key === "caption") {
+      return (
+        <>
+          <input
+            list="enricher-captions"
+            type="text"
+            value={String(value ?? "")}
+            onChange={(e) =>
+              updatePipeline(index, key, e.target.value)
+            }
+            style={{ width: "100%" }}
+          />
+
+          <datalist id="enricher-captions">
+            {ENRICHER_CAPTIONS.map((w) => (
               <option key={w} value={w} />
             ))}
           </datalist>
@@ -254,28 +307,6 @@ export function ExtractionEditor({
         </select>
       );
     }
-
-
-
-    // Reset Dropdowns
-    if (method.type === "Reset" && key === "where") {
-      return (
-        <select
-          value={value}
-          onChange={(e) =>
-            updatePipeline(index, key, e.target.value)
-          }
-        >
-          <option value="">—</option>
-          {levels.map((lvl) => (
-            <option key={lvl} value={lvl}>
-              {lvl}
-            </option>
-          ))}
-        </select>
-      );
-    }
-
 
 
 

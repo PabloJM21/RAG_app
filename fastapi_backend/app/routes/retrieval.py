@@ -17,7 +17,7 @@ from uuid import uuid4
 import json
 
 # Retrieval service
-from app.rag_services.retrieval_service import export_doc_pipeline
+from app.rag_services.retrieval_service import run_doc_embeddings
 
 # Markdown generator
 from app.generate_markdown import generate_markdown_from_log, find_session_id
@@ -77,6 +77,13 @@ async def export_pipeline(
         user: User = Depends(current_active_user),
 ):
     # 1. filter: this endpoint is only triggered when a pipeline is fetched or created from the UI
+
+    main_pipeline = await MainPipeline.get_row(where_dict={"user_id": user.id}, db=db)
+    document_pipelines = {}
+    if main_pipeline.doc_pipelines:
+        document_pipelines = json.loads(main_pipeline.doc_pipelines)
+
+
     row = await DocPipelines.get_row(where_dict={"user_id": user.id, "doc_id": doc_id}, db=db)
 
 
@@ -92,11 +99,19 @@ async def export_pipeline(
     # export pipeline to MainPipeline table
 
     retrieval_pipeline = json.loads(row.retrieval_pipeline)
-    await export_doc_pipeline(retrieval_pipeline, user.id, doc_id, db)
+    await run_doc_embeddings(retrieval_pipeline=retrieval_pipeline, user_id=user.id, doc_id=doc_id, db=db)
+
+    # update document_pipelines with this doc's pipeline
+    document_pipelines[str(doc_id)] = retrieval_pipeline
 
     # NEXT: Set exported=1
 
     row.exported = 1
+
+    # finally update main_pipeline with the created document_pipelines dict
+    if document_pipelines:
+        main_pipeline.doc_pipelines = json.dumps(document_pipelines)
+
     await db.commit()
 
 
@@ -118,8 +133,13 @@ async def export_all(
     2. Bundles all retrieval pipelines and exports them to the MainPipeline table
 
     """
-    # Avoid exported=1 to be exported again.
 
+    main_pipeline = await MainPipeline.get_row(where_dict={"user_id": user.id}, db=db)
+    document_pipelines = {}
+    if main_pipeline.doc_pipelines:
+        document_pipelines = json.loads(main_pipeline.doc_pipelines)
+
+    # Avoid exported=1 to be exported again.
     rows, _ = await DocPipelines.get_all(columns=["doc_id"], where_dict={"user_id": user.id, "exported": 0, "chunked": 1}, db=db)
 
     doc_ids = [row["doc_id"] for row in rows]
@@ -128,14 +148,24 @@ async def export_all(
         row = await DocPipelines.get_row(where_dict={"user_id": user.id, "doc_id": doc_id}, db=db)
 
 
-        # 2. filter: output error if the pipeline is created but not saved, and there is no previous pipeline
+        # Doesn't trigger if the pipeline is created but not saved, and there is no previous pipeline
         if row.retrieval_pipeline:
             retrieval_pipeline = json.loads(row.retrieval_pipeline)
-            await export_doc_pipeline(retrieval_pipeline, user.id, doc_id, db)
+            
+            # run embeddings for EmbeddingRetrievers
+            await run_doc_embeddings(retrieval_pipeline=retrieval_pipeline, user_id=user.id, doc_id=doc_id, db=db)
+
+
+            # update document_pipelines with each doc's pipeline
+            document_pipelines[str(doc_id)] = retrieval_pipeline
 
             # NEXT: Set exported=1
             row.exported = 1
-
+    
+    # finally update main_pipeline with the created document_pipelines dict
+    if document_pipelines:
+        main_pipeline.doc_pipelines = json.dumps(document_pipelines)
+    
     await db.commit()
 
 

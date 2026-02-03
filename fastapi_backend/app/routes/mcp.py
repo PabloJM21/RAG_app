@@ -36,7 +36,7 @@ async def issue_mcp_url(
     )
 
     return {
-        "mcp_url": f"http://localhost:8000/mcp-proto/{token}"
+        "mcp_url": f"http://localhost/mcp/{token}"
     }
 
 

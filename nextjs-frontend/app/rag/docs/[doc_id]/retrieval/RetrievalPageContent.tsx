@@ -10,6 +10,9 @@ import {X} from "lucide-react";
 import {Button} from "@/components/ui/button";
 
 
+import { GENERATOR_PROMPTS, EMBEDDING_QUERY_PROMPTS, REASONER_QUERY_PROMPTS, 
+  BM25_QUERY_PROMPTS, GENERATOR_QUERY_PROMPTS } from "@/components/frontend_data/Prompts"
+
 
 type MethodSpec = Record<string, any>;
 type PipelineSpec = Partial<MethodSpec>[]
@@ -222,6 +225,63 @@ export function RetrievalEditor({
             </option>
           ))}
         </select>
+      );
+    }
+    
+    if (key === "query_transformation_prompt" && method.type === "EmbeddingRetriever") {
+      return (
+        <>
+          <input
+            list="embedding-query-prompts"
+            type="text"
+            value={value}
+            onChange={(e) => updatePipeline(index, key, e.target.value)}
+            style={{ width: "100%" }}
+          />
+          <datalist id="embedding-query-prompts">
+            {EMBEDDING_QUERY_PROMPTS.map((w) => (
+              <option key={w} value={w} />
+            ))}
+          </datalist>
+        </>
+      );
+    }
+
+    if (key === "query_transformation_prompt" && method.type === "BM25Retriever") {
+      return (
+        <>
+          <input
+            list="bm25-query-prompts"
+            type="text"
+            value={value}
+            onChange={(e) => updatePipeline(index, key, e.target.value)}
+            style={{ width: "100%" }}
+          />
+          <datalist id="bm25-query-prompts">
+            {BM25_QUERY_PROMPTS.map((w) => (
+              <option key={w} value={w} />
+            ))}
+          </datalist>
+        </>
+      );
+    }
+
+    if (key === "query_transformation_prompt" && method.type === "ReasonerRetriever") {
+      return (
+        <>
+          <input
+            list="reasoner-query-prompts"
+            type="text"
+            value={value}
+            onChange={(e) => updatePipeline(index, key, e.target.value)}
+            style={{ width: "100%" }}
+          />
+          <datalist id="reasoner-query-prompts">
+            {REASONER_QUERY_PROMPTS.map((w) => (
+              <option key={w} value={w} />
+            ))}
+          </datalist>
+        </>
       );
     }
 

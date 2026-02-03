@@ -24,7 +24,45 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+def load_pipeline(pipeline):
 
+    if pipeline is None:
+        return None
+
+    if isinstance(pipeline, dict):
+        pipeline.pop("color", None)
+
+        evaluator = pipeline.get("evaluator")
+        if isinstance(evaluator, dict):
+            evaluator.pop("color", None)
+
+        return pipeline
+
+    elif isinstance(pipeline, list):
+        for method in pipeline:
+            if isinstance(method, dict):
+                method.pop("color", None)
+
+        return pipeline
+
+    return None
+
+
+def load_doc_pipelines(pipelines):
+
+    if pipelines is None:
+        return None
+
+    output_dict = {}
+
+    for k, v in pipelines.items():
+        try:
+            output_dict[UUID(k)] = load_pipeline(v)
+        except ValueError:
+            # skip invalid UUID keys instead of crashing
+            continue
+
+    return output_dict
 
 
 

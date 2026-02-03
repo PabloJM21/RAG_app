@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { registerRegister } from "./sdk.gen";
 
 import { registerSchema } from "@/lib/definitions";
-import { getErrorMessage } from "@/lib/utils";
+import { getErrorMessage } from "@/app/api/lib/utils";
 
 export async function register(prevState: unknown, formData: FormData) {
   const validatedFields = registerSchema.safeParse({

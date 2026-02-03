@@ -1340,7 +1340,7 @@ export const exportPipeline = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/retrieval/{doc_id}/export",
+    url: "/retrieval/{doc_id}/run",
     ...options,
   });
 };
@@ -1365,7 +1365,7 @@ export const exportAll = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/retrieval/export",
+    url: "/retrieval/run",
     ...options,
   });
 };

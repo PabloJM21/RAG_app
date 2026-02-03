@@ -13,7 +13,7 @@ import copy
 from app.rag_apis.chat_api import ChatOrchestrator
 
 #Internal helpers 
-from app.rag_services.evaluator_service import ChunkerEvaluator, EnricherEvaluator
+from app.rag_services.evaluator_service import ChunkerEvaluator, EnricherEvaluator, evaluation_wrapper
 
 # helpers for disc paths
 from app.rag_services.helpers import get_doc_paths, get_log_path, get_doc_title, get_user_api_keys, log_pipeline_methods
@@ -39,7 +39,7 @@ class Extractor:
     TEXT
     """
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, input_level: str = "section", output_level: str = "document", caption: str = "A section title of this document", what: str = "content", replace: Optional[bool] = False):
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, input_level: str, output_level: str, caption: str, what: str, position: str):
         # the caption - what introduces the content - is the equivalent of the instructions for the Enricher (for example generate a summary as "context" for children levels)
 
         self.db = db
@@ -57,9 +57,22 @@ class Extractor:
         if what == "title":
             self.title = True
 
+        self.position = position
 
-        self.replace = replace
         self.logger = logger
+
+    @staticmethod
+    def rows_to_columns(rows):
+
+        if not rows:
+            return {}
+        cols = rows[0].keys()
+        out = {c: [] for c in cols}
+        for row in rows:
+            for c in cols:
+                out[c].append(row[c])
+
+        return out
 
 
 
@@ -75,26 +88,33 @@ class Extractor:
         self.logger.log_step(task="info_text", log_text=f"Extracted Paragraphs for columns: {columns}")
         self.logger.log_step(task="info_text", log_text=f"These are as follows: {rows}")
 
-        rows, columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.input_level}, db=self.db)
+        input_rows, input_columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.input_level}, db=self.db)
+
+        input_df = pd.DataFrame(input_rows, columns=input_columns)  # like the retrievals table, but one for each hierarchy level
+        input_ids = sorted(set(input_df["level_id"]))
+
+        """
         input_df = pd.DataFrame(rows, columns=columns).sort_values(by="level_id")  # like the retrievals table, but one for each hierarchy level
-
+        input_ids = sorted(set(input_df["level_id"]))
+        
         rows, columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.output_level}, db=self.db)
-        output_df = pd.DataFrame(rows, columns=columns).sort_values(by="level_id")  # like the retrievals table, but one for each hierarchy level
+        output_df = pd.DataFrame(rows, columns=columns).sort_values(by="level_id")  like the retrievals table, but one for each hierarchy level
+        """
 
-        input_ids = list(set(input_df[f"level_id"]))
+
 
 
 
         # PURPOSE: if input_level < output_level, we ensure that the titles of input_level_id_names get attached in order.
         # This is because the title_content gets attached on top of the old content, unlike in the enrichment case.
-        if self.title:
+        if self.position == "top":
             input_ids.sort(reverse=True)
 
         update_data = []
         insert_data = []
 
         for input_id in input_ids:
-            #print(f"proceeding to extract title {input_id}")
+
 
             if self.title:
                 content = input_df.loc[input_df["level_id"] == input_id, "title"].dropna().astype(str).iloc[0]  # one row dataframe
@@ -106,9 +126,8 @@ class Extractor:
             else:
                 new_content = f"{content}\n"
 
-
-
-
+            output_rows, output_columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.output_level}, db=self.db)
+            output_df = pd.DataFrame(output_rows, columns=output_columns)
 
             # has only one element if input_ids-output_ids relationship is 1-to-1 or 1-to-* (e.g. paragraph-section, section-document)
             # otherwise it's a list (e.g. section-paragraph) and we have to iterate over all output_ids (paragraphs)
@@ -122,15 +141,17 @@ class Extractor:
             for output_id in output_ids:
 
                 # check if the content type (input or output) already exists
-                old_content = output_df.loc[output_df["level_id"] == output_id, "title"].dropna().astype(str).iloc[0]  # one row dataframe
+                output_content = output_df.loc[output_df["level_id"] == output_id, "content"].iloc[0] # one row dataframe
+                old_content = str(output_content) if output_content else ""
+
                 self.logger.log_step(task="info_text", log_text=f"Old content of output level: {old_content}")
 
 
                 if old_content:
 
-                    if not self.replace:
+                    if self.position in ["top", "bottom"]:
 
-                        if self.title: # title at the top
+                        if self.position == "top": # title at the top
                             updated_content = f"{new_content}\n{old_content}"
                         else: # content at the bottom
                             updated_content = f"{old_content}\n{new_content}"
@@ -152,7 +173,7 @@ class Extractor:
 
                     insert_data.append({"Output": new_content})
 
-        await self.db.commit()
+            await self.db.commit()
 
 
         # After Completion
@@ -217,7 +238,12 @@ class Enricher:
     # INTERNAL HELPERS
     # ============================================================
 
+    @staticmethod
+    def unwrap_answer(chat_output):
+        if isinstance(chat_output, dict):
+            return str(chat_output["Output"])
 
+        return str(chat_output)
 
 
 
@@ -230,15 +256,17 @@ class Enricher:
 
     def _call_orchestrator(self, system_prompt, user_prompt):
         if self.do_history:
-            output_dict = json.loads(self.chat_orchestrator.call_with_history(label=self.model, system_prompt=system_prompt, user_prompt=user_prompt, history=self.history))
+            chat_output = json.loads(self.chat_orchestrator.call_with_history(label=self.model, system_prompt=system_prompt, user_prompt=user_prompt, history=self.history))
+            output_string = self.unwrap_answer(chat_output)
 
             # update history list with user and assistant input of the new call
-            self.history += [{"role": "user", "content": user_prompt}, {"role": "assistant", "content": output_dict["Output"]}]
+            self.history += [{"role": "user", "content": user_prompt}, {"role": "assistant", "content": output_string}]
 
         else:
-            output_dict = json.loads(self.chat_orchestrator.call(label=self.model, system_prompt=system_prompt, user_prompt=user_prompt))
+            chat_output = json.loads(self.chat_orchestrator.call(label=self.model, system_prompt=system_prompt, user_prompt=user_prompt))
+            output_string = self.unwrap_answer(chat_output)
 
-        return output_dict["Output"]
+        return output_string
 
 
     def _enrich_chunk(self, chunk: str) -> str:
@@ -309,9 +337,9 @@ class Enricher:
 
         self.logger.log_step(task="info_text", layer=1, log_text="Starting enriching chunks")
 
-        input_df = pd.DataFrame(rows, columns=columns).sort_values(by="level_id")  # like the retrievals table, but one for each hierarchy level
+        input_df = pd.DataFrame(rows, columns=columns)  # like the retrievals table, but one for each hierarchy level
 
-        input_ids = list(set(input_df[f"level_id"]))
+        input_ids = sorted(set(input_df[f"level_id"]))
 
 
         table_data = []
@@ -366,6 +394,22 @@ class Filter:
 
 
 
+    @staticmethod
+
+    def extract_bool(s):
+        try:
+            x = json.loads(s.lower() if isinstance(s, str) else s)
+            if isinstance(x, bool): return x
+            if isinstance(x, dict): return next(v for v in x.values() if isinstance(v, bool))
+        except:
+            pass
+        m = re.search(r'\btrue\b|\bfalse\b', str(s), re.I)
+        if m: return m.group(0).lower() == "true"
+        raise ValueError("No boolean found")
+
+
+
+
     async def init_clients(self):
         user_key_list = await get_user_api_keys(user_id=self.user_id, base_api="https://chat-ai.academiccloud.de/v1",
                                                 db=self.db)
@@ -378,20 +422,24 @@ class Filter:
 
     def _call_orchestrator(self, user_prompt, system_prompt):
         if self.do_history:
-            output_dict = json.loads(
-                self.chat_orchestrator.call_with_history(label=self.model, system_prompt=system_prompt,
-                                                         user_prompt=user_prompt, history=self.history))
+
+            chat_output = self.chat_orchestrator.call_with_history(label=self.model, system_prompt=system_prompt,
+                                                         user_prompt=user_prompt, history=self.history)
+
+            self.logger.log_step(task="info_text", log_text=f"Unwrapping following answer: {chat_output}")
+            output_bool = self.extract_bool(chat_output)
 
             # update history list with user and assistant input of the new call
-            self.history += [{"role": "user", "content": user_prompt},
-                             {"role": "assistant", "content": output_dict["Boolean"]}]
+            self.history += [{"role": "user", "content": user_prompt}, {"role": "assistant", "content": str(output_bool)}]
 
         else:
-            output_dict = json.loads(
-                self.chat_orchestrator.call(label=self.model, system_prompt=system_prompt,
-                                            user_prompt=user_prompt))
+            chat_output = self.chat_orchestrator.call(label=self.model, system_prompt=system_prompt, user_prompt=user_prompt)
+            self.logger.log_step(task="info_text", log_text=f"Unwrapping following answer: {chat_output}")
 
-        return output_dict["Boolean"]
+            output_bool = self.extract_bool(chat_output)
+
+
+        return output_bool
 
 
 
@@ -429,6 +477,8 @@ class Filter:
 
                     """
 
+        self.logger.log_step(task="info_text", layer=1, log_text=f"Starting to filter following chunk: {input_chunk}")
+
         bool_output = self._call_orchestrator(user_prompt, system_prompt)
 
         return bool_output
@@ -448,10 +498,9 @@ class Filter:
 
         self.logger.log_step(task="info_text", layer=2, log_text="Starting filtering chunks")
 
-        input_df = pd.DataFrame(rows, columns=columns).sort_values(
-            by="level_id")  # like the retrievals table, but one for each hierarchy level
+        input_df = pd.DataFrame(rows, columns=columns)  # like the retrievals table, but one for each hierarchy level
 
-        input_ids = list(set(input_df[f"level_id"]))
+        input_ids = sorted(set(input_df[f"level_id"]))
 
         for input_id in input_ids:
             # print(f"proceeding to enrich {input_id}")
@@ -459,10 +508,6 @@ class Filter:
             # instead of extracting chunk from paragraphs table, we search for the input or output column of the retrievals table
 
             content = input_df.loc[input_df["level_id"] == input_id, "content"].dropna().astype(str).iloc[0]  # one row dataframe
-
-            if not content:
-                print("Content is empty")
-                return
 
 
             is_relevant = self._decide_relevance(content)
@@ -528,7 +573,8 @@ EVALUATOR_TYPE_MAPPER = {
 
 
 
-async def run_extraction(pipelines: dict[str, list[dict[str, Any]]], user_id: UUID, doc_id: UUID, db: AsyncSession):
+
+async def run_extraction_old(pipelines: dict[str, list[dict[str, Any]]], user_id: UUID, doc_id: UUID, db: AsyncSession):
     log_path = await get_log_path(user_id, stage="extraction")
     session_logger = InfoLogger(log_path=log_path, stage="extraction")
     doc_title = await get_doc_title(user_id, doc_id, db=db)
@@ -589,7 +635,6 @@ async def run_extraction(pipelines: dict[str, list[dict[str, Any]]], user_id: UU
 
 
 
-
 # Run each Pipeline
 
 EXTRACTION_TYPE_MAPPER = {
@@ -599,7 +644,7 @@ EXTRACTION_TYPE_MAPPER = {
     "Reset": Reseter,
 }
 
-async def run_extraction_pipeline(method_list: list[dict[str, Any]], user_id: UUID, doc_id: UUID, db: AsyncSession, session_logger: InfoLogger, session_evaluator: ChunkerEvaluator, log_path: str):
+async def run_extraction_pipeline(method_list: list[dict[str, Any]], user_id: UUID, doc_id: UUID, db: AsyncSession, session_logger: InfoLogger, session_evaluator: ChunkerEvaluator):
 
 
     for method in method_list:
@@ -610,15 +655,18 @@ async def run_extraction_pipeline(method_list: list[dict[str, Any]], user_id: UU
             input_level = method.pop("from")
             output_level = method.pop("to")
             method.update({"input_level": input_level, "output_level": output_level})
+            method_type = method.pop("type")
 
-            session_logger.log_step(task="info_text", layer=2, log_text=f"Starting Extraction from {input_level} to {output_level}")
+            session_logger.log_step(task="info_text", layer=2, log_text=f"Starting Extractor from {input_level} to {output_level}")
 
         else:
             target_level = method["where"]
-            session_logger.log_step(task="info_text", layer=2, log_text=f"Starting Enrichment at {target_level} level")
+            method_type = method.pop("type")
+
+            session_logger.log_step(task="info_text", layer=2, log_text=f"Starting {method_type} at {target_level} level")
 
 
-        method_type = method.pop("type")
+
         method_instance = EXTRACTION_TYPE_MAPPER[method_type](**method)
     
         await method_instance.run_method()
@@ -628,8 +676,17 @@ async def run_extraction_pipeline(method_list: list[dict[str, Any]], user_id: UU
         session_evaluator.commit_evaluation()
 
 
+async def run_extraction(pipelines: dict[str, list[dict[str, Any]]], user_id: UUID, doc_id: UUID, db: AsyncSession):
+    log_path = await get_log_path(user_id, stage="extraction")
+    session_logger = InfoLogger(log_path=log_path, stage="extraction")
+    doc_title = await get_doc_title(user_id, doc_id, db=db)
+    session_logger.log_step(task="header_1", layer=2, log_text=f"Starting Extraction for document: {doc_title}")
 
+    evaluator_args = {"user_id": user_id, "doc_id": doc_id, "db": db, "logger": session_logger}
+    runner_args = {"user_id": user_id, "doc_id": doc_id, "db": db, "session_logger": session_logger}
 
+    await evaluation_wrapper(pipelines=pipelines, evaluator_args=evaluator_args, runner_args=runner_args,
+                             session_logger=session_logger, log_path=log_path, runner_fn=run_extraction_pipeline)
 
 
 

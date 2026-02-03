@@ -1,3 +1,4 @@
+from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from typing import Any, Dict, Optional, List, Callable, Awaitable
@@ -5,6 +6,10 @@ import inspect
 
 from app.routes.mcp import current_mcp_user  # your dependency that validates Bearer MCP token
 from app.models import User
+
+
+# helper for removing "color" from stored pipelines
+from app.rag_services.helpers import load_doc_pipelines, load_pipeline
 
 router = APIRouter(prefix="/mcp-proto", tags=["mcp-proto"])
 
@@ -65,16 +70,15 @@ async def ping_tool(user: User):
 
 
 
-
-
 @tool("rag_query", "Run RAG pipeline query")
 async def rag_query_tool(user: User, db: AsyncSession, query: str):
     # Call your internal function or your existing endpoint logic directly.
     # load main_pipeline configuration
     row = await MainPipeline.get_row(where_dict={"user_id": user.id}, db=db)
 
-    retrieval_dict = json.loads(row.doc_pipelines)
-    retrieval_dict.update({"router": json.loads(row.router), "reranker": json.loads(row.reranker), "generator": json.loads(row.generator)})
+    retrieval_dict = load_doc_pipelines(json.loads(row.doc_pipelines))
+
+    retrieval_dict.update({"router": load_pipeline(json.loads(row.router)), "reranker": load_pipeline(json.loads(row.reranker)), "generator": load_pipeline(json.loads(row.generator))})
 
     output_answer, chunk_list = await run_retrieval(query=query, retrieval_dict=retrieval_dict, user_id=user.id, db=db)
 

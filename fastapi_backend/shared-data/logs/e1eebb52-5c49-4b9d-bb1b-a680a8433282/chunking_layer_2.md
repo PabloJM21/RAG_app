@@ -1,14 +1,4 @@
-## Starting Evaluation of Pipelines
-
-using following Method:
-
-
-
-| type | model | prompt | target_level | history |
-| --- | --- | --- | --- | --- |
-| Chunking | coder | A score in the range 0-100 that evaluates the quality of the chunking process | Section | true |
-
-Pipeline 1
+## Running Pipeline 1
 
 This Pipeline consists of following methods:
 
@@ -24,18 +14,8 @@ This Pipeline consists of following methods:
 | --- | --- | --- | --- | --- | --- |
 | Paragraph Chunker | Section | ## |  |  | True |
 
-Chunking at Chapter level completed in 0.65 seconds
+Chunking at Chapter level completed in 0.95 seconds
 
-Chunking at Section level completed in 6.42 seconds
+Chunking at Section level completed in 0.22 seconds
 
-## Pipeline Evaluation completed for target level Section obtaining an average score of 90.46153846153847
-
-Completed chunking in 7.08 seconds
-
-Chunking at Chapter level completed in 1.01 seconds
-
-Chunking at Section level completed in 9.56 seconds
-
-## Pipeline Evaluation completed for target level Section obtaining an average score of 90.22222222222223
-
-Completed chunking in 10.58 seconds
+Completed chunking in 1.18 seconds

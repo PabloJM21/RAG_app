@@ -5,7 +5,7 @@ import { cookies } from "next/headers";
 import { authJwtLogin } from "./sdk.gen";
 import { redirect } from "next/navigation";
 import { loginSchema } from "@/lib/definitions";
-import { getErrorMessage } from "@/lib/utils";
+import { getErrorMessage } from "@/app/api/lib/utils";
 
 export async function login(prevState: unknown, formData: FormData) {
   const validatedFields = loginSchema.safeParse({

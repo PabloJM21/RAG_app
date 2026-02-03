@@ -1,45 +1,22 @@
+// DocsList.tsx
 "use client";
 
 import Link from "next/link";
-import {UploadButton} from "./UploadButton";
-import {DeleteButton} from "./deleteButton";
-import { Button } from "@/components/ui/button";
-
-import {fetchDocs} from "@/app/api/rag/docs/docs-action";
-import { useState, useEffect } from "react";
-
+import { UploadButton } from "./UploadButton";
+import { DeleteButton } from "./deleteButton";
 
 type Doc = {
   doc_id: string;
   name: string;
 };
 
-export default function DocsList() {
-  const [docs, setDocs] = useState<Doc[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-
-
-  useEffect(() => {
-    async function loadDocs() {
-      try {
-        const data = await fetchDocs();
-
-        // If fetchDocs returns null, set empty array
-        setDocs(data ?? []);
-
-      } catch (err: any) {
-          console.error("Failed to fetch docs", err);
-          setError(err.message ?? "Unknown error");
-      } finally {
-          setLoading(false);
-      }
-    }
-    loadDocs();
-  }, []);
-
-  if (loading) return <div>Loading documents…</div>;
+export default function DocsList({
+  docs,
+  error,
+}: {
+  docs: Doc[];
+  error?: string | null;
+}) {
   if (error) return <div style={{ color: "red" }}>Error: {error}</div>;
 
   return (
@@ -52,13 +29,11 @@ export default function DocsList() {
           borderRadius: 4,
           padding: 8,
           maxHeight: "70vh",
-          overflowY: "auto"
+          overflowY: "auto",
         }}
       >
         {docs.length === 0 && (
-          <div style={{ color: "#666" }}>
-            No documents uploaded yet
-          </div>
+          <div style={{ color: "#666" }}>No documents uploaded yet</div>
         )}
 
         {docs.map((doc) => (
@@ -66,7 +41,11 @@ export default function DocsList() {
             key={doc.doc_id}
             style={{
               padding: "6px 4px",
-              borderBottom: "1px solid #eee"
+              borderBottom: "1px solid #eee",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 8,
             }}
           >
             <Link
@@ -74,24 +53,20 @@ export default function DocsList() {
               style={{
                 textDecoration: "none",
                 color: "#0070f3",
-                cursor: "pointer"
+                cursor: "pointer",
               }}
             >
               {doc.name}
             </Link>
 
             <DeleteButton doc_id={doc.doc_id} />
-
           </div>
         ))}
       </div>
 
       <div style={{ marginTop: 12 }}>
-          <UploadButton />
+        <UploadButton />
       </div>
-
-
-
     </section>
   );
 }

@@ -1258,7 +1258,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PipelineResponse"
+                "$ref": "#/components/schemas/PipelineUpdate"
               }
             }
           },
@@ -2306,7 +2306,7 @@
         }
       }
     },
-    "/retrieval/{doc_id}/export": {
+    "/retrieval/{doc_id}/run": {
       "post": {
         "tags": [
           "retrieval"
@@ -2352,7 +2352,7 @@
         }
       }
     },
-    "/retrieval/export": {
+    "/retrieval/run": {
       "post": {
         "tags": [
           "retrieval"
@@ -2816,6 +2816,39 @@
           "generator"
         ],
         "title": "PipelineResponse"
+      },
+      "PipelineUpdate": {
+        "properties": {
+          "router": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Router"
+          },
+          "reranker": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reranker"
+          },
+          "generator": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generator"
+          }
+        },
+        "type": "object",
+        "title": "PipelineUpdate"
       },
       "UserCreate": {
         "properties": {
