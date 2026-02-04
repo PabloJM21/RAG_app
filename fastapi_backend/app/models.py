@@ -84,7 +84,6 @@ class Base(DeclarativeBase):
 
 
         if not columns:
-            # This is wrong and should be replaced
             columns = [c.key for c in inspect(cls).mapper.column_attrs]
 
 

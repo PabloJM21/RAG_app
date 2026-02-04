@@ -16,6 +16,9 @@ from typing import List, Dict, Any
 from uuid import uuid4
 import json
 
+# helper for removing "color" from stored pipelines
+from app.rag_services.helpers import load_pipeline
+
 # Retrieval service
 from app.rag_services.retrieval_service import run_doc_embeddings
 

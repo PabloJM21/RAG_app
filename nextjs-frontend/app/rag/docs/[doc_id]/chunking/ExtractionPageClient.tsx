@@ -10,15 +10,9 @@ import {
 import { EvaluatorEditor } from "@/components/Editors/EvaluatorEditor";
 import { ExtractionEditor } from "@/components/Editors/ExtractionEditor";
 
-import { RunButton } from "@/components/custom-ui/RunButton";
-import { SaveButton } from "@/components/custom-ui/SaveButton";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+
 import {PipelineTabsBar} from "@/components/custom-ui/PipelineTabsBar";
+import {SaveRunActions} from "@/components/custom-ui/SaveRunActions";
 
 type MethodSpec = Record<string, any>;
 type PipelineSpec = Record<string, MethodSpec[]>;
@@ -50,17 +44,23 @@ function nextPipelineId(pipelines: PipelineSpec): string {
 }
 
 // Choose a stable initial selection:
-// - evaluator if it exists
-// - else smallest numeric pipeline id
-// - else "1"
 function initialPipelineId(pipeline: PipelineSpec): string {
-  if (pipeline.evaluator) return "evaluator";
+  // 1. smallest numeric pipeline id
   const numeric = Object.keys(pipeline)
     .filter((k) => /^\d+$/.test(k))
     .map(Number)
     .sort((a, b) => a - b);
-  return numeric.length ? String(numeric[0]) : "1";
+  if (numeric.length > 0) {
+    return String(numeric[0]);
+  }
+  // 2. evaluator if it exists
+  if (pipeline.evaluator) {
+    return "evaluator";
+  }
+  // 3. fallback
+  return "1";
 }
+
 
 export default function ExtractionPageClient({
   doc_id,
@@ -85,7 +85,7 @@ export default function ExtractionPageClient({
     setPipeline((prev) => {
       const id = nextPipelineId(prev);
       setPipelineId(id);
-      return { ...prev, [id]: [] };
+      return {...prev, [id]: []};
     });
   }, []);
 
@@ -93,14 +93,14 @@ export default function ExtractionPageClient({
     setPipeline((prev) => {
       if (prev.evaluator) return prev;
       setPipelineId("evaluator");
-      return { ...prev, evaluator: [] };
+      return {...prev, evaluator: []};
     });
   }, []);
 
   const deletePipeline = useCallback(
     (id: string) => {
       setPipeline((prev) => {
-        const copy = { ...prev };
+        const copy = {...prev};
         delete copy[id];
 
         if (pipelineId === id) {
@@ -125,51 +125,42 @@ export default function ExtractionPageClient({
         if (!pipelineId) return prev;
 
         if (pipelineId === "evaluator") {
-          return { ...prev, evaluator: methods };
+          return {...prev, evaluator: methods};
         }
-        return { ...prev, [pipelineId]: methods };
+        return {...prev, [pipelineId]: methods};
       });
     },
     [pipelineId]
   );
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-
+    <div style={{display: "flex", flexDirection: "column", height: "100%"}}>
       {/* ---------- Main ---------- */}
-      <div style={{ flex: 1, position: "relative" }}>
-        {/* Floating buttons */}
-        <div
-          style={{
-            position: "absolute",
-            top: 8,
-            right: 8,
-            display: "flex",
-            flexDirection: "column",
-            gap: 12,
-            zIndex: 10,
-          }}
-        >
-          <form action={addExtractionPipeline} style={{ margin: 0 }}>
-            <input type="hidden" name="doc_id" value={doc_id} />
-            <input type="hidden" name="pipeline" value={pipelineJson} />
-            <SaveButton label="Pipeline" />
-          </form>
+      <div style={{flex: 1, position: "relative", display: "flex", flexDirection: "column", minHeight: 0 }}>
 
-          <form action={runExtraction} style={{ margin: 0 }}>
-            <input type="hidden" name="doc_id" value={doc_id} />
-            <RunButton label="Extraction" />
-          </form>
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+          <SaveRunActions
+            addFunction={addExtractionPipeline}
+            runFunction={runExtraction}
+            doc_id={doc_id}
+            pipelineJson={pipelineJson}
+            runLabel="Extraction"
+          />
         </div>
 
-        <RoutingEditor
-          pipelineKey={pipelineId}
-          methods={currentMethods}
-          levels={levels}
-          onChange={handleMethodsChange}
-        />
+
+        <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+          <RoutingEditor
+            pipelineKey={pipelineId}
+            methods={currentMethods}
+            levels={levels}
+            onChange={handleMethodsChange}
+          />
+        </div>
+
       </div>
-      {/* ---------- Side pane (BOTTOM) ---------- */}
+
+
       <PipelineTabsBar
         pipeline={pipeline}
         pipelineId={pipelineId}
@@ -182,3 +173,4 @@ export default function ExtractionPageClient({
     </div>
   );
 }
+

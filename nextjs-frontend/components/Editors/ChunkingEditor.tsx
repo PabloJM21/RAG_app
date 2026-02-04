@@ -2,6 +2,8 @@ import {useEffect, useState} from "react";
 import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger} from "@/components/ui/dropdown-menu";
 import {X} from "lucide-react";
 import {Button} from "@/components/ui/button";
+import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
+import {FlexibleMethodCard} from "@/components/custom-ui/FlexibleMethodCard";
 
 type MethodSpec = Record<string, any>;
 
@@ -253,105 +255,64 @@ export function ChunkingEditor({
   /* ---------------- Render ---------------- */
 
   return (
-    <section style={{ position: "relative", height: "100%" }}>
-      <h2>Chunking</h2>
+    <section className="h-full flex flex-col gap-3">
+      {/* Top toolbar (fixed at top) */}
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold">Chunking</h2>
 
-      <div
-        style={{
-          display: "flex",
-          gap: 16,
-          overflowX: "auto",
-          paddingBottom: 8
-        }}
-      >
-        {methods.map((method, index) => (
-          <div
-            key={index}
-            style={{
-              position: "relative",
-              border: "1px solid #ccc",
-              padding: 8,
-              minWidth: 260
-            }}
+        <div className="flex items-center gap-2">
+          <select
+            value={selectedType}
+            onChange={(e) => setSelectedType(e.target.value as any)}
+            className="h-9 rounded-md border bg-background px-2 text-sm"
           >
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => deleteMethod(index)}
-              className="absolute top-1 right-1 text-muted-foreground hover:text-destructive"
-              aria-label="Delete"
-            >
-              <X className="h-4 w-4" />
-            </Button>
+            {METHOD_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
 
-            <table
-              style={{
-                borderCollapse: "collapse",
-                width: "100%"
-              }}
-            >
-              <tbody>
-                {Object.entries(method).map(
-                  ([key, value]) => (
-                    <tr key={key}>
-                      <td
-                        style={{
-                          borderBottom: "1px solid #eee",
-                          padding: 4,
-                          fontWeight: 600
-                        }}
-                      >
-                        {key}
-                      </td>
-                      <td
-                        style={{
-                          borderBottom: "1px solid #eee",
-                          padding: 4
-                        }}
-                      >
-                        {renderValueEditor(
-                          method,
-                          index,
-                          key,
-                          value
-                        )}
-                      </td>
-                    </tr>
-                  )
-                )}
-              </tbody>
-            </table>
+          <Button type="button" onClick={addMethod} size="sm">
+            + Add method
+          </Button>
+        </div>
+      </div>
+
+      {/* Methods container (blue border card) */}
+      <Card className="border-2 border-blue-500/60 rounded-xl w-fit max-w-full min-h-0">
+        <CardHeader className="py-3">
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            Methods
+          </CardTitle>
+        </CardHeader>
+
+        <CardContent className="pt-0 h-full min-h-0">
+          {/* Horizontal scroll area for the method cards */}
+          <div className="h-full min-h-0 overflow-x-auto overflow-y-hidden pb-2">
+            <div className="flex gap-4 min-w-max">
+              {methods.map((method, index) => (
+                <div style={{ marginTop: 12 }}>
+                  <FlexibleMethodCard
+                    method={method}
+                    onDelete={() => deleteMethod(index)}
+                    renderValue={(key, value) => renderValueEditor(method, index, key, value)}
+                    onColorChange={(next) => updatePipeline(index, "color", next)}
+                    defaultOpen={false}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
-        ))}
-      </div>
 
-      <div
-        style={{
-          position: "absolute",
-          bottom: 0,
-          left: 0,
-          display: "flex",
-          gap: 8,
-          alignItems: "center"
-        }}
-      >
-        <select
-          value={selectedType}
-          onChange={(e) =>
-            setSelectedType(e.target.value as any)
-          }
-        >
-          {METHOD_TYPES.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
-
-        <button onClick={addMethod}>
-          + Add method
-        </button>
-      </div>
+          {/* Empty state */}
+          {methods.length === 0 && (
+            <div className="text-sm text-muted-foreground mt-2">
+              No methods yet — add one above.
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </section>
   );
 }

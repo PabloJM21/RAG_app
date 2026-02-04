@@ -16,6 +16,8 @@ from typing import List, Dict, Any
 from uuid import uuid4
 import json
 
+# helper for removing "color" from stored pipelines
+from app.rag_services.helpers import load_pipeline
 
 # Extraction service
 from app.rag_services.extraction_service import run_extraction
@@ -85,7 +87,7 @@ async def run_extraction_pipeline(
     if not row.extraction_pipeline:
         raise HTTPException(status_code=404, detail="No pipeline was saved")
 
-    extraction_pipeline = json.loads(row.extraction_pipeline)
+    extraction_pipeline = load_pipeline(json.loads(row.extraction_pipeline))
 
     # Run extraction
     await run_extraction(extraction_pipeline, user.id, doc_id, db)

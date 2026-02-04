@@ -26,24 +26,43 @@ load_dotenv()
 
 def load_pipeline(pipeline):
 
-    if pipeline is None:
-        return None
 
-    if isinstance(pipeline, dict):
-        pipeline.pop("color", None)
+    def check_list(input_list: list):
 
-        evaluator = pipeline.get("evaluator")
-        if isinstance(evaluator, dict):
-            evaluator.pop("color", None)
-
-        return pipeline
-
-    elif isinstance(pipeline, list):
-        for method in pipeline:
+        for method in input_list:
             if isinstance(method, dict):
                 method.pop("color", None)
 
-        return pipeline
+        return input_list
+
+
+
+    if pipeline is None:
+        return None
+
+    if isinstance(pipeline, list):
+        return check_list(pipeline)
+
+
+
+    if isinstance(pipeline, dict):
+        output_pipeline = pipeline.pop("color", None)
+        if output_pipeline:
+            return output_pipeline
+
+
+        pipeline_items = pipeline.items()
+        for k, v in pipeline_items:
+
+            if isinstance(pipeline[k], dict):
+                pipeline[k].pop("color", None)
+
+    return pipeline
+
+
+
+
+
 
     return None
 

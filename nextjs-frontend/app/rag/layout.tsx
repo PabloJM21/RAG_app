@@ -3,6 +3,8 @@ import Link from "next/link";
 import { Home, Users2, List } from "lucide-react";
 import Image from "next/image";
 
+import DocsPage from "./docs/page";
+
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -19,21 +21,12 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { logout } from "@/app/api/login/logout-action";
 
-
-
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen">
       <aside className="fixed inset-y-0 left-0 z-10 w-16 flex flex-col border-r bg-background p-4">
         <div className="flex flex-col items-center gap-8">
-          <Link
-            href="/"
-            className="flex items-center justify-center rounded-full"
-          >
+          <Link href="/" className="flex items-center justify-center rounded-full">
             <Image
               src="/images/vinta.png"
               alt="Vinta"
@@ -42,20 +35,17 @@ export default function DashboardLayout({
               className="object-cover transition-transform duration-200 hover:scale-105"
             />
           </Link>
-          <Link
-            href="/dashboard"
-            className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
-          >
+
+          <Link href="/dashboard" className="flex items-center gap-2 text-muted-foreground hover:text-foreground">
             <List className="h-5 w-5" />
           </Link>
-          <Link
-            href="/customers"
-            className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
-          >
+
+          <Link href="/customers" className="flex items-center gap-2 text-muted-foreground hover:text-foreground">
             <Users2 className="h-5 w-5" />
           </Link>
         </div>
       </aside>
+
       <main className="ml-16 w-full p-8 bg-muted/40">
         <header className="flex justify-between items-center mb-6">
           <Breadcrumb>
@@ -79,40 +69,69 @@ export default function DashboardLayout({
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
-          <div className="relative">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-300 hover:bg-gray-400">
-                  <Avatar>
-                    <AvatarFallback>U</AvatarFallback>
-                  </Avatar>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-300 hover:bg-gray-400">
+                <Avatar>
+                  <AvatarFallback>U</AvatarFallback>
+                </Avatar>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" side="bottom">
+              <DropdownMenuItem>
+                <Link
+                  href="/rag/profile"
+                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                >
+                  Profile
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <button
+                  onClick={logout}
+                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                >
+                  Logout
                 </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" side="bottom">
-                <DropdownMenuItem>
-                  <Link
-                    href="/rag/profile"
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  >
-                    Profile
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <button
-                    onClick={logout}
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  >
-                    Logout
-                  </button>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </header>
-        <section className="grid gap-6">{children}</section>
+
+        {/* Split view lives HERE */}
+        <section
+          style={{
+            display: "grid",
+            gridTemplateColumns: "300px 1fr",
+            height: "calc(100vh - 160px)", // adjust to your header height
+            gap: 12,
+          }}
+        >
+          <aside
+            style={{
+              borderRight: "1px solid #ddd",
+              padding: 12,
+              overflow: "auto",
+              background: "white",
+              borderRadius: 8,
+            }}
+          >
+            <DocsPage />
+          </aside>
+
+          <div
+            style={{
+              overflow: "auto",
+              background: "white",
+              borderRadius: 8,
+              padding: 16,
+            }}
+          >
+            {children}
+          </div>
+        </section>
       </main>
     </div>
   );
 }
-
-

@@ -23,3 +23,4 @@ export const BM25_QUERY_PROMPTS = [
 export const GENERATOR_QUERY_PROMPTS = [
   "A new string matching this QUERY that can be directly combined with some text chunks to provide a RAG answer, in the same language",
 ];
+

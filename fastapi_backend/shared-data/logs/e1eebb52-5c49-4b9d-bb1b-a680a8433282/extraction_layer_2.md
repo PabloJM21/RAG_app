@@ -1,26 +1,44 @@
-# Starting Extraction for document: SoSe2025_Biomedizin-II_Nervensystem.pdf
+Starting Enricher at document level
 
-## Running Pipeline 1
+Completed chunk enrichment
+
+Starting Enricher at document level
+
+Completed chunk enrichment
+
+Pipeline 2
 
 This Pipeline consists of following methods:
 
 
 
-| type | where | model | prompt | history |
-| --- | --- | --- | --- | --- |
-| Filter | Section | coder | A boolean that is True if the chunk's content could be study material, and False if it's empty or personal data. | True |
+| type | from | to | what | position | caption |
+| --- | --- | --- | --- | --- | --- |
+| Extractor |  |  |  |  |  |
 
 
 
 | type | from | to | what | position | caption |
 | --- | --- | --- | --- | --- | --- |
-| Extractor | Section | document | title | top | A section title of this document |
+| Extractor |  |  |  |  |  |
 
 
 
-| type | where | model | prompt | position | caption | history |
-| --- | --- | --- | --- | --- | --- | --- |
-| Enricher | document | thinker | A complete summary of the chunk in the same language based on the provided section titles | replace | Summary | False |
+| type | from | to | what | position | caption |
+| --- | --- | --- | --- | --- | --- |
+| Extractor |  |  |  |  |  |
+
+Starting Extractor from  to
+
+Completed Extraction
+
+Starting Extractor from  to
+
+Completed Extraction
+
+Starting Extractor from  to
+
+Completed Extraction
 
 Starting Filter at Section level
 
@@ -29,6 +47,10 @@ Starting filtering chunks
 Starting Extractor from Section to document
 
 Completed Extraction
+
+Starting Enricher at document level
+
+Completed chunk enrichment
 
 Starting Enricher at document level
 

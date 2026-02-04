@@ -74,6 +74,27 @@ class Extractor:
 
         return out
 
+    @staticmethod
+    def get_row_title(input_rows, level_id):
+        for row in input_rows:
+            if row["level_id"] == level_id:
+                return row["title"]
+
+        return None
+    
+    @staticmethod
+    def get_row_content(input_rows, level_id):
+        for row in input_rows:
+            if row["level_id"] == level_id:
+                return row["content"]
+            
+        return None
+
+    @staticmethod
+    def insert_row_content(input_rows, level_id, content):
+        for row in input_rows:
+            if row["level_id"] == level_id:
+                row["content"] = content
 
 
     async def run_method(self) -> None:
@@ -82,13 +103,14 @@ class Extractor:
 
         # loggs
 
-        rows, columns = await Paragraph.get_all_paragraphs(columns=[f"{self.input_level}_id", f"{self.output_level}_id"], where_dict={"user_id": self.user_id, "doc_id": self.doc_id}, db=self.db)
-        paragraphs_df = pd.DataFrame(rows, columns=columns)
+        paragraphs_rows, paragraphs_columns = await Paragraph.get_all_paragraphs(columns=[f"{self.input_level}_id", f"{self.output_level}_id"], where_dict={"user_id": self.user_id, "doc_id": self.doc_id}, db=self.db)
+        paragraphs_df = pd.DataFrame(paragraphs_rows, columns=paragraphs_columns)
 
-        self.logger.log_step(task="info_text", log_text=f"Extracted Paragraphs for columns: {columns}")
-        self.logger.log_step(task="info_text", log_text=f"These are as follows: {rows}")
+        self.logger.log_step(task="info_text", log_text=f"Extracted Paragraphs for columns: {paragraphs_columns}")
+        self.logger.log_step(task="info_text", log_text=f"These are as follows: {paragraphs_rows}")
 
         input_rows, input_columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.input_level}, db=self.db)
+        input_rows = [dict(row) for row in input_rows]
 
         input_df = pd.DataFrame(input_rows, columns=input_columns)  # like the retrievals table, but one for each hierarchy level
         input_ids = sorted(set(input_df["level_id"]))
@@ -113,35 +135,61 @@ class Extractor:
         update_data = []
         insert_data = []
 
+        output_rows, _ = await Retrieval.get_all(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.output_level}, db=self.db)
+        output_rows = [dict(row) for row in output_rows]
+
+        await Retrieval.delete_data(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.output_level}, db=self.db)
+
+
+        #output_dict = self.rows_to_columns(output_rows)
         for input_id in input_ids:
 
 
             if self.title:
-                content = input_df.loc[input_df["level_id"] == input_id, "title"].dropna().astype(str).iloc[0]  # one row dataframe
+                content = str(self.get_row_title(input_rows, input_id))
+                #content = input_df.loc[input_df["level_id"] == input_id, "title"].dropna().astype(str).iloc[0]  # one row dataframe
             else:
-                content = input_df.loc[input_df["level_id"] == input_id, "content"].dropna().astype(str).iloc[0]  # one row dataframe
+                content = str(self.get_row_content(input_rows, input_id))
+                #content = input_df.loc[input_df["level_id"] == input_id, "content"].dropna().astype(str).iloc[0]  # one row dataframe
 
             if self.caption:
                 new_content = f"{self.caption}: {content}\n"
             else:
                 new_content = f"{content}\n"
 
-            output_rows, output_columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.output_level}, db=self.db)
-            output_df = pd.DataFrame(output_rows, columns=output_columns)
+            #output_rows, output_columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.output_level}, db=self.db)
+            #output_df = pd.DataFrame(output_rows, columns=output_columns)
 
             # has only one element if input_ids-output_ids relationship is 1-to-1 or 1-to-* (e.g. paragraph-section, section-document)
             # otherwise it's a list (e.g. section-paragraph) and we have to iterate over all output_ids (paragraphs)
 
               # like the retrievals table, but one for each hierarchy level
-            filtered_df = paragraphs_df[paragraphs_df[f"{self.input_level}_id"] == input_id]
+            #filtered_df = paragraphs_df[paragraphs_df[f"{self.input_level}_id"] == input_id]
+            #output_ids = list(set(filtered_df[f"{self.output_level}_id"]))
 
-            output_ids = list(set(filtered_df[f"{self.output_level}_id"]))
+
+
+            raw_output_ids = []
+            for row in paragraphs_rows:
+                if row[f"{self.input_level}_id"] == input_id:
+                    raw_output_ids.append(row[f"{self.output_level}_id"])
+
+            output_ids = sorted(set(raw_output_ids))
+
             self.logger.log_step(task="info_text", log_text=f"Output IDs: {output_ids}")
 
             for output_id in output_ids:
+                #old_row = Retrieval.get_row(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.output_level, "level_id": output_id}, db=self.db)
+                #output_content = old_row["content"]
+
+                output_content = self.get_row_content(output_rows, output_id)
+                
+                
 
                 # check if the content type (input or output) already exists
-                output_content = output_df.loc[output_df["level_id"] == output_id, "content"].iloc[0] # one row dataframe
+                #output_content = output_df.loc[output_df["level_id"] == output_id, "content"].iloc[0] # one row dataframe
+
+
                 old_content = str(output_content) if output_content else ""
 
                 self.logger.log_step(task="info_text", log_text=f"Old content of output level: {old_content}")
@@ -156,27 +204,35 @@ class Extractor:
                         else: # content at the bottom
                             updated_content = f"{old_content}\n{new_content}"
 
-                        await Retrieval.update_data(data_dict={"content": updated_content}, where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level_id": output_id, "level": self.output_level}, db=self.db)
-
+                        #await Retrieval.update_data(data_dict={"content": updated_content}, where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level_id": output_id, "level": self.output_level}, db=self.db)
+                        self.insert_row_content(output_rows, output_id, updated_content)
+                        
                         self.logger.log_step(task="info_text", log_text=f"Extraction: Updating doc_id, level_id, level: {self.doc_id, output_id, self.output_level}, with following content: {updated_content}")
                         update_data.append({"Input": old_content, "Output": updated_content})
 
                     else:
-                        await Retrieval.update_data(data_dict={"content": new_content}, where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level_id": output_id, "level": self.output_level}, db=self.db)
+                        #await Retrieval.update_data(data_dict={"content": new_content}, where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level_id": output_id, "level": self.output_level}, db=self.db)
+                        self.insert_row_content(output_rows, output_id, new_content)
 
                         update_data.append({"Input": old_content, "Output": new_content})
 
 
                 else:
 
-                    await Retrieval.insert_data(data_dict={"doc_id": self.doc_id, "level_id": output_id, "level": self.output_level, "content": new_content}, db=self.db)
+                    #await Retrieval.insert_data(data_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level_id": output_id, "level": self.output_level, "content": new_content}, db=self.db)
+                    self.insert_row_content(output_rows, output_id, new_content)
 
                     insert_data.append({"Output": new_content})
 
-            await self.db.commit()
+            #await self.db.commit()
 
 
         # After Completion
+        for output_row in output_rows:
+            await Retrieval.insert_data(data_dict=output_row, db=self.db)
+
+        await self.db.commit()
+
 
         self.logger.log_step(task="info_text", layer=2, log_text="Completed Extraction")
 
@@ -648,6 +704,9 @@ async def run_extraction_pipeline(method_list: list[dict[str, Any]], user_id: UU
 
 
     for method in method_list:
+
+        method.pop("color", None)
+
         method.update({"logger": session_logger, "user_id": user_id, "doc_id": doc_id, "db": db})
 
 

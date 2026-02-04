@@ -26,7 +26,7 @@ Keeping max_tokens=1050
 
 Can we run evaluation?. We have this evaluator: None
 
-Chunking at Chapter level completed in 0.95 seconds
+Chunking at Chapter level completed in 0.64 seconds
 
 Can we generate offspring?
 
@@ -56,9 +56,9 @@ Can we run evaluation?. We have this evaluator: None
 
 Can we run evaluation?. We have this evaluator: None
 
-Chunking at Section level completed in 0.22 seconds
+Chunking at Section level completed in 0.15 seconds
 
-Completed chunking in 1.18 seconds
+Completed chunking in 0.8 seconds
 
 Inserting following data into the Paragraphs table
 

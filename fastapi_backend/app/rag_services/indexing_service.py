@@ -103,7 +103,7 @@ from app.models import DocPipelines, Paragraph, Retrieval
 
 class ImageConverter:
 
-    def __init__(self, user_id: UUID, db: AsyncSession, logger: InfoLogger, prompt: str):
+    def __init__(self, user_id: UUID, db: AsyncSession, logger: InfoLogger, prompt: str, image_starting_mark: str, image_ending_mark: str):
         self.user_id = user_id
         self.db = db
         self.logger = logger
@@ -111,6 +111,8 @@ class ImageConverter:
         self.image_dict = {}
         self.image_id = 0
         self.prompt = prompt
+        self.image_starting_mark = image_starting_mark
+        self.image_ending_mark = image_ending_mark
 
         self.vision_client: Optional[MultiModalVisionClient] = None
         
@@ -161,9 +163,10 @@ class ImageConverter:
                 content = match.group(1).strip()
                 self.logger.log_step(task="info_text", layer=1, log_text=f"Generated following Image Content in {round(end - start, 2)} seconds:\n\n {content}")
 
-                return content
+                return f"{self.image_starting_mark}\n" + content + f"\n{self.image_ending_mark}"
 
-        return None
+
+        return line
 
 
 
@@ -207,12 +210,11 @@ class CustomConverter(BaseConverter):
 
         # --- IMAGE LOGIC ---
         self.do_ocr = do_ocr
-        self.image_starting_mark = image_starting_mark
-        self.image_ending_mark = image_ending_mark
+
 
 
         # --------------------
-        self.image_converter = ImageConverter(user_id=user_id, db=db, logger=self.logger, prompt=prompt)
+        self.image_converter = ImageConverter(user_id=user_id, db=db, logger=self.logger, prompt=prompt, image_starting_mark=image_starting_mark, image_ending_mark=image_ending_mark)
 
         self.docling_client = ""
 
@@ -290,9 +292,8 @@ class CustomConverter(BaseConverter):
             # process images
             if self.do_ocr:
                 line = await self.image_converter.process_b64_images(line) # self.image_converter.process_images(line)
-                if not line:
-                    continue
-                line = f"{self.image_starting_mark}\n" + line + f"\n{self.image_ending_mark}"
+
+
 
 
             output_dict["text"] += f"{line}\n"
@@ -1481,7 +1482,7 @@ class SlidingChunker(BaseChunker):
         return output_text
 
 
-    def chunk_text(self, text):
+    def chunk_text(self, text: str)-> list[str]:
         tokens = self.encode_text(text)
         chunks = []
         start = 0

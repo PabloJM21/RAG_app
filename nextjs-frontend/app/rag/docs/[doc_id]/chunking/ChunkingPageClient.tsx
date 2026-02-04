@@ -5,19 +5,13 @@ import { useMemo, useState, useCallback } from "react";
 import { addChunkingPipeline, runChunking } from "@/app/api/rag/docs/[doc_id]/chunking/chunking-action";
 import { RunButton } from "@/components/custom-ui/RunButton";
 import { SaveButton } from "@/components/custom-ui/SaveButton";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-} from "@/components/ui/dropdown-menu";
 
-import {Tabs, TabsList, TabsTrigger} from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
 
 import { EvaluatorEditor } from "@/components/Editors/EvaluatorEditor";
 import { ChunkingEditor } from "@/components/Editors/ChunkingEditor";
 import {PipelineTabsBar} from "@/components/custom-ui/PipelineTabsBar";
+import {SaveRunActions} from "@/components/custom-ui/SaveRunActions";
+
 
 type MethodSpec = Record<string, any>;
 type PipelineSpec = Record<string, MethodSpec[]>;
@@ -48,14 +42,25 @@ function nextPipelineId(pipelines: PipelineSpec): string {
 }
 
 // Pick a sensible default selection:
-// - evaluator if it exists
-// - otherwise smallest numeric id if any
-// - otherwise "1"
 function initialPipelineId(pipeline: PipelineSpec): string {
-  if (pipeline.evaluator) return "evaluator";
-  const numeric = Object.keys(pipeline).filter((k) => /^\d+$/.test(k)).map(Number).sort((a, b) => a - b);
-  return numeric.length ? String(numeric[0]) : "1";
+  // 1. smallest numeric pipeline id
+  const numeric = Object.keys(pipeline)
+    .filter((k) => /^\d+$/.test(k))
+    .map(Number)
+    .sort((a, b) => a - b);
+  if (numeric.length > 0) {
+    return String(numeric[0]);
+  }
+  // 2. evaluator if it exists
+  if (pipeline.evaluator) {
+    return "evaluator";
+  }
+  // 3. fallback
+  return "1";
 }
+
+
+
 
 export default function ChunkingPageClient({
   doc_id,
@@ -127,39 +132,30 @@ export default function ChunkingPageClient({
   return (
     <div style={{display: "flex", flexDirection: "column", height: "100%"}}>
       {/* ---------- Main ---------- */}
-      <div style={{flex: 1, position: "relative"}}>
-        {/* Floating buttons */}
-        <div
-          style={{
-            position: "absolute",
-            top: 8,
-            right: 8,
-            display: "flex",
-            flexDirection: "column",
-            gap: 12,
-            zIndex: 10,
-          }}
-        >
-          <form action={addChunkingPipeline} style={{margin: 0}}>
-            <input type="hidden" name="doc_id" value={doc_id}/>
-            <input type="hidden" name="pipeline" value={pipelineJson}/>
-            <SaveButton label="Pipeline"/>
-          </form>
+      <div style={{flex: 1, position: "relative", display: "flex", flexDirection: "column", minHeight: 0 }}>
 
-          <form action={runChunking} style={{margin: 0}}>
-            <input type="hidden" name="doc_id" value={doc_id}/>
-            <RunButton label="Chunking"/>
-          </form>
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+          <SaveRunActions
+            addFunction={addChunkingPipeline}
+            runFunction={runChunking}
+            doc_id={doc_id}
+            pipelineJson={pipelineJson}
+            runLabel="Chunking"
+          />
         </div>
 
-        <RoutingEditor
-          pipelineKey={pipelineId}
-          methods={currentMethods}
-          onChange={handleMethodsChange}
-        />
+
+        <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+          <RoutingEditor
+            pipelineKey={pipelineId}
+            methods={currentMethods}
+            onChange={handleMethodsChange}
+          />
+        </div>
+
       </div>
 
-      {/* ---------- Side pane (BOTTOM) ---------- */}
+
       <PipelineTabsBar
         pipeline={pipeline}
         pipelineId={pipelineId}

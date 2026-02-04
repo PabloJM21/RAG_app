@@ -12,7 +12,7 @@ export default async function DocRootLayout({
   const { doc_id } = await params;
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="flex flex-col h-full">
       <header className="relative border-b border-gray-300 py-3">
         <div className="absolute left-1/2 -translate-x-1/2">
           <div className="grid grid-cols-4 gap-4">
@@ -37,7 +37,7 @@ export default async function DocRootLayout({
         </div>
       </header>
 
-      <div className="flex-1 overflow-auto">{children}</div>
+      <div className="flex-1">{children}</div>
     </div>
   );
 }

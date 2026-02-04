@@ -18,6 +18,11 @@ import json
 import os
 import pandas as pd
 
+
+# helper for removing "color" from stored pipelines
+from app.rag_services.helpers import load_pipeline
+
+
 # Indexing service
 from app.rag_services.indexing_service import run_chunking, load_chunking_results, update_chunking_results, load_chunking_levels
 # Extraction service
