@@ -43,7 +43,7 @@ def parse_extra_from_line(line: str) -> dict | None:
         data = ast.literal_eval(payload)
 
 
-        logger.info(f"Has data in extra: {data}")
+        #logger.info(f"Has data in extra: {data}")
 
         if not isinstance(data, dict):
             return None
@@ -102,7 +102,7 @@ def generate_markdown_from_log(
 
     md_line_dict = {}
     output_dir = Path(log_path).parent
-    logger.info(f"Generating markdown for output dir: {output_dir}")
+    ##logger.info(f"Generating markdown for output dir: {output_dir}")
 
     stage = os.path.basename(log_path).split(".")[0]
 
@@ -116,7 +116,7 @@ def generate_markdown_from_log(
         for previous_layer in range(1, input_layer + 1):
 
             md_line_dict.setdefault(previous_layer, []).append(input_line)
-            logger.info(f"Line appended for layer: {previous_layer}")
+            #logger.info(f"Line appended for layer: {previous_layer}")
 
 
 
@@ -127,22 +127,22 @@ def generate_markdown_from_log(
 
 
         for line in lines:
-            logger.info(f"New line: {line}")
+            #logger.info(f"New line: {line}")
             extra = parse_extra_from_line(line)
-            logger.info(f"Has extra: {extra}")
+            #logger.info(f"Has extra: {extra}")
             if not extra:
                 continue
 
 
             current_session_id = extra.get("session_id")
-            logger.info(f"found session_id: {current_session_id}, comparing it to {session_id}")
+            #logger.info(f"found session_id: {current_session_id}, comparing it to {session_id}")
 
             if extra.get("session_id") != session_id:
                 continue
 
             task = extra.get("task")
             layer = extra.get("layer")
-            logger.info(f"found task: {task} and layer {layer}")
+            #logger.info(f"found task: {task} and layer {layer}")
 
             # ---------- HEADER 1 ----------
             if task == "header_1":
@@ -160,12 +160,24 @@ def generate_markdown_from_log(
                     append_line(layer,f"## {log_text}\n")
 
 
+            elif task == "header_3":
+                log_text = line.split("|", 3)[-2].strip()
+                if log_text:
+                    append_line(layer,f"### {log_text}\n")
+
+
+            elif task == "header_4":
+                log_text = line.split("|", 3)[-2].strip()
+                if log_text:
+                    append_line(layer,f"#### {log_text}\n")
+
+
 
             # ---------- TEXT INFO ----------
             elif task == "info_text":
                 log_text = line.split("|", 3)[-2].strip()
                 if log_text:
-                    logger.info(f"Detected info_text, appending line: {log_text}")
+                    #logger.info(f"Detected info_text, appending line: {log_text}")
                     append_line(layer, f"{log_text}\n")
 
             # ---------- VALIDATION ----------
@@ -223,7 +235,7 @@ def generate_markdown_from_log(
 
     for layer, md_lines in md_line_dict.items():
         output_path = output_dir / f"{stage}_layer_{layer}.md"
-        logger.info(f"Trying to write to path: {output_path}")
+        #logger.info(f"Trying to write to path: {output_path}")
         with open(output_path, "w", encoding="utf-8") as out:
             out.write("\n".join(md_lines))
 
@@ -242,10 +254,10 @@ def find_session_id(log_path: str) -> str | None:
     lines = group_logs(lines)
     for line in reversed(lines):
 
-        logger.info(f"Processing reversed line: {line}")
+        #logger.info(f"Processing reversed line: {line}")
 
         extra = parse_extra_from_line(line)
-        logger.info(f"Obtained extra: {extra}")
+        #logger.info(f"Obtained extra: {extra}")
 
         session_id = extra.get("session_id")
 

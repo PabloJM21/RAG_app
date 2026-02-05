@@ -59,8 +59,17 @@ class Base(DeclarativeBase):
             for key, value in data_dict.items():
                 setattr(pipeline, key, value)
 
-            await db.commit()
-            await db.refresh(pipeline)
+        # NEW: insert row if it doesn't exist
+        else:
+            insert_dict = data_dict | where_dict
+            new_row = cls(**insert_dict)
+            db.add(new_row)
+
+        await db.commit()
+        await db.refresh(pipeline)
+
+
+
 
     @classmethod
     async def insert_data(
@@ -191,9 +200,19 @@ class DocPipelines(Base):
 
     user = relationship("User", back_populates="doc_pipelines")
 
+"""
+class SavedPipelines(Base):
+    __tablename__ = "SavedPipelines"
 
+    pipeline_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
 
+    pipeline_name = Column(String, nullable=True)
+    compressed_pipeline = Column(String, nullable=True)
 
+    user_id = Column(UUID(as_uuid=True), ForeignKey("user.id"), nullable=False)
+
+    user = relationship("User", back_populates="doc_pipelines")
+"""
 
 
 # Main Pipeline

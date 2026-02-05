@@ -62,6 +62,9 @@ import type {
   DeleteDocData,
   DeleteDocResponses,
   DeleteDocErrors,
+  ExportDocPipelineData,
+  ExportDocPipelineResponses,
+  ExportDocPipelineErrors,
   ReadApiKey2Data,
   ReadApiKey2Responses,
   SaveApiKey2Data,
@@ -80,6 +83,9 @@ import type {
   DeleteDoc2Data,
   DeleteDoc2Responses,
   DeleteDoc2Errors,
+  ExportDocPipeline2Data,
+  ExportDocPipeline2Responses,
+  ExportDocPipeline2Errors,
   ReadPipelineData,
   ReadPipelineResponses,
   AddPipelineData,
@@ -619,6 +625,33 @@ export const deleteDoc = <ThrowOnError extends boolean = false>(
 };
 
 /**
+ * Export Doc Pipeline
+ */
+export const exportDocPipeline = <ThrowOnError extends boolean = false>(
+  options: Options<ExportDocPipelineData, ThrowOnError>,
+) => {
+  return (options.client ?? client).post<
+    ExportDocPipelineResponses,
+    ExportDocPipelineErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/docs/export/",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
  * Read Api Key
  */
 export const readApiKey2 = <ThrowOnError extends boolean = false>(
@@ -785,6 +818,33 @@ export const deleteDoc2 = <ThrowOnError extends boolean = false>(
     ],
     url: "/api_keys/{doc_id}",
     ...options,
+  });
+};
+
+/**
+ * Export Doc Pipeline
+ */
+export const exportDocPipeline2 = <ThrowOnError extends boolean = false>(
+  options: Options<ExportDocPipeline2Data, ThrowOnError>,
+) => {
+  return (options.client ?? client).post<
+    ExportDocPipeline2Responses,
+    ExportDocPipeline2Errors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/api_keys/export/",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
   });
 };
 

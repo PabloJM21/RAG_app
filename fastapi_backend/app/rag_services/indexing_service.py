@@ -161,7 +161,7 @@ class ImageConverter:
             match = re.search(pattern, response, flags=re.DOTALL)
             if match:
                 content = match.group(1).strip()
-                self.logger.log_step(task="info_text", layer=1, log_text=f"Generated following Image Content in {round(end - start, 2)} seconds:\n\n {content}")
+                #self.logger.log_step(task="info_text", layer=1, log_text=f"Generated following Image Content in {round(end - start, 2)} seconds:\n\n {content}")
 
                 return f"{self.image_starting_mark}\n" + content + f"\n{self.image_ending_mark}"
 
@@ -242,14 +242,13 @@ class CustomConverter(BaseConverter):
             response_type=DoclingOutputType.MARKDOWN,
             extract_tables_as_images=False,
         )
-
         end = time.time()
 
         md_text = result.get("markdown", "")
         images = result.get("images", [])
 
 
-        self.logger.log_step(task="info_text", layer=1, log_text=f"Doc converted to Markdown in {end-start} seconds")
+        self.logger.log_step(task="info_text", layer=1, log_text=f"Doc converted to Markdown in {round(end - start, 2)} seconds")
 
 
 
@@ -282,7 +281,7 @@ class CustomConverter(BaseConverter):
         # create new tables for this document, if they don't exist
 
         # start processing paragraphs
-        start = time.time()
+
         for i, line in enumerate(lines):
 
             #line = line.strip()
@@ -299,9 +298,6 @@ class CustomConverter(BaseConverter):
             output_dict["text"] += f"{line}\n"
 
 
-        end = time.time()
-
-        self.logger.log_step(task="info_text", layer=2, log_text=f"Processed all lines and images in {round(end - start, 2)} seconds")
 
 
         return output_dict["text"]
@@ -312,9 +308,6 @@ class CustomConverter(BaseConverter):
         # First, check if there is any Doc_ID in the  "Docs" table that doesn't have a paragraphs table.
         # Then, run the docling client and process the markdown text
 
-
-
-        self.logger.log_step(task="info_text", log_text="processing markdown")
 
         output_text = await self.convert_file(self.input_path)
 
@@ -403,20 +396,24 @@ CONVERSION_TYPE_MAPPER = {
 
 async def run_conversion(converter_dict: Dict[str, Any], user_id: UUID, doc_id: UUID, db: AsyncSession):
 
+
+
     input_path, output_path = await get_doc_paths(user_id, doc_id, db=db)
     log_path = await get_log_path(user_id, stage="conversion")
     session_logger = InfoLogger(log_path=log_path, stage="conversion")
 
     # logg
     doc_title = await get_doc_title(user_id, doc_id, db=db)
-    session_logger.log_step(task="header_1", layer=2, log_text=f"Starting conversion to Markdown for document: {doc_title}")
+    session_logger.log_step(task="header_1", layer=2, log_text=f"Starting Conversion to Markdown for document: {doc_title}")
     session_logger.log_step(task="table", layer=2, log_text=f"Using following method: ", table_data=converter_dict)
 
     converter_dict.update({"db": db, "user_id": user_id, "doc_id": doc_id, "input_path": input_path, "output_path": output_path, "logger": session_logger})
     converter_type = converter_dict.pop("type")
     converter = CONVERSION_TYPE_MAPPER[converter_type](**converter_dict)
 
+    method_start = time.time()
     await maybe_await(converter.run_conversion())
+    method_end = time.time()
 
     # Finally we label this doc as "converted"
     await DocPipelines.update_data(data_dict={"converted": 1}, where_dict={"user_id": user_id, "doc_id": doc_id},
@@ -566,7 +563,7 @@ class ItemEnricher:
 
             output_dict["text"] += f"{explained_item}\n"
 
-            self.logger.log_step(task="table", layer=1, log_text=f"Explained new item: ", table_data={"Input": self.current_chunk, "Output": explained_item})
+            #self.logger.log_step(task="table", layer=1, log_text=f"Explained new item: ", table_data={"Input": self.current_chunk, "Output": explained_item})
 
             self.current_chunk = ""
 
@@ -582,7 +579,7 @@ class ItemEnricher:
 
             output_dict["text"] += f"{explained_item}\n"
 
-            self.logger.log_step(task="table", layer=1, log_text=f"Explained last item: ", table_data={"Input": self.current_chunk, "Output": explained_item})
+            #self.logger.log_step(task="table", layer=1, log_text=f"Explained last item: ", table_data={"Input": self.current_chunk, "Output": explained_item})
 
 
 
@@ -781,7 +778,6 @@ class ItemFilter:
 
                 output_dict["text"] += f"{current_chunk}\n"
 
-                self.logger.log_step(task="info_text", layer=1, log_text=f"Saved item:\n {current_chunk}\n")
 
             else:
                 self.logger.log_step(task="info_text", layer=1, log_text=f"Removed item:\n {self.current_chunk}\n")
@@ -809,7 +805,7 @@ class ItemFilter:
 
                 output_dict["text"] += f"{current_chunk}\n"
 
-                self.logger.log_step(task="info_text", layer=1, log_text=f"Saved last item:\n {current_chunk}\n")
+                #self.logger.log_step(task="info_text", layer=1, log_text=f"Saved last item:\n {current_chunk}\n")
 
             else:
                 self.logger.log_step(task="info_text", layer=1, log_text=f"Removed last item:\n {self.current_chunk}\n")
@@ -1006,10 +1002,10 @@ class BaseChunker:
         output_chunks = self.chunk_text(input_chunk)
 
 
-        self.logger.log_step(task="info_text", log_text=f"Can we run evaluation?. We have this evaluator: {self.evaluator}")
+        #self.logger.log_step(task="info_text", log_text=f"Can we run evaluation?. We have this evaluator: {self.evaluator}")
         # Evaluate Chunking
         if self.evaluator:
-            self.logger.log_step(task="info_text", log_text=f"Yes we can run it, with input chunk:\n {input_chunk}\n and output chunks:\n {output_chunks}")
+            #self.logger.log_step(task="info_text", log_text=f"Yes we can run it, with input chunk:\n {input_chunk}\n and output chunks:\n {output_chunks}")
 
             await self.evaluator.run_evaluation(input_chunk=input_chunk, output_chunks=output_chunks)
 
@@ -1177,7 +1173,6 @@ class ChunkingEnricher:
 
         rows, columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.level}, db=self.db)
 
-        self.logger.log_step(task="info_text", log_text="Starting enriching chunks")
 
         input_df = pd.DataFrame(rows, columns=columns).sort_values(by="level_id")  # like the retrievals table, but one for each hierarchy level
 
@@ -1203,7 +1198,7 @@ class ChunkingEnricher:
             end = time.time()
 
             await Retrieval.update_data(data_dict={"content": new_content, "original_content": new_content}, where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level_id": input_id, "level": self.level}, db=self.db)
-            self.logger.log_step(task="table", layer=1, table_data={"old_content": old_content, "new_content": new_content, "duration": round(end - start, 2)})
+            #self.logger.log_step(task="table", layer=1, table_data={"old_content": old_content, "new_content": new_content, "duration": round(end - start, 2)})
 
             # in the last iteration step we update chunk_array
             for chunk_dict in chunk_array:
@@ -1294,7 +1289,6 @@ class ChunkingFilter:
         rows, columns = await Retrieval.get_all(
             where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.level}, db=self.db)
 
-        self.logger.log_step(task="info_text", log_text="Starting filtering chunks")
 
         input_df = pd.DataFrame(rows, columns=columns).sort_values(
             by="level_id")  # like the retrievals table, but one for each hierarchy level
@@ -1610,7 +1604,7 @@ async def run_chunking(pipelines: dict[str, list[dict[str, Any]]], user_id: UUID
     # Run Pipelines
     sorted_items = sorted(list(pipelines.items()), key=lambda x: int(x[0].strip()))
     sorted_pipelines = [x[1] for x in sorted_items if x[1]]
-    session_logger.log_step(task="info_text", log_text=f"Sorted pipelines look like this: {sorted_pipelines}")
+    #session_logger.log_step(task="info_text", log_text=f"Sorted pipelines look like this: {sorted_pipelines}")
     evaluation_pipelines = copy.deepcopy(sorted_pipelines)
 
 
@@ -1748,7 +1742,7 @@ async def run_chunking_pipeline(method_list: list[dict[str, Any]], user_id: UUID
     method_type = first_method.pop("type")
     first_method.update({"logger": session_logger, "evaluator": session_evaluator, "user_id": user_id, "doc_id": doc_id, "db": db, "doc_title": doc_title})
 
-    session_logger.log_step(task="info_text", log_text=f"Attempting to init first method for user: {user_id}")
+    #session_logger.log_step(task="info_text", log_text=f"Attempting to init first method for user: {user_id}")
     method_instance = CHUNKING_TYPE_MAPPER[method_type](**first_method)
 
 
@@ -1828,7 +1822,7 @@ async def run_chunking_pipeline(method_list: list[dict[str, Any]], user_id: UUID
     # First delete previous occurrences of this doc in the table
     await Paragraph.delete_data({"user_id": user_id, "doc_id": doc_id}, db)
 
-    session_logger.log_step(task="table", layer=1, log_text=f"Inserting following data into the Paragraphs table", table_data=new_chunk_array)
+    #session_logger.log_step(task="table", layer=1, log_text=f"Inserting following data into the Paragraphs table", table_data=new_chunk_array)
 
     for chunk_dict in new_chunk_array:
         #session_logger.log_step(task="info_text", log_text=f"Inserting dict: {chunk_dict}")
@@ -1836,7 +1830,13 @@ async def run_chunking_pipeline(method_list: list[dict[str, Any]], user_id: UUID
 
 
 
-            
+
+
+
+
+
+
+
         
             
 

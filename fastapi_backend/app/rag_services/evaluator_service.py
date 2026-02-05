@@ -108,8 +108,7 @@ class BaseEvaluator:
                 self.chat_orchestrator.call_with_history(label=self.model, system_prompt=system_prompt,
                                                          user_prompt=user_prompt, history=self.history))
 
-            self.logger.log_step(task="info_text",
-                                 log_text=f"For user_prompt\n {user_prompt} \nObtained this output_dict: {chat_output}")
+            #self.logger.log_step(task="info_text", log_text=f"For user_prompt\n {user_prompt} \nObtained this output_dict: {chat_output}")
 
             output_score = self.unwrap_output(chat_output)
 
@@ -164,6 +163,8 @@ class ChunkerEvaluator(BaseEvaluator):
 
 
     async def run_evaluation(self, input_chunk: str, output_chunks: list[str]):
+        if not input_chunk:
+            return None
 
         # avoid
         output_chunks = output_chunks.copy()
@@ -190,8 +191,9 @@ class ChunkerEvaluator(BaseEvaluator):
             output_string = first_chunk[:output_chunk_limit] + "... " + first_chunk[-output_chunk_limit:]
 
             for output_chunk in output_chunks:
-                new_string = output_chunk[:output_chunk_limit] + "... " + output_chunk[-output_chunk_limit:]
-                output_string += f"\n\n---\n\n {new_string}"
+                if output_chunk:
+                    new_string = output_chunk[:output_chunk_limit] + "... " + output_chunk[-output_chunk_limit:]
+                    output_string += f"\n\n---\n\n {new_string}"
 
         else:
             output_string = "\n\n---\n\n".join(output_chunks)
@@ -214,7 +216,7 @@ class ChunkerEvaluator(BaseEvaluator):
 
         scores = [item["score"] for item in self.method_calls]
         self.pipeline_score = np.mean(scores)
-        self.logger.log_step(task="header_2", layer=2, log_text=f"Pipeline Evaluation completed for target level {self.target_level} obtaining an average score of {self.pipeline_score}")
+        self.logger.log_step(task="info_text", layer=2, log_text=f"Pipeline Evaluation completed for target level {self.target_level} obtaining an average score of {self.pipeline_score}")
 
         self.logger.log_step(task="table", layer=1, log_text=f"Individual Scores", table_data=self.method_calls)
         
@@ -275,8 +277,12 @@ class EnricherEvaluator(BaseEvaluator):
 
         if self.max_chunk_size:
             chunk_limit = self.max_chunk_size // 2
-            input_chunk = input_chunk[:chunk_limit] + "... " + input_chunk[-chunk_limit:]
-            output_chunk = output_chunk[:chunk_limit] + "... " + output_chunk[-chunk_limit:]
+
+            if input_chunk and chunk_limit < len(input_chunk) / 2:
+                input_chunk = input_chunk[:chunk_limit] + "... " + input_chunk[-chunk_limit:]
+
+            if output_chunk and chunk_limit < len(output_chunk) / 2:
+                output_chunk = output_chunk[:chunk_limit] + "... " + output_chunk[-chunk_limit:]
 
 
         await self.init_clients()
@@ -299,7 +305,7 @@ class EnricherEvaluator(BaseEvaluator):
 
         scores = [item["score"] for item in self.method_calls]
         self.pipeline_score = np.mean(scores)
-        self.logger.log_step(task="header_2", layer=2, log_text=f"Pipeline Evaluation completed for target level {self.target_level} obtaining an average score of {self.pipeline_score}")
+        self.logger.log_step(task="info_text", layer=2, log_text=f"Pipeline Evaluation completed for target level {self.target_level} obtaining an average score of {self.pipeline_score}")
 
         self.logger.log_step(task="table", layer=1, log_text=f"Individual Scores", table_data=self.method_calls)
 
@@ -318,22 +324,34 @@ EVALUATOR_TYPE_MAPPER = {
 
 async def evaluation_wrapper(pipelines: dict[str, list[dict[str, Any]]], evaluator_args: dict, runner_args: dict,
                              session_logger, log_path, runner_fn):
+
+
+
+
+
     # Init evaluator method
-    evaluator_array = []
-    if "evaluator" in pipelines:
-        evaluator_array = pipelines.pop("evaluator")
+    evaluator_array = pipelines.pop("evaluator", None)
 
     # Run Pipelines
     sorted_items = sorted(list(pipelines.items()), key=lambda x: int(x[0].strip()))
-    sorted_pipelines = [x[1] for x in sorted_items if x[1]]
-    session_logger.log_step(task="info_text", log_text=f"Sorted pipelines look like this: {sorted_pipelines}")
+    #sorted_pipelines = [x[1] for x in sorted_items if x[1]]
+
+    sorted_pipelines = []
+    for x in sorted_items:
+        if pipeline_not_empty(x[1]):
+            sorted_pipelines.append(x[1])
+
+
+
     evaluation_pipelines = copy.deepcopy(sorted_pipelines)
 
     # If evaluator was instanced, run all pipelines and record their score. Finally run the highest scoring pipeline
     if evaluator_array:
         evaluator_method = evaluator_array[0]
+        evaluator_method.pop("color", None)
+
         session_logger.log_step(task="header_2", layer=2, log_text=f"Starting Evaluation of Pipelines")
-        session_logger.log_step(task="table", layer=2, log_text=f"using following Method: ",
+        session_logger.log_step(task="table", layer=2, log_text=f"Using following Method: ",
                                 table_data=evaluator_method)
 
         evaluator_type = evaluator_method.pop("type")
@@ -342,7 +360,9 @@ async def evaluation_wrapper(pipelines: dict[str, list[dict[str, Any]]], evaluat
 
         pipeline_scores = []
         for i, pipeline in enumerate(evaluation_pipelines):
-            session_logger.log_step(task="info_text", layer=2, log_text=f"Pipeline {i + 1}")
+            pipeline.pop("color", None)
+
+            session_logger.log_step(task="header_3", layer=2, log_text=f"Pipeline {i + 1}")
             log_pipeline_methods(session_logger, pipeline)
 
             pipeline_args = {**runner_args, "method_list": pipeline, "session_evaluator": evaluator_instance}
@@ -351,13 +371,15 @@ async def evaluation_wrapper(pipelines: dict[str, list[dict[str, Any]]], evaluat
 
             pipeline_scores.append(evaluator_instance.pipeline_score)
 
+        #session_logger.log_step(task="info_text", layer=2, log_text=f"Do you copy?")
+
         #  Overwrite last Retrieval content with the best chunking pipeline
         best_index = pipeline_scores.index(max(pipeline_scores))
         best_pipeline = sorted_pipelines[best_index]
 
-        session_logger.log_step(task="header_2", log_text=f"Found best pipeline: Pipeline {best_index}")
+        session_logger.log_step(task="header_3", layer=2, log_text=f"Found best pipeline: Pipeline {best_index}")
 
-        best_pipeline_args = {**runner_args, "method_list": best_pipeline, "session_evaluator": evaluator_instance}
+        best_pipeline_args = {**runner_args, "method_list": best_pipeline, "session_evaluator": None}
         await runner_fn(**best_pipeline_args)
 
 
@@ -374,3 +396,31 @@ async def evaluation_wrapper(pipelines: dict[str, list[dict[str, Any]]], evaluat
 
     # Finally we export the logs to md
     await export_logs(log_path)
+
+
+
+
+
+
+
+
+
+
+
+
+# Helpers
+
+
+
+
+def pipeline_not_empty(input_list: list[dict[str, Any]]):
+    for input_pipeline in input_list:
+        for k, v in input_pipeline.items():
+            if k == "where" and not v:
+                return False
+            elif k == "from" and not v:
+                return False
+            elif k == "to" and not v:
+                return False
+
+    return True

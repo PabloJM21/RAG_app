@@ -744,7 +744,6 @@ class BM25Retriever(BaseRetriever):
         self.b = b          # BM25 parameter
 
 
-
     def _tokenize(self, text: str):
         # simple whitespace + punctuation tokenizer
         text = text.lower()
@@ -871,6 +870,26 @@ TYPE_MAPPER = {
     "Generator": ChatGenerator,
 }
 
+def method_not_empty(input_method: Dict[str, Any]):
+    if not input_method:
+        return False
+
+    if "level" not in input_method:
+        return False
+
+    if not input_method["level"]:
+        return False
+    return True
+
+
+
+def pipeline_not_empty(input_pipeline: list[dict[str, Any]]):
+    for input_method in input_pipeline:
+        if not method_not_empty(input_method):
+            return False
+    return True
+
+
 
 async def run_retrieval(query: str, retrieval_dict: Dict[str, Any], user_id: UUID, db: AsyncSession):
 
@@ -880,9 +899,16 @@ async def run_retrieval(query: str, retrieval_dict: Dict[str, Any], user_id: UUI
 
 
     # init main pipeline methods
-    router_method = retrieval_dict.pop("router")
-    reranker_method = retrieval_dict.pop("reranker")
     generator_method = retrieval_dict.pop("generator")
+    generator_method.pop("color", None)
+    if not pipeline_not_empty(generator_method):
+        return "", []
+
+    router_method = retrieval_dict.pop("router")
+    router_method.pop("color", None)
+    reranker_method = retrieval_dict.pop("reranker")
+    reranker_method.pop("color", None)
+
 
     # Logg Retrieval Start
     session_logger.log_step(task="header_1", layer=2, log_text="Starting Retrieval")
@@ -891,7 +917,7 @@ async def run_retrieval(query: str, retrieval_dict: Dict[str, Any], user_id: UUI
 
 
     # with router
-    if router_method:
+    if router_method and method_not_empty(router_method):
         # log
 
         session_logger.log_step(task="header_2", layer=2, log_text=f"Starting Routing Pipeline")
@@ -964,6 +990,7 @@ async def run_retrieval(query: str, retrieval_dict: Dict[str, Any], user_id: UUI
         output_ids = []
         # run all exported pipelines with no input IDs
         for doc_id, doc_pipeline in retrieval_dict.items():
+
             # log start of document retrieval
             doc_title = await get_doc_title(user_id, doc_id, db=db)
 
@@ -988,7 +1015,7 @@ async def run_retrieval(query: str, retrieval_dict: Dict[str, Any], user_id: UUI
 
 
 
-    if reranker_method:
+    if reranker_method and method_not_empty(reranker_method):
         session_logger.log_step(task="header_2", layer=2, log_text=f"Starting Reranker Pipeline")
         session_logger.log_step(task="table", layer=2, log_text=f"This Pipeline consists of following method: ", table_data=reranker_method)
 
@@ -1080,6 +1107,8 @@ async def run_embeddings(method_list: list[dict[str, Any]], user_id: UUID, doc_i
     log_pipeline_methods(session_logger, method_list)
 
     for method in method_list:
+
+
         method_type = method.pop("type")
         method.update({"logger": session_logger, "user_id": user_id, "doc_id": doc_id, "db": db})
 
@@ -1098,8 +1127,10 @@ async def run_embeddings(method_list: list[dict[str, Any]], user_id: UUID, doc_i
 
 
 
-
 async def run_doc_embeddings(retrieval_pipeline, user_id, doc_id, db: AsyncSession):
+
+    if not pipeline_not_empty(retrieval_pipeline):
+        return False
 
 
     # We run embeddings if needed
@@ -1112,9 +1143,234 @@ async def run_doc_embeddings(retrieval_pipeline, user_id, doc_id, db: AsyncSessi
     if embedding_methods:
         await run_embeddings(embedding_methods, user_id, doc_id, db)
 
+    return True
 
 
 
 
 
+
+
+
+
+
+# ============================================================
+# New approach
+# ============================================================
+
+
+"""
+async def run_document_pipeline(input_ids, method_list, logger, user_id, doc_id, db):
+
+    logger.log_step(task="info_text", layer=1, log_text=f"Logging document_pipeline")
+
+    query = method_list.pop("query")[0]
+
+    if method_list:
+        pipeline_output_ids = input_ids
+        for method in method_list:
+            logger.log_step(task="table", layer=1, log_text=f"Starting with method: ", table_data=method)
+
+            method_type = method.pop("type")
+            method.update({"logger": logger, "user_id": user_id, "doc_id": doc_id, "db": db})
+            method_instance = TYPE_MAPPER[method_type](**method)
+
+            pipeline_output_dict = await method_instance.run_retrieval(query=query, filter_ids=pipeline_output_ids)
+            pipeline_output_ids = pipeline_output_dict["retrieval_id"]
+
+            logger.log_step(task="info_text", layer=1, log_text=f"Retrieved {len(pipeline_output_ids)} Chunks")
+
+    #if no pipeline was exported for this doc, just filter the input ids
+    else:
+
+        retrieval_rows, _ = await Retrieval.get_all(
+            columns=["retrieval_id"],
+            where_dict={"user_id": user_id, "retrieval_id": input_ids, "doc_id": doc_id},
+            db=db,
+        )
+        pipeline_output_ids = [row["retrieval_id"] for row in retrieval_rows]
+
+
+
+    return pipeline_output_ids
+
+
+
+
+async def run_retrieval(query: str, pipelines: dict[str, Any], user_id: UUID, doc_id: UUID, db: AsyncSession):
+    log_path = await get_log_path(user_id, stage="retrieval")
+    session_logger = InfoLogger(log_path=log_path, stage="retrieval")
+    doc_title = await get_doc_title(user_id, doc_id, db=db)
+    session_logger.log_step(task="header_1", layer=2, log_text=f"Starting Retrieval for document: {doc_title}")
+
+    evaluator_args = {"user_id": user_id, "doc_id": doc_id, "db": db, "logger": session_logger}
+    runner_args = {"user_id": user_id, "doc_id": doc_id, "db": db, "session_logger": session_logger}
+
+    pipelines.update({"query": query})
+
+    await evaluation_wrapper(pipelines=pipelines, evaluator_args=evaluator_args, runner_args=runner_args,
+                             session_logger=session_logger, log_path=log_path, runner_fn=run_document_pipeline)
+
+    # init main pipeline methods
+    router_method = pipelines.pop("router")
+    reranker_method = pipelines.pop("reranker")
+    generator_method = pipelines.pop("generator")
+
+    # Logg Retrieval Start
+    session_logger.log_step(task="header_1", layer=2, log_text="Starting Retrieval")
+
+    # --- RERANKING -----
+
+    # with router
+    if router_method:
+        # log
+
+        session_logger.log_step(task="header_2", layer=2, log_text=f"Starting Routing Pipeline")
+        session_logger.log_step(task="table", layer=2, log_text=f"This Pipeline consists of following method: ",
+                                table_data=router_method)
+
+        router_type = router_method.pop("type")
+        router_method.update({"logger": session_logger, "user_id": user_id, "db": db})
+        router_instance = TYPE_MAPPER[router_type](**router_method)
+
+        router_dict = await router_instance.run_retrieval(query=query)
+
+        session_logger.log_step(task="info_text", layer=2, log_text=f"Finishing Routing Pipeline")
+
+        input_ids = router_dict["retrieval_id"]
+
+        # Get doc_ids of the retrieved chunks and their doc titles for logging
+        doc_ids = list(set(router_dict["doc_id"]))
+        doc_title_dict = {}
+        for doc_id in doc_ids:
+            doc_title_dict[doc_id] = await get_doc_title(user_id, doc_id, db=db)
+
+        # if any document pipeline, compute filter_ids for further retrieval
+
+
+        if any_pipeline:
+            # order doesn't matter
+            output_ids = []
+            for doc_id in doc_ids:
+
+                # log start of document retrieval
+                session_logger.log_step(task="header_2", layer=2,
+                                        log_text=f"Processing Document: {doc_title_dict[doc_id]}")
+
+                # get pipeline if it was exported for this doc_id, otherwise []
+                doc_pipeline = retrieval_dict[doc_id] if doc_id in retrieval_dict else []
+
+                if doc_pipeline:
+                    session_logger.log_step(task="info_text", layer=2, log_text=f"Found Document Pipeline")
+                    session_logger.log_step(task="header_2", layer=2, log_text=f"Starting Document Pipeline")
+                    log_pipeline_methods(logger=session_logger, input_pipeline=doc_pipeline)
+
+                else:
+                    session_logger.log_step(task="info_text", layer=2, log_text=f"Document Pipeline not found")
+
+                # run pipeline
+                filter_ids = await run_document_pipeline(query=query, input_ids=input_ids, input_pipeline=doc_pipeline,
+                                                         logger=session_logger, user_id=user_id, doc_id=doc_id, db=db)
+                # update output_ids
+                output_ids += filter_ids
+
+                if doc_pipeline:
+                    session_logger.log_step(task="info_text", layer=2, log_text=f"Finishing Document Pipeline")
+
+                session_logger.log_step(task="info_text", layer=2, log_text=f"Finishing processing Document")
+
+
+        # if not document retriever, use ids provided by router
+        else:
+            output_ids = input_ids
+            session_logger.log_step(task="header_2", layer=2, log_text=f"Processing Documents")
+            title_text = ", ".join(doc_title_dict.values())
+            session_logger.log_step(task="info_text", layer=2, log_text=f"These documents are: {title_text}")
+            session_logger.log_step(task="info_text", layer=2,
+                                    log_text=f"\nNo Document Pipelines found for any Document")
+            session_logger.log_step(task="info_text", layer=2, log_text=f"Finishing processing Document")
+
+
+
+
+    # w/o router
+    elif retrieval_dict:
+        output_ids = []
+        # run all exported pipelines with no input IDs
+        for doc_id, doc_pipeline in retrieval_dict.items():
+            # log start of document retrieval
+            doc_title = await get_doc_title(user_id, doc_id, db=db)
+
+            session_logger.log_step(task="header_2", layer=2,
+                                    log_text=f"Starting Document Pipeline for Document: {doc_title}")
+            log_pipeline_methods(logger=session_logger, input_pipeline=doc_pipeline)
+
+            filter_ids = await run_document_pipeline(query=query, input_ids=[], input_pipeline=doc_pipeline,
+                                                     logger=session_logger, user_id=user_id, doc_id=doc_id, db=db)
+
+            output_ids += filter_ids
+
+            session_logger.log_step(task="info_text", layer=2, log_text=f"Finishing Document Pipeline")
+
+
+
+
+    # if there is no router and no document pipelines
+    else:
+        output_ids = []
+
+    # --- RERANKING -----
+
+    if reranker_method:
+        session_logger.log_step(task="header_2", layer=2, log_text=f"Starting Reranker Pipeline")
+        session_logger.log_step(task="table", layer=2, log_text=f"This Pipeline consists of following method: ",
+                                table_data=reranker_method)
+
+        reranker_type = reranker_method.pop("type")
+        reranker_method.update({"logger": session_logger, "user_id": user_id, "db": db, "level": "rerank"})
+        reranker_instance = TYPE_MAPPER[reranker_type](**reranker_method)
+        reranker_dict = await reranker_instance.run_retrieval(query=query, filter_ids=output_ids)
+        output_ids = reranker_dict["retrieval_id"]
+
+    # --- GENERATION -----
+
+    session_logger.log_step(task="header_2", layer=2, log_text=f"Starting Generation Pipeline")
+    session_logger.log_step(task="table", layer=2, log_text=f"This Pipeline consists of following method: ",
+                            table_data=generator_method)
+
+    output_content = await get_content(user_id=user_id, retrieval_ids=output_ids, db=db)
+    chunk_list = output_content["content"]
+
+    # pass chunks and query to generator
+    generator_type = generator_method.pop("type")
+    generator_method.update({"logger": session_logger, "user_id": user_id, "db": db})
+    generator_instance = TYPE_MAPPER[generator_type](**generator_method)
+    output_answer = await generator_instance.run_generation(query=query, input_chunks=chunk_list)
+
+    # Finally we export the logs to md
+    await export_logs(log_path)
+
+    return output_answer, chunk_list
+
+
+
+
+
+async def run_doc_embeddings(retrieval_pipeline: dict[str, list[dict[str, Any]]], user_id, doc_id, db: AsyncSession):
+    retrieval_pipeline.pop("evaluator", None)
+    sorted_items = sorted(list(retrieval_pipeline.items()), key=lambda x: int(x[0].strip()))
+    sorted_pipelines = [x[1] for x in sorted_items if x[1]]
+    pipeline = sorted_pipelines[0]
+
+    # We run embeddings if needed
+    embedding_methods = [
+        copy.deepcopy(method)
+        for method in pipeline
+        if method["type"] == "EmbeddingRetriever"
+    ]
+
+    if embedding_methods:
+        await run_embeddings(embedding_methods, user_id, doc_id, db)
+
+"""
 

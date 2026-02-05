@@ -1,7 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { addResults } from "@/app/api/rag/docs/[doc_id]/indexing_results/table-action";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+import {SaveResultsActions} from "@/components/custom-ui/SaveRunActions";
 
 type Item = {
   retrieval_id: number;
@@ -26,11 +37,7 @@ export default function ChunksResultsEditor({
   const [results, setResults] = useState<Results>(initialResults);
   const [edited, setEdited] = useState<Set<string>>(new Set());
 
-  function updateContent(
-    levelIndex: number,
-    itemIndex: number,
-    newContent: string
-  ) {
+  function updateContent(levelIndex: number, itemIndex: number, newContent: string) {
     const copy = [...results];
     const levelResult = copy[levelIndex];
     const items = [...levelResult.items];
@@ -55,107 +62,103 @@ export default function ChunksResultsEditor({
       .map((levelResult, levelIndex) => ({
         level: levelResult.level,
         items: levelResult.items.filter((_, itemIndex) =>
-          edited.has(`${levelIndex}:${itemIndex}`)
+          edited.has(`${levelIndex}:${itemIndex}`),
         ),
       }))
       .filter((levelResult) => levelResult.items.length > 0);
   }
 
+  const filtered = useMemo(() => buildFilteredResults(), [results, edited]);
+  const editedCount = edited.size;
+
   return (
-    <section>
-      <h2>Indexing Results</h2>
+    <section className="w-full">
+      <div className="flex items-start justify-between gap-4 mb-4">
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight">Indexing Results</h2>
+          <p className="text-sm text-muted-foreground">
+            Edit chunk contents below. Only modified items will be saved.
+          </p>
+        </div>
 
-      <div
-        style={{
-          display: "flex",
-          gap: 16,
-          alignItems: "stretch",
-          overflowX: "auto",
-          paddingBottom: 8,
-        }}
-      >
-        {results.map((levelResult, levelIndex) => (
-          <div
-            key={levelResult.level}
-            style={{
-              border: "1px solid #ccc",
-              minWidth: 320,
-              maxWidth: 320,
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            <div
-              style={{
-                padding: 8,
-                fontWeight: 700,
-                borderBottom: "2px solid #aaa",
-                background: "#f7f7f7",
-                textAlign: "center",
-              }}
+        {/* top-right toolbar */}
+        <div className="flex justify-end">
+          <SaveResultsActions
+            addFunction={addResults}
+            doc_id={doc_id}
+            resultsJson={JSON.stringify(filtered)}
+            saveLabel={editedCount === 0 ? "0 changes" : `${editedCount} changes`}
+            disabled={editedCount === 0}
+          />
+        </div>
+      </div>
+
+      <div className="relative">
+        {/* Horizontal columns */}
+        <div className="flex items-stretch gap-4 overflow-x-auto pb-3">
+          {results.map((levelResult, levelIndex) => (
+            <Card
+              key={levelResult.level}
+              className="min-w-[340px] max-w-[340px] overflow-hidden"
             >
-              {levelResult.level}
-            </div>
+              <CardHeader className="py-4 bg-muted/40 border-b">
+                <CardTitle className="text-base text-center">
+                  {levelResult.level}
+                </CardTitle>
+                <CardDescription className="text-center">
+                  {levelResult.items.length} items
+                </CardDescription>
+              </CardHeader>
 
-            <div
-              style={{
-                padding: 8,
-                overflowY: "auto",
-                flexGrow: 1,
-                maxHeight: 400,
-              }}
-            >
-              {levelResult.items.map((item, itemIndex) => (
-                <div
-                  key={itemIndex}
-                  style={{
-                    marginBottom: 16,
-                    paddingBottom: 12,
-                    borderBottom:
-                      itemIndex < levelResult.items.length - 1
-                        ? "2px solid #ddd"
-                        : "none",
-                  }}
-                >
-                  <div style={{ fontWeight: 600, marginBottom: 4 }}>
-                    {item.title}
-                  </div>
+              <CardContent className="p-4">
+                <div className="max-h-[460px] overflow-y-auto pr-1 space-y-4">
+                  {levelResult.items.map((item, itemIndex) => {
+                    const key = `${levelIndex}:${itemIndex}`;
+                    const isEdited = edited.has(key);
 
-                  <div
-                    style={{
-                      borderTop: "1px solid #ccc",
-                      marginBottom: 6,
-                    }}
-                  />
+                    return (
+                      <div
+                        key={itemIndex}
+                        className={cn(
+                          "rounded-lg border p-3 bg-background",
+                          isEdited && "ring-1 ring-foreground/15 bg-muted/20",
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-3 mb-2">
+                          <div className="min-w-0">
+                            <div className="font-medium leading-snug truncate">
+                              {item.title}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              Retrieval ID:{" "}
+                              <span className="font-mono">{item.retrieval_id}</span>
+                            </div>
+                          </div>
 
-                  <textarea
-                    value={item.content}
-                    onChange={(e) =>
-                      updateContent(levelIndex, itemIndex, e.target.value)
-                    }
-                    style={{
-                      width: "100%",
-                      minHeight: 80,
-                      resize: "vertical",
-                      fontFamily: "inherit",
-                    }}
-                  />
+                          {isEdited && (
+                            <span className="text-xs px-2 py-1 rounded-md bg-foreground/5 text-foreground/80">
+                              Edited
+                            </span>
+                          )}
+                        </div>
+
+                        <textarea
+                          value={item.content}
+                          onChange={(e) =>
+                            updateContent(levelIndex, itemIndex, e.target.value)
+                          }
+                          className={cn(
+                            "w-full min-h-[96px] resize-y rounded-md border bg-background px-3 py-2 text-sm leading-relaxed",
+                            "focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent",
+                          )}
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}
-            </div>
-          </div>
-        ))}
-
-        <div style={{ marginTop: 12 }}>
-          <form action={addResults}>
-            <input type="hidden" name="doc_id" value={doc_id} />
-            <input
-              type="hidden"
-              name="results"
-              value={JSON.stringify(buildFilteredResults())}
-            />
-            <button type="submit">Save All</button>
-          </form>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </div>
     </section>

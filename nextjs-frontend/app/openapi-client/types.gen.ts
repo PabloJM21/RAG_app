@@ -107,6 +107,20 @@ export type ErrorModel = {
 };
 
 /**
+ * ExportBody
+ */
+export type ExportBody = {
+  /**
+   * Source Id
+   */
+  source_id: string;
+  /**
+   * Target Id
+   */
+  target_id: string;
+};
+
+/**
  * HTTPValidationError
  */
 export type HttpValidationError = {
@@ -907,6 +921,30 @@ export type DeleteDocResponses = {
   200: unknown;
 };
 
+export type ExportDocPipelineData = {
+  body: ExportBody;
+  path?: never;
+  query?: never;
+  url: "/docs/export/";
+};
+
+export type ExportDocPipelineErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ExportDocPipelineError =
+  ExportDocPipelineErrors[keyof ExportDocPipelineErrors];
+
+export type ExportDocPipelineResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
 export type ReadApiKey2Data = {
   body?: never;
   path?: never;
@@ -1061,6 +1099,30 @@ export type DeleteDoc2Errors = {
 export type DeleteDoc2Error = DeleteDoc2Errors[keyof DeleteDoc2Errors];
 
 export type DeleteDoc2Responses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type ExportDocPipeline2Data = {
+  body: ExportBody;
+  path?: never;
+  query?: never;
+  url: "/api_keys/export/";
+};
+
+export type ExportDocPipeline2Errors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ExportDocPipeline2Error =
+  ExportDocPipeline2Errors[keyof ExportDocPipeline2Errors];
+
+export type ExportDocPipeline2Responses = {
   /**
    * Successful Response
    */

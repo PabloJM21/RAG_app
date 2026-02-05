@@ -1,3 +1,4 @@
+import json
 from uuid import UUID
 from pydantic import BaseModel
 
@@ -285,3 +286,70 @@ async def read_doc_list(
         )
         for row in rows
     ]
+
+
+
+# Store pipelines
+
+"""
+
+@router.get("/pipelines/", response_model=List[DocResponse])
+async def read_pipeline_list(
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+    rows, _ = await DocPipelines.get_all(columns=["name", "doc_id"], where_dict={"user_id": user.id}, db=db) #"path": None
+
+    return [
+        DocResponse(
+            name=row["name"],
+            doc_id=row["doc_id"],
+        )
+        for row in rows
+    ]
+
+
+"""
+
+
+class ExportBody(BaseModel):
+    source_id: str
+    target_id: str
+
+
+@router.post("/export/")
+async def export_doc_pipeline(
+    body: ExportBody,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+    source_id = body.source_id
+    target_id = body.target_id
+
+
+    row = await DocPipelines.get_row(
+        where_dict={"doc_id": UUID(source_id), "user_id": user.id},
+        db=db,
+    )
+
+    if not row:
+        raise HTTPException(status_code=404, detail="Doc not found or not authorized")
+
+    pipeline_names = ["conversion_pipeline", "processing_pipeline", "chunking_pipeline", "extraction_pipeline", "retrieval_pipeline"]
+
+    output_pipelines = {}
+    for key in pipeline_names:
+        pipeline_string = getattr(row, key)
+        if pipeline_string:
+            output_pipelines.update({key: pipeline_string})
+
+    await DocPipelines.update_data(
+        data_dict=output_pipelines, where_dict={"doc_id": UUID(target_id), "user_id": user.id},
+        db=db,
+    )
+
+    return {"status": "ok"}
+
+
+
+

@@ -258,7 +258,6 @@ export function ChunkingEditor({
     <section className="h-full flex flex-col gap-3">
       {/* Top toolbar (fixed at top) */}
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold">Chunking</h2>
 
         <div className="flex items-center gap-2">
           <select
@@ -283,7 +282,7 @@ export function ChunkingEditor({
       <Card className="border-2 border-blue-500/60 rounded-xl w-fit max-w-full min-h-0">
         <CardHeader className="py-3">
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            Methods
+            Pipeline
           </CardTitle>
         </CardHeader>
 

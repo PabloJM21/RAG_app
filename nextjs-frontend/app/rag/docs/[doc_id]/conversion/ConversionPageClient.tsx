@@ -126,7 +126,6 @@ export function ConversionEditor({
     <section className="h-full flex flex-col gap-3">
       {/* Top toolbar */}
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold">Extraction</h2>
 
         <div className="flex items-center gap-2">
           <select value={selectedType} onChange={(e) => setSelectedType(e.target.value as any)}>
@@ -146,7 +145,7 @@ export function ConversionEditor({
       {/* Methods container */}
       <Card className="border-2 border-blue-500/60 rounded-xl w-fit max-w-full min-h-0">
         <CardHeader className="py-3">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Methods</CardTitle>
+          <CardTitle className="text-sm font-medium text-muted-foreground">Pipeline</CardTitle>
         </CardHeader>
 
         <CardContent className="pt-0 h-full min-h-0">

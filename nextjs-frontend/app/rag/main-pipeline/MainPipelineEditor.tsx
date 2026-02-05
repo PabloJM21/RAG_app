@@ -8,13 +8,15 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {FlexibleMethodCard} from "@/components/custom-ui/FlexibleMethodCard";
-import {SaveButton} from "@/components/custom-ui/SaveButton";
+
 
 
 import { GENERATOR_PROMPTS, EMBEDDING_QUERY_PROMPTS, REASONER_QUERY_PROMPTS,
   BM25_QUERY_PROMPTS, GENERATOR_QUERY_PROMPTS } from "@/components/frontend_data/Prompts";
 
 import { EMBEDDING_MODELS, GENERATOR_MODELS } from "@/components/frontend_data/models";
+import {SaveActions} from "@/components/custom-ui/SaveRunActions";
+
 
 /* ---------- Types ---------- */
 
@@ -372,7 +374,7 @@ export function MainPipelineEditor({
 
   function setSlot(slot: PipelineSlot, method: MethodSpec | null) {
     setPipeline((prev) => {
-      const copy = { ...prev };
+      const copy = {...prev};
       if (method === null) delete copy[slot];
       else copy[slot] = method;
       return copy;
@@ -394,94 +396,81 @@ export function MainPipelineEditor({
 
 
   return (
-    <section className="w-full">
+    <div style={{display: "flex", flexDirection: "column", height: "100%"}}>
       <h2>Main Pipeline</h2>
 
-      {/* 3 editors horizontally */}
       <div
         style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr 1fr",
-          gap: 12,
-          width: "100%",
+          flex: 1,
+          position: "relative",
+          display: "flex",
+          flexDirection: "column",
+          minHeight: 0,
         }}
       >
-        <SlotEditor
-          slot="router"
-          label="Router"
-          method={pipeline.router}
-          selectedType={selected.router} // RetrieverType | undefined
-          setSelectedType={(v: RetrieverType) =>
-            setSelected((p) => ({ ...p, router: v }))
-          }
-          setSlot={setSlot}
-          updateField={updateField}
-        />
+        {/* top-right toolbar */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            marginBottom: 12,
+          }}
+        >
+          <SaveActions
+            addFunction={addPipeline}
+            pipelineJson={JSON.stringify(pipeline)}
+            saveLabel="Main Pipeline"
+          />
+        </div>
 
-        <SlotEditor
-          slot="reranker"
-          label="Reranker"
-          method={pipeline.reranker}
-          selectedType={selected.reranker} // RetrieverType | undefined
-          setSelectedType={(v: RetrieverType) =>
-            setSelected((p) => ({ ...p, reranker: v }))
-          }
-          setSlot={setSlot}
-          updateField={updateField}
-        />
-
-        <SlotEditor
-          slot="generator"
-          label="Generator"
-          method={pipeline.generator}
-          selectedType={undefined} // not used
-          setSelectedType={(_v: RetrieverType) => {}} // keep prop type compatible
-          setSlot={setSlot}
-          updateField={updateField}
-        />
-      </div>
-
-      {/* Save */}
-      <div style={{ marginTop: 12 }}>
-        <form action={addPipeline} style={{ margin: 0 }}>
-            <input
-              type="hidden"
-              name="pipeline"
-              value={JSON.stringify(pipeline)}
+        {/* editors area */}
+        <div style={{flex: 1, minHeight: 0, overflow: "auto"}}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr 1fr",
+              gap: 12,
+              width: "100%",
+            }}
+          >
+            <SlotEditor
+              slot="router"
+              label="Router"
+              method={pipeline.router}
+              selectedType={selected.router}
+              setSelectedType={(v: RetrieverType) =>
+                setSelected((p) => ({...p, router: v}))
+              }
+              setSlot={setSlot}
+              updateField={updateField}
             />
-            <SaveButton label="Pipeline" />
-          </form>
-      </div>
 
-      {/* Run buttons */}
-      <div className="mt-6 w-full">
-        <div className="grid grid-cols-4 gap-3 w-full">
-          <Button
-            variant="outline"
-            className="w-full text-lg py-4"
-            onClick={() => run("conversion")}
-          >
-            Run Conversion
-          </Button>
+            <SlotEditor
+              slot="reranker"
+              label="Reranker"
+              method={pipeline.reranker}
+              selectedType={selected.reranker}
+              setSelectedType={(v: RetrieverType) =>
+                setSelected((p) => ({...p, reranker: v}))
+              }
+              setSlot={setSlot}
+              updateField={updateField}
+            />
 
-          <Button
-            variant="outline"
-            className="w-full text-lg py-4"
-            onClick={() => run("chunking")}
-          >
-            Run Chunking
-          </Button>
-
-          <Button
-            variant="outline"
-            className="w-full text-lg py-4"
-            onClick={() => run("retrieval")}
-          >
-            Run Export
-          </Button>
+            <SlotEditor
+              slot="generator"
+              label="Generator"
+              method={pipeline.generator}
+              selectedType={undefined}
+              setSelectedType={(_v: RetrieverType) => {
+              }}
+              setSlot={setSlot}
+              updateField={updateField}
+            />
+          </div>
         </div>
       </div>
-    </section>
+    </div>
   );
 }
 

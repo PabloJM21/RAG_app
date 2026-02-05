@@ -76,9 +76,10 @@ async def rag_query_tool(user: User, db: AsyncSession, query: str):
     # load main_pipeline configuration
     row = await MainPipeline.get_row(where_dict={"user_id": user.id}, db=db)
 
-    retrieval_dict = load_doc_pipelines(json.loads(row.doc_pipelines))
 
-    retrieval_dict.update({"router": load_pipeline(json.loads(row.router)), "reranker": load_pipeline(json.loads(row.reranker)), "generator": load_pipeline(json.loads(row.generator))})
+    retrieval_dict = load_doc_pipelines(row.doc_pipelines)
+
+    retrieval_dict.update({"router": load_pipeline(row.router), "reranker": load_pipeline(row.reranker), "generator": load_pipeline(row.generator)})
 
     output_answer, chunk_list = await run_retrieval(query=query, retrieval_dict=retrieval_dict, user_id=user.id, db=db)
 

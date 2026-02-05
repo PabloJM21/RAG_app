@@ -200,7 +200,7 @@ async def run_chunking_pipeline(
 ):
 
     # Avoid chunked=1 to be chunked again.
-    rows, _ = await DocPipelines.get_all(columns=["doc_id"], where_dict={"user_id": user.id, "chunked": 0}, db=db)
+    rows, _ = await DocPipelines.get_all(columns=["doc_id"], where_dict={"user_id": user.id, "converted": 1, "chunked": 0}, db=db)
 
 
     doc_ids = [row["doc_id"] for row in rows]

@@ -24,7 +24,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-def load_pipeline(pipeline):
+def load_pipeline_old(pipeline):
 
 
     def check_list(input_list: list):
@@ -62,9 +62,10 @@ def load_pipeline(pipeline):
 
 
 
-
-
-    return None
+def load_pipeline(pipeline):
+    if pipeline is None:
+        return None
+    return json.loads(pipeline)
 
 
 def load_doc_pipelines(pipelines):
@@ -72,11 +73,13 @@ def load_doc_pipelines(pipelines):
     if pipelines is None:
         return None
 
+    pipelines = json.loads(pipelines)
+
     output_dict = {}
 
     for k, v in pipelines.items():
         try:
-            output_dict[UUID(k)] = load_pipeline(v)
+            output_dict[UUID(k)] = v
         except ValueError:
             # skip invalid UUID keys instead of crashing
             continue

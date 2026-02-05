@@ -102,18 +102,22 @@ async def export_pipeline(
     # export pipeline to MainPipeline table
 
     retrieval_pipeline = json.loads(row.retrieval_pipeline)
-    await run_doc_embeddings(retrieval_pipeline=retrieval_pipeline, user_id=user.id, doc_id=doc_id, db=db)
+    pipeline_valid = await run_doc_embeddings(retrieval_pipeline=retrieval_pipeline, user_id=user.id, doc_id=doc_id, db=db)
 
-    # update document_pipelines with this doc's pipeline
-    document_pipelines[str(doc_id)] = retrieval_pipeline
+    if pipeline_valid:
+        # update document_pipelines with this doc's pipeline
+        for pipeline_method in retrieval_pipeline:
+            pipeline_method.pop("color", None)
 
-    # NEXT: Set exported=1
+        document_pipelines[str(doc_id)] = retrieval_pipeline
 
-    row.exported = 1
+        # NEXT: Set exported=1
 
-    # finally update main_pipeline with the created document_pipelines dict
-    if document_pipelines:
-        main_pipeline.doc_pipelines = json.dumps(document_pipelines)
+        row.exported = 1
+
+        # finally update main_pipeline with the created document_pipelines dict
+        if document_pipelines:
+            main_pipeline.doc_pipelines = json.dumps(document_pipelines)
 
     await db.commit()
 
@@ -154,16 +158,21 @@ async def export_all(
         # Doesn't trigger if the pipeline is created but not saved, and there is no previous pipeline
         if row.retrieval_pipeline:
             retrieval_pipeline = json.loads(row.retrieval_pipeline)
-            
+
             # run embeddings for EmbeddingRetrievers
-            await run_doc_embeddings(retrieval_pipeline=retrieval_pipeline, user_id=user.id, doc_id=doc_id, db=db)
+            pipeline_valid = await run_doc_embeddings(retrieval_pipeline=retrieval_pipeline, user_id=user.id, doc_id=doc_id, db=db)
+
+            if pipeline_valid:
+                # update document_pipelines with each doc's pipeline
+                for pipeline_method in retrieval_pipeline:
+                    pipeline_method.pop("color", None)
+
+                document_pipelines[str(doc_id)] = retrieval_pipeline
+
+                # NEXT: Set exported=1
+                row.exported = 1
 
 
-            # update document_pipelines with each doc's pipeline
-            document_pipelines[str(doc_id)] = retrieval_pipeline
-
-            # NEXT: Set exported=1
-            row.exported = 1
     
     # finally update main_pipeline with the created document_pipelines dict
     if document_pipelines:

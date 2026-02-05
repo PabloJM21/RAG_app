@@ -238,6 +238,12 @@ async def run_conversion_pipeline(
 
             await run_conversion(conversion_pipeline, user.id, doc_id, db)
 
+            if row.processing_pipeline:
+                # Run processing
+                processing_pipeline = json.loads(row.processing_pipeline)
+
+                await run_md_processing(processing_pipeline, user.id, doc_id, db)
+
             # After conversion
 
             # Set converted=1

@@ -1,9 +1,10 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { readDocList, deleteDoc, createDoc, uploadDocFile } from "./sdk.gen";
+import {readDocList, deleteDoc, createDoc, uploadDocFile, exportPipeline, PipelineSpec} from "./sdk.gen";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import {createKey, deleteKey, KeyRead, readKeyList} from "@/app/api/rag/profile/sdk.gen";
 
 export type Doc = {
   name: string;
@@ -128,3 +129,142 @@ export async function uploadDoc(
 
   return response.data;
 }
+
+
+
+
+
+/**
+ * Export Pipeline
+ */
+
+
+export async function exportDocPipeline(formData: FormData) {
+
+  const source_id = formData.get("source_id");
+  const target_id = formData.get("target_id");
+
+  if (typeof source_id !== "string" || typeof target_id !== "string") {
+    throw new Error("Invalid form data");
+  }
+
+  const cookieStore = await cookies();
+  const token = cookieStore.get("accessToken")?.value;
+
+  if (!token) {
+    throw new Error("No access token found");
+  }
+
+
+  const response = await exportPipeline({
+    body: {source_id, target_id},
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (response.error) {
+    throw new Error("Upload failed");
+  }
+
+  return response.data;
+}
+
+
+
+{/*
+**
+ * Store Pipelines
+ *
+
+
+
+export async function removeDocPipeline(pipeline_id: string) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("accessToken")?.value;
+
+  if (!token) {
+    return { message: "No access token found" };
+  }
+
+  const { error } = await deletePipeline({
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    path: {
+      pipeline_id: pipeline_id,
+    },
+  });
+
+  if (error) {
+    return { message: error };
+  }
+  revalidatePath("rag");
+}
+
+
+
+
+
+export async function addDocPipeline(pipeline_name, doc_id: string) {
+
+  const cookieStore = await cookies();
+  const token = cookieStore.get("accessToken")?.value;
+
+  if (!token) {
+    return { message: "No access token found" };
+  }
+
+
+  if (!pipeline_name || typeof pipeline_name !== "string") {
+    return { message: "Invalid pipeline_name" };
+  }
+
+
+
+  // Call SDK with plain object
+  const { error } = await createPipeline({
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json", // ✅ Force JSON
+    },
+    path: {
+      doc_id: doc_id,
+    },
+    body: pipeline_name
+  });
+
+  if (error) {
+    return { message: typeof error.detail === "string" ? error.detail : "Failed to store pipeline" };
+  }
+  revalidatePath("rag");
+}
+
+
+
+
+
+
+export async function fetchDocPipelines(): Promise<KeyRead[]> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("accessToken")?.value;
+
+  if (!token) {
+    throw new Error("No access token found");
+  }
+
+  const response = await readPipelineList({
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (response.error) {
+    throw response.error;
+  }
+
+  return response.data;
+}
+
+
+*/}

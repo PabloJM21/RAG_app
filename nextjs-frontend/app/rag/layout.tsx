@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { logout } from "@/app/api/login/logout-action";
+import {ResizableSplit} from "@/components/custom-ui/ResizableSplit";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -99,38 +100,41 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </DropdownMenu>
         </header>
 
-        {/* Split view lives HERE */}
-        <section
-          style={{
-            display: "grid",
-            gridTemplateColumns: "300px 1fr",
-            height: "calc(100vh - 160px)", // adjust to your header height
-            gap: 12,
-          }}
-        >
-          <aside
-            style={{
-              borderRight: "1px solid #ddd",
-              padding: 12,
-              overflow: "auto",
-              background: "white",
-              borderRadius: 8,
-            }}
-          >
-            <DocsPage />
-          </aside>
 
-          <div
-            style={{
-              overflow: "auto",
-              background: "white",
-              borderRadius: 8,
-              padding: 16,
-            }}
-          >
-            {children}
-          </div>
-        </section>
+        {/* Split view lives HERE */}
+        <ResizableSplit
+          height="calc(100vh - 160px)"
+          initialLeftWidth={300}
+          minLeftWidth={240}
+          minRightWidth={420}
+          left={
+            <aside
+              style={{
+                borderRight: "1px solid #ddd",
+                padding: 12,
+                overflow: "auto",
+                background: "white",
+                borderRadius: 8,
+                height: "100%",
+              }}
+            >
+              <DocsPage />
+            </aside>
+            }
+          right={
+            <div
+              style={{
+                overflow: "auto",
+                background: "white",
+                borderRadius: 8,
+                padding: 16,
+                height: "100%",
+              }}
+            >
+              {children}
+            </div>
+          }
+        />
       </main>
     </div>
   );

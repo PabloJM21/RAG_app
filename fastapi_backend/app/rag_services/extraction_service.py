@@ -106,8 +106,8 @@ class Extractor:
         paragraphs_rows, paragraphs_columns = await Paragraph.get_all_paragraphs(columns=[f"{self.input_level}_id", f"{self.output_level}_id"], where_dict={"user_id": self.user_id, "doc_id": self.doc_id}, db=self.db)
         paragraphs_df = pd.DataFrame(paragraphs_rows, columns=paragraphs_columns)
 
-        self.logger.log_step(task="info_text", log_text=f"Extracted Paragraphs for columns: {paragraphs_columns}")
-        self.logger.log_step(task="info_text", log_text=f"These are as follows: {paragraphs_rows}")
+        #self.logger.log_step(task="info_text", log_text=f"Extracted Paragraphs for columns: {paragraphs_columns}")
+        #self.logger.log_step(task="info_text", log_text=f"These are as follows: {paragraphs_rows}")
 
         input_rows, input_columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.input_level}, db=self.db)
         input_rows = [dict(row) for row in input_rows]
@@ -176,7 +176,7 @@ class Extractor:
 
             output_ids = sorted(set(raw_output_ids))
 
-            self.logger.log_step(task="info_text", log_text=f"Output IDs: {output_ids}")
+            #self.logger.log_step(task="info_text", log_text=f"Output IDs: {output_ids}")
 
             for output_id in output_ids:
                 #old_row = Retrieval.get_row(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.output_level, "level_id": output_id}, db=self.db)
@@ -192,7 +192,7 @@ class Extractor:
 
                 old_content = str(output_content) if output_content else ""
 
-                self.logger.log_step(task="info_text", log_text=f"Old content of output level: {old_content}")
+                #self.logger.log_step(task="info_text", log_text=f"Old content of output level: {old_content}")
 
 
                 if old_content:
@@ -207,7 +207,7 @@ class Extractor:
                         #await Retrieval.update_data(data_dict={"content": updated_content}, where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level_id": output_id, "level": self.output_level}, db=self.db)
                         self.insert_row_content(output_rows, output_id, updated_content)
                         
-                        self.logger.log_step(task="info_text", log_text=f"Extraction: Updating doc_id, level_id, level: {self.doc_id, output_id, self.output_level}, with following content: {updated_content}")
+                        #self.logger.log_step(task="info_text", log_text=f"Extraction: Updating doc_id, level_id, level: {self.doc_id, output_id, self.output_level}, with following content: {updated_content}")
                         update_data.append({"Input": old_content, "Output": updated_content})
 
                     else:
@@ -234,14 +234,7 @@ class Extractor:
         await self.db.commit()
 
 
-        self.logger.log_step(task="info_text", layer=2, log_text="Completed Extraction")
 
-
-        if insert_data:
-            self.logger.log_step(task="table", layer=1, log_text="With following chunk inserts: ", table_data=insert_data)
-
-        if update_data:
-            self.logger.log_step(task="table", layer=1, log_text="With following chunk updates: ", table_data=update_data)
 
 
 
@@ -391,7 +384,7 @@ class Enricher:
 
         rows, columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.input_level}, db=self.db)
 
-        self.logger.log_step(task="info_text", layer=1, log_text="Starting enriching chunks")
+
 
         input_df = pd.DataFrame(rows, columns=columns)  # like the retrievals table, but one for each hierarchy level
 
@@ -417,10 +410,8 @@ class Enricher:
 
             await Retrieval.update_data(data_dict={"content": new_content}, where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level_id": input_id, "level": self.input_level}, db=self.db)
 
-            table_data.append({"Input": old_content, "Output": new_content, "duration": round(end - start, 2)})
 
-        self.logger.log_step(task="info_text", layer=2, log_text="Completed chunk enrichment")
-        self.logger.log_step(task="table", layer=1, log_text="Completed Enrichment with following chunk updates: ", table_data=table_data)
+
 
 
 
@@ -482,7 +473,7 @@ class Filter:
             chat_output = self.chat_orchestrator.call_with_history(label=self.model, system_prompt=system_prompt,
                                                          user_prompt=user_prompt, history=self.history)
 
-            self.logger.log_step(task="info_text", log_text=f"Unwrapping following answer: {chat_output}")
+            #self.logger.log_step(task="info_text", log_text=f"Unwrapping following answer: {chat_output}")
             output_bool = self.extract_bool(chat_output)
 
             # update history list with user and assistant input of the new call
@@ -490,7 +481,7 @@ class Filter:
 
         else:
             chat_output = self.chat_orchestrator.call(label=self.model, system_prompt=system_prompt, user_prompt=user_prompt)
-            self.logger.log_step(task="info_text", log_text=f"Unwrapping following answer: {chat_output}")
+            #self.logger.log_step(task="info_text", log_text=f"Unwrapping following answer: {chat_output}")
 
             output_bool = self.extract_bool(chat_output)
 
@@ -533,7 +524,7 @@ class Filter:
 
                     """
 
-        self.logger.log_step(task="info_text", layer=1, log_text=f"Starting to filter following chunk: {input_chunk}")
+        #self.logger.log_step(task="info_text", layer=1, log_text=f"Starting to filter following chunk: {input_chunk}")
 
         bool_output = self._call_orchestrator(user_prompt, system_prompt)
 
@@ -552,7 +543,7 @@ class Filter:
 
         rows, columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.input_level}, db=self.db)
 
-        self.logger.log_step(task="info_text", layer=2, log_text="Starting filtering chunks")
+
 
         input_df = pd.DataFrame(rows, columns=columns)  # like the retrievals table, but one for each hierarchy level
 
@@ -574,9 +565,9 @@ class Filter:
 
                 self.logger.log_step(task="info_text", layer=1, log_text=f"Removed chunk:\n {content}\n")
 
-            else:
 
-                self.logger.log_step(task="info_text", layer=1, log_text=f"Saved chunk:\n {content}\n")
+
+
 
 
 
@@ -593,7 +584,7 @@ class Reseter:
 
     async def run_method(self):
 
-        self.logger.log_step(task="info_text", layer=2, log_text=f"Reseting chunks at {self.level} level")
+        #self.logger.log_step(task="info_text", layer=2, log_text=f"Reseting chunks at {self.level} level")
 
         where_dict = {"user_id": self.user_id, "doc_id": self.doc_id, "level": self.level}
 
@@ -700,7 +691,7 @@ EXTRACTION_TYPE_MAPPER = {
     "Reset": Reseter,
 }
 
-async def run_extraction_pipeline(method_list: list[dict[str, Any]], user_id: UUID, doc_id: UUID, db: AsyncSession, session_logger: InfoLogger, session_evaluator: ChunkerEvaluator):
+async def run_extraction_pipeline(method_list: list[dict[str, Any]], user_id: UUID, doc_id: UUID, db: AsyncSession, session_logger: InfoLogger, session_evaluator: EnricherEvaluator):
 
 
     for method in method_list:
@@ -716,23 +707,28 @@ async def run_extraction_pipeline(method_list: list[dict[str, Any]], user_id: UU
             method.update({"input_level": input_level, "output_level": output_level})
             method_type = method.pop("type")
 
-            session_logger.log_step(task="info_text", layer=2, log_text=f"Starting Extractor from {input_level} to {output_level}")
+            session_logger.log_step(task="header_3", layer=2, log_text=f"Starting Extractor from {input_level} to {output_level}")
 
         else:
             target_level = method["where"]
             method_type = method.pop("type")
 
-            session_logger.log_step(task="info_text", layer=2, log_text=f"Starting {method_type} at {target_level} level")
+            session_logger.log_step(task="header_3", layer=2, log_text=f"Starting {method_type} at {target_level} level")
 
 
 
         method_instance = EXTRACTION_TYPE_MAPPER[method_type](**method)
-    
-        await method_instance.run_method()
 
+        method_start = time.time()
+        await method_instance.run_method()
+        method_end = time.time()
+
+        session_logger.log_step(task="info_text", layer=2, log_text=f"Method finished after {round(method_end-method_start, 2)} seconds")
+
+    #session_logger.log_step(task="info_text", layer=2, log_text=f"Session evaluator: {session_evaluator}")
     # After running the pipeline we perform the evaluation
     if session_evaluator:
-        session_evaluator.commit_evaluation()
+        await session_evaluator.commit_evaluation()
 
 
 async def run_extraction(pipelines: dict[str, list[dict[str, Any]]], user_id: UUID, doc_id: UUID, db: AsyncSession):

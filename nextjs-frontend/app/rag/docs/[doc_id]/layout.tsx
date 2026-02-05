@@ -13,31 +13,33 @@ export default async function DocRootLayout({
 
   return (
     <div className="flex flex-col h-full">
-      <header className="relative border-b border-gray-300 py-3">
-        <div className="absolute left-1/2 -translate-x-1/2">
-          <div className="grid grid-cols-4 gap-4">
+      <header className="border-b border-gray-300 bg-background/80 backdrop-blur">
+        <div className="mx-auto max-w-5xl px-4 py-4">
+          <nav className="flex justify-center gap-3">
             <Link href={`/rag/docs/${doc_id}/conversion`}>
-              <Button variant="outline" className="w-40 text-lg py-3">
+              <Button variant="secondary" className="w-40 py-3 text-lg">
                 Conversion
               </Button>
             </Link>
 
             <Link href={`/rag/docs/${doc_id}/chunking`}>
-              <Button variant="outline" className="w-40 text-lg py-3">
+              <Button variant="secondary" className="w-40 py-3 text-lg">
                 Chunking
               </Button>
             </Link>
 
             <Link href={`/rag/docs/${doc_id}/retrieval`}>
-              <Button variant="outline" className="w-40 text-lg py-3">
+              <Button variant="secondary" className="w-40 py-3 text-lg">
                 Retrieval
               </Button>
             </Link>
-          </div>
+          </nav>
         </div>
       </header>
 
-      <div className="flex-1">{children}</div>
+      {/* adds breathing room so the child's Tabs header doesn't “touch” */}
+      <div className="flex-1 pt-3">{children}</div>
     </div>
   );
 }
+

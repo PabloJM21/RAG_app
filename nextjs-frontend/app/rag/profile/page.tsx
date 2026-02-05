@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -13,98 +15,121 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 
-// ❌ remove "use client"
-
 import { fetchKeys } from "@/app/api/rag/profile/keys-action";
 import { RequestUrlButton } from "./requestUrl";
-
-
 import { DeleteButton } from "./deleteButton";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
-
 
 export default async function KeyEditorPage() {
   const keys = await fetchKeys();
 
   return (
-    <div>
-      <h2 className="text-2xl font-semibold mb-6">
-        Profile
-      </h2>
+    <div className="max-w-5xl mx-auto p-6 space-y-10">
+      {/* Page header */}
+      <header className="space-y-1">
+        <h2 className="text-2xl font-semibold tracking-tight">Profile</h2>
+        <p className="text-sm text-muted-foreground">
+          Manage provider API keys and connection settings.
+        </p>
+      </header>
 
-      <p className="text-lg mb-6">
-        API Keys
-      </p>
+      {/* API Keys */}
+      <section className="space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 className="text-base font-semibold">API Keys</h3>
+            <p className="text-sm text-muted-foreground">
+              Stored keys are used by your pipelines. Keep them private.
+            </p>
+          </div>
 
-      <div className="mb-6">
-        <Link href="/rag/profile/add-key">
-          <Button variant="outline" className="text-lg px-4 py-2">
-            Add New Key
-          </Button>
-        </Link>
-      </div>
-
-      <section className="p-6 bg-white rounded-lg shadow-lg mt-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">Keys</h2>
+          <Link href="/rag/profile/add-key">
+            <Button variant="outline" size="sm">
+              Add key
+            </Button>
+          </Link>
         </div>
 
-        <Table className="min-w-full text-sm">
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[200px]">Base API</TableHead>
-              <TableHead>API Key</TableHead>
-              <TableHead className="text-center">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-
-          <TableBody>
-            {!keys.length ? (
-              <TableRow>
-                <TableCell colSpan={3} className="text-center">
-                  No keys configured.
-                </TableCell>
+        <div className="rounded-xl border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/40">
+                <TableHead className="w-[220px]">Base API</TableHead>
+                <TableHead>API Key</TableHead>
+                <TableHead className="w-[80px] text-right">Actions</TableHead>
               </TableRow>
-            ) : (
-              keys.map((key, index) => (
-                <TableRow key={index}>
-                  <TableCell>{key.base_key}</TableCell>
+            </TableHeader>
 
-                  <TableCell className="font-mono">
-                    {key.api_key}
-                  </TableCell>
-
-                  <TableCell className="text-center">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger className="cursor-pointer p-1 text-gray-600 hover:text-gray-800">
-                        <span className="text-lg font-semibold">...</span>
-                      </DropdownMenuTrigger>
-
-                      <DropdownMenuContent className="p-2">
-                        <DropdownMenuItem disabled>
-                          Edit
-                        </DropdownMenuItem>
-                        <DeleteButton key_id={key.key_id} />
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+            <TableBody>
+              {!keys.length ? (
+                <TableRow>
+                  <TableCell colSpan={3} className="py-10 text-center">
+                    <div className="text-sm font-medium">No keys configured</div>
+                    <div className="text-sm text-muted-foreground">
+                      Add a key to start using providers.
+                    </div>
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : (
+                keys.map((key) => (
+                  <TableRow key={key.key_id} className="hover:bg-muted/30">
+                    <TableCell className="py-3">
+                      <span className="font-medium">{key.base_key}</span>
+                    </TableCell>
+
+                    <TableCell className="py-3">
+                      <span className="font-mono text-sm text-muted-foreground">
+                        {/* prevent uneven row heights */}
+                        <span className="inline-block max-w-[520px] truncate align-middle">
+                          {key.api_key}
+                        </span>
+                      </span>
+                    </TableCell>
+
+                    <TableCell className="py-3 text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            className="h-8 w-8 inline-flex items-center justify-center rounded-md
+                                       text-muted-foreground hover:text-foreground hover:bg-muted
+                                       focus:outline-none focus:ring-2 focus:ring-ring"
+                            aria-label="Key actions"
+                          >
+                            …
+                          </button>
+                        </DropdownMenuTrigger>
+
+                        <DropdownMenuContent align="end" className="min-w-[180px]">
+                          <DropdownMenuItem disabled className="text-muted-foreground">
+                            Edit (soon)
+                          </DropdownMenuItem>
+
+                          {/* keep your existing delete logic/component */}
+                          <DeleteButton key_id={key.key_id} />
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </section>
 
+      {/* MCP URL */}
+      <section className="space-y-3">
+        <div>
+          <h3 className="text-base font-semibold">MCP URL</h3>
+          <p className="text-sm text-muted-foreground">
+            Request or refresh the MCP endpoint used by your integrations.
+          </p>
+        </div>
 
-      {/* ------------------------------- */}
-
-
-      <p className="text-lg mb-6">MCP URL</p>
-
-       <RequestUrlButton />
-
+        <div className="rounded-xl border bg-card p-4">
+          <RequestUrlButton />
+        </div>
+      </section>
     </div>
   );
 }
-

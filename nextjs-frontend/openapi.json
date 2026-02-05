@@ -949,6 +949,50 @@
         }
       }
     },
+    "/docs/export/": {
+      "post": {
+        "tags": [
+          "docs"
+        ],
+        "summary": "Export Doc Pipeline",
+        "operationId": "export_doc_pipeline",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
     "/api_keys/api_keys/": {
       "get": {
         "tags": [
@@ -1221,6 +1265,50 @@
             }
           }
         }
+      }
+    },
+    "/api_keys/export/": {
+      "post": {
+        "tags": [
+          "docs"
+        ],
+        "summary": "Export Doc Pipeline",
+        "operationId": "export_doc_pipeline",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
       }
     },
     "/main-pipeline/pipeline/data/": {
@@ -2631,6 +2719,24 @@
           "detail"
         ],
         "title": "ErrorModel"
+      },
+      "ExportBody": {
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          },
+          "target_id": {
+            "type": "string",
+            "title": "Target Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_id",
+          "target_id"
+        ],
+        "title": "ExportBody"
       },
       "HTTPValidationError": {
         "properties": {
