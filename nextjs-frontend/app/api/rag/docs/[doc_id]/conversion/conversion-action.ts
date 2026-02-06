@@ -31,7 +31,7 @@ export async function runConversion(formData: FormData) {
     throw result.error;
   }
 
-  revalidatePath(`rag/docs/${doc_id}`);
+  revalidatePath(`home/rag/docs/${doc_id}`);
 }
 
 
@@ -62,7 +62,7 @@ export async function addConversionPipeline(formData: FormData) {
     throw result.error;
   }
 
-  revalidatePath(`rag/docs/${doc_id}`);
+  revalidatePath(`home/rag/docs/${doc_id}`);
 }
 
 

@@ -14,8 +14,8 @@ This Pipeline consists of following methods:
 | --- | --- | --- | --- | --- | --- |
 | Paragraph Chunker | Section | ## |  |  | True |
 
-Chunking at Chapter level completed in 0.64 seconds
+Chunking at Chapter level completed in 1.79 seconds
 
-Chunking at Section level completed in 0.15 seconds
+Chunking at Section level completed in 0.18 seconds
 
-Completed chunking in 0.8 seconds
+Completed chunking in 1.98 seconds

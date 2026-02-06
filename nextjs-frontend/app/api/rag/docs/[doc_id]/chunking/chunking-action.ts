@@ -28,7 +28,7 @@ export async function runChunking(formData: FormData) {
     throw result.error;
   }
 
-  revalidatePath(`rag/docs/${doc_id}`);
+  revalidatePath(`home/rag/docs/${doc_id}`);
 }
 
 
@@ -59,7 +59,7 @@ export async function addChunkingPipeline(formData: FormData) {
     throw result.error;
   }
 
-  revalidatePath(`rag/docs/${doc_id}`);
+  revalidatePath(`home/rag/docs/${doc_id}`);
 }
 
 

@@ -1,0 +1,11 @@
+import { redirect } from "next/navigation";
+
+export default async function DocRootPage({
+  params,
+}: {
+  params: Promise<{ doc_id: string }>;
+}) {
+  const { doc_id } = await params;
+  redirect(`/home/rag/docs/${doc_id}/conversion`);
+}
+

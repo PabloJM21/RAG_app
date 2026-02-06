@@ -29,7 +29,7 @@ export async function run(stage: string) {
     throw result.error;
   }
 
-  revalidatePath(`rag/main-pipeline`);
+  revalidatePath(`home/rag/main-pipeline`);
 }
 
 

@@ -33,7 +33,10 @@ export async function fetchDocs(): Promise<Doc[]> {
 }
 
 
-export async function removeDoc(id: string) {
+export async function removeDoc(formData: FormData) {
+
+  const id = String(formData.get("doc_id") ?? "");
+
   const cookieStore = await cookies();
   const token = cookieStore.get("accessToken")?.value;
 

@@ -31,7 +31,7 @@ export async function removeKey(key_id: string) {
   if (error) {
     return { message: error };
   }
-  revalidatePath("rag/profile");
+  revalidatePath("home/profile");
 }
 
 

@@ -38,7 +38,7 @@ export async function addResults(formData: FormData) {
     throw result.error;
   }
 
-  revalidatePath(`rag/docs/${doc_id}`);
+  revalidatePath(`home/rag/docs/${doc_id}`);
 }
 
 

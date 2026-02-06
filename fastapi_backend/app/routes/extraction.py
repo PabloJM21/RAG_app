@@ -87,7 +87,7 @@ async def run_extraction_pipeline(
     if not row.extraction_pipeline:
         raise HTTPException(status_code=404, detail="No pipeline was saved")
 
-    extraction_pipeline = load_pipeline(json.loads(row.extraction_pipeline))
+    extraction_pipeline = load_pipeline(row.extraction_pipeline)
 
     # Run extraction
     await run_extraction(extraction_pipeline, user.id, doc_id, db)

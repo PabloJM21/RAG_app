@@ -360,7 +360,9 @@ async def evaluation_wrapper(pipelines: dict[str, list[dict[str, Any]]], evaluat
 
         pipeline_scores = []
         for i, pipeline in enumerate(evaluation_pipelines):
-            pipeline.pop("color", None)
+            # remove color key
+            for pipeline_method in pipeline:
+                pipeline_method.pop("color", None)
 
             session_logger.log_step(task="header_3", layer=2, log_text=f"Pipeline {i + 1}")
             log_pipeline_methods(session_logger, pipeline)

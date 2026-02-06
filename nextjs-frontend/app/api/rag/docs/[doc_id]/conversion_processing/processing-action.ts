@@ -35,7 +35,7 @@ export async function runProcessing(formData: FormData) {
     throw result.error;
   }
 
-  revalidatePath(`rag/docs/${doc_id}`);
+  revalidatePath(`home/rag/docs/${doc_id}`);
 }
 
 
@@ -66,7 +66,7 @@ export async function addProcessingPipeline(formData: FormData) {
     throw result.error;
   }
 
-  revalidatePath(`rag/docs/${doc_id}`);
+  revalidatePath(`home/rag/docs/${doc_id}`);
 }
 
 

@@ -106,6 +106,8 @@ async def export_pipeline(
 
     if pipeline_valid:
         # update document_pipelines with this doc's pipeline
+
+        # remove color key
         for pipeline_method in retrieval_pipeline:
             pipeline_method.pop("color", None)
 

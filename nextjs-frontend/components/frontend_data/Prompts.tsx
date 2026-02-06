@@ -9,11 +9,11 @@ export const GENERATOR_PROMPTS = [
 ];
 
 export const EMBEDDING_QUERY_PROMPTS = [
-  "A new string matching this QUERY suited for retrieving text chunks based on embeddings and cosine similarity, in the same language",
+  "A paraphrase of this QUERY suited for retrieving text chunks based on embeddings and cosine similarity, in the same language",
 ];
 
 export const REASONER_QUERY_PROMPTS = [
-  "A new string matching this QUERY suited for retrieving text chunks based on direct LLM calls, in the same language",
+  "A paraphrase of this QUERY suited for retrieving text chunks based on direct LLM calls, in the same language",
 ];
 
 export const BM25_QUERY_PROMPTS = [
