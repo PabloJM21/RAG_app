@@ -81,7 +81,7 @@ export async function addKey(prevState: {}, formData: FormData) {
     return { message: typeof error.detail === "string" ? error.detail : "Failed to create key" };
   }
 
-  redirect("/rag/profile");
+  redirect("/home/profile");
 }
 
 

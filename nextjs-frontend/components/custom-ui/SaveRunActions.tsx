@@ -7,36 +7,16 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 
-
+import {Button} from "@/components/ui/button"
 import { useRouter } from "next/navigation";
 
 import * as React from "react";
 import { useFormStatus } from "react-dom";
 
 
-function MenuSaveButton({ label }: { label: string }) {
-  const { pending } = useFormStatus();
-
-  return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="w-full text-left text-sm px-2 py-1.5 rounded-sm outline-none transition-colors
-                 focus:bg-accent focus:text-accent-foreground
-                 hover:bg-accent hover:text-accent-foreground
-                 disabled:opacity-50 disabled:pointer-events-none"
-    >
-      {pending ? `Saving ${label}…` : `Save ${label}`}
-    </button>
-  );
-}
 
 
-
-
-
-
-function MenuSubmitButton({
+export function MenuSubmitButton({
   labelIdle,
   labelPending,
   keepOpen,
@@ -67,65 +47,6 @@ function MenuSubmitButton({
 }
 
 
-export function DeleteDocActions({
-  doc_id,
-  doc_name,
-  removeDoc, // server action: (formData) => Promise<any> OR (id) => Promise<any>
-}: {
-  doc_id: string;
-  doc_name?: string;
-  removeDoc: (formData: FormData) => Promise<any>; // matches your Save/Run style
-}) {
-  const router = useRouter();
-  const [open, setOpen] = React.useState(false);
-
-  return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className="h-6 w-6 rounded-sm text-muted-foreground hover:text-foreground hover:bg-background/60 inline-flex items-center justify-center"
-          aria-label={`Options${doc_name ? ` for ${doc_name}` : ""}`}
-          onClick={(e) => e.stopPropagation()}
-        >
-          …
-        </button>
-      </DropdownMenuTrigger>
-
-      <DropdownMenuContent
-        align="end"
-        className="min-w-[220px]"
-        onCloseAutoFocus={(e) => e.preventDefault()}
-      >
-        <DropdownMenuItem asChild>
-          <form
-            action={async (formData: FormData) => {
-              setOpen(true); // ensure open immediately
-              await removeDoc(formData);
-
-              // Make deletion visible without reboot:
-              router.refresh();
-
-              setOpen(false); // close when done
-            }}
-            className="w-full"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <input type="hidden" name="doc_id" value={doc_id} />
-
-            <MenuSubmitButton
-              labelIdle="Delete"
-              labelPending="Deleting…"
-              keepOpen={() => setOpen(true)}
-            />
-          </form>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-
 
 
 export function ThreeRunActions({
@@ -142,14 +63,13 @@ export function ThreeRunActions({
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className="h-6 w-6 rounded-sm text-muted-foreground hover:text-foreground hover:bg-background/60 inline-flex items-center justify-center"
-          aria-label="Global Options"
+        <Button
+          variant="outline"
+          size="sm"
           onClick={(e) => e.stopPropagation()}
         >
-          …
-        </button>
+          Global Actions
+        </Button>
       </DropdownMenuTrigger>
 
       <DropdownMenuContent

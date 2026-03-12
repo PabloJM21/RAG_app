@@ -1,7 +1,15 @@
 "use server";
 
 import { cookies } from "next/headers";
-import {readDocList, deleteDoc, createDoc, uploadDocFile, exportPipeline, PipelineSpec} from "./sdk.gen";
+import {
+  readDocList,
+  deleteDoc,
+  createDoc,
+  uploadDocFile,
+  exportPipeline,
+  listPipelines,
+  loadPipeline, deletePipeline
+} from "./sdk.gen";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {createKey, deleteKey, KeyRead, readKeyList} from "@/app/api/rag/profile/sdk.gen";
@@ -56,9 +64,14 @@ export async function removeDoc(formData: FormData) {
   if (response.error) {
     throw response.error;
   }
-  return response.data;
-}
 
+  // Ensure the sidebar/list refreshes everywhere it is shown
+  revalidatePath("/home/rag/docs");
+  revalidatePath("/home/rag"); // optional, but helpful if main page also shows docs
+
+  // Always go to a safe route after deletion
+  redirect("/home/rag");
+}
 
 
 export async function addDoc(prevState: {}, formData: FormData) {
@@ -142,6 +155,145 @@ export async function uploadDoc(
  */
 
 
+
+
+
+export async function exportDocPipeline(formData: FormData) {
+
+  const doc_id = formData.get("doc_id");
+  const pipelineName = formData.get("pipelineName");
+
+  if (typeof doc_id !== "string" || typeof pipelineName !== "string") {
+    throw new Error("Invalid form data");
+  }
+
+
+  const cookieStore = await cookies();
+  const token = cookieStore.get("accessToken")?.value;
+
+  if (!token) {
+    throw new Error("No access token found");
+  }
+
+
+  const response = await exportPipeline({
+    body: {doc_id, pipelineName},
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (response.error) {
+    throw new Error("Export failed");
+  }
+
+  return response.data;
+}
+
+
+
+/**
+ * List Pipelines
+ */
+
+
+
+export type ListPipeline = {
+  pipeline_id: string;
+  pipelineName: string;
+};
+
+
+export async function listDocPipelines(_formData?: FormData): Promise<ListPipeline[]> {
+
+
+  const cookieStore = await cookies();
+  const token = cookieStore.get("accessToken")?.value;
+
+  if (!token) {
+    throw new Error("No access token found");
+  }
+
+
+  const response = await listPipelines({
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (response.error) {
+    throw new Error("Pipeline fetching failed");
+  }
+
+  return response.data;
+}
+
+
+/**
+ * Load Pipeline
+ */
+
+
+
+
+
+export async function loadDocPipeline(formData: FormData) {
+
+  const doc_id = formData.get("doc_id");
+  const pipeline_id = formData.get("pipeline_id");
+
+  if (typeof doc_id !== "string" || typeof pipeline_id !== "string") {
+    throw new Error("Invalid form data");
+  }
+
+
+  const cookieStore = await cookies();
+  const token = cookieStore.get("accessToken")?.value;
+
+  if (!token) {
+    throw new Error("No access token found");
+  }
+
+
+  const response = await loadPipeline({
+    body: {doc_id, pipeline_id},
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (response.error) {
+    throw new Error("Loading failed");
+  }
+
+  return response.data;
+}
+
+
+export async function removeDocPipeline(pipeline_id: string) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("accessToken")?.value;
+
+  if (!token) {
+    return { message: "No access token found" };
+  }
+
+  const { error } = await deletePipeline({
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    path: {
+      pipeline_id: pipeline_id,
+    },
+  });
+
+  if (error) {
+    return { message: error };
+  }
+  revalidatePath("home/profile");
+}
+
+{/*
 export async function exportDocPipeline(formData: FormData) {
 
   const source_id = formData.get("source_id");
@@ -168,102 +320,6 @@ export async function exportDocPipeline(formData: FormData) {
 
   if (response.error) {
     throw new Error("Upload failed");
-  }
-
-  return response.data;
-}
-
-
-
-{/*
-**
- * Store Pipelines
- *
-
-
-
-export async function removeDocPipeline(pipeline_id: string) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("accessToken")?.value;
-
-  if (!token) {
-    return { message: "No access token found" };
-  }
-
-  const { error } = await deletePipeline({
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    path: {
-      pipeline_id: pipeline_id,
-    },
-  });
-
-  if (error) {
-    return { message: error };
-  }
-  revalidatePath("rag");
-}
-
-
-
-
-
-export async function addDocPipeline(pipeline_name, doc_id: string) {
-
-  const cookieStore = await cookies();
-  const token = cookieStore.get("accessToken")?.value;
-
-  if (!token) {
-    return { message: "No access token found" };
-  }
-
-
-  if (!pipeline_name || typeof pipeline_name !== "string") {
-    return { message: "Invalid pipeline_name" };
-  }
-
-
-
-  // Call SDK with plain object
-  const { error } = await createPipeline({
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json", // ✅ Force JSON
-    },
-    path: {
-      doc_id: doc_id,
-    },
-    body: pipeline_name
-  });
-
-  if (error) {
-    return { message: typeof error.detail === "string" ? error.detail : "Failed to store pipeline" };
-  }
-  revalidatePath("rag");
-}
-
-
-
-
-
-
-export async function fetchDocPipelines(): Promise<KeyRead[]> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("accessToken")?.value;
-
-  if (!token) {
-    throw new Error("No access token found");
-  }
-
-  const response = await readPipelineList({
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  if (response.error) {
-    throw response.error;
   }
 
   return response.data;

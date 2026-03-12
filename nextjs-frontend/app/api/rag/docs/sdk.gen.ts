@@ -240,16 +240,231 @@ export const readDocList = <ThrowOnError extends boolean = false>(
 
 
 
-
-
-
-
 /**
  * Export Pipeline
  */
 
 
 
+export type PipelineExportSpec = {
+  doc_id: string,
+  pipelineName: string,
+}
+
+
+
+export type PipelineExportData = {
+  path?: never;
+  body: PipelineExportSpec;
+  query?: never;
+  url: "/docs/pipelines/export/";
+};
+
+export type PipelineExportResponses = {
+  200: unknown;
+};
+
+export type PipelineExportErrors = {
+  422: HttpValidationError;
+};
+
+
+export const exportPipeline = <ThrowOnError extends boolean = false>(
+  options: Options<PipelineExportData, ThrowOnError>
+) => {
+  return (options.client ?? client).post<
+    PipelineExportResponses,
+    PipelineExportErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/docs/pipelines/export/",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+
+
+
+
+/**
+ * List Pipelines
+ */
+
+
+
+export type PipelineListData = {
+  path?: never;
+  body?: never;
+  query?: never;
+  url: "/docs/pipelines/list/";
+};
+
+export type DocPipelineRead = {
+  pipeline_id: string;
+  pipelineName: string;
+}
+
+
+export type PipelineListResponses = {
+  200: Array<DocPipelineRead>;
+};
+
+export type PipelineListErrors = {
+  422: HttpValidationError;
+};
+
+
+export const listPipelines = <ThrowOnError extends boolean = false>(
+  options: Options<PipelineListData, ThrowOnError>
+) => {
+  return (options.client ?? client).get<
+    PipelineListResponses,
+    PipelineListErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/docs/pipelines/list/",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+
+
+
+
+
+
+/**
+ * Load Pipeline
+ */
+
+
+
+export type PipelineLoadSpec = {
+  doc_id: string,
+  pipeline_id: string,
+}
+
+
+
+export type PipelineLoadData = {
+  path?: never;
+  body: PipelineLoadSpec;
+  query?: never;
+  url: "/docs/pipelines/load/";
+};
+
+export type PipelineLoadResponses = {
+  200: unknown;
+};
+
+export type PipelineLoadErrors = {
+  422: HttpValidationError;
+};
+
+
+export const loadPipeline = <ThrowOnError extends boolean = false>(
+  options: Options<PipelineLoadData, ThrowOnError>
+) => {
+  return (options.client ?? client).post<
+    PipelineLoadResponses,
+    PipelineLoadErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/docs/pipelines/load/",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+
+
+/**
+ * Delete Pipeline
+ */
+
+
+export type DeletePipelineData = {
+  body?: never;
+  path: {
+    pipeline_id: string;
+  };
+  query?: never;
+  url: "/docs/pipelines/{pipeline_id}";
+};
+
+
+export type DeletePipelineResponses = {
+  200: unknown;
+};
+
+export type DeletePipelineErrors = {
+  422: HttpValidationError;
+};
+
+export const deletePipeline = <ThrowOnError extends boolean = false>(
+  options: Options<DeletePipelineData, ThrowOnError>,
+) => {
+  return (options.client ?? client).delete<
+    DeletePipelineResponses,
+    DeletePipelineErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/docs/pipelines/{pipeline_id}",
+    ...options,
+  });
+};
+
+
+
+
+
+
+
+/**
+ * Export Pipeline old
+ */
+
+
+{/*
 export type PipelineSpec = {
   source_id: string,
   target_id: string,
@@ -299,161 +514,6 @@ export const exportPipeline = <ThrowOnError extends boolean = false>(
 
 
 
-
-
-
-{/*
-
-
-
-
-
-//Store Pipelines
-
-
-
-
-
-export type PipelineCreate = {
-  base_key: string;
-  api_key: string;
-}
-
-
-//Create Key
-
-export type CreateKeyData = {
-  body: {
-    base_key: string;
-    api_key: string;
-  };
-  path?: never;
-  query?: never;
-  url: "/docs/api_keys/";
-};
-
-export type CreateKeyResponses = {
-  200: unknown;
-};
-
-
-
-
-
-export const createKey = <ThrowOnError extends boolean = false>(
-  options?: Options<CreateKeyData, ThrowOnError>,
-) => {
-  return (options?.client ?? client).post<
-    CreateKeyResponses,
-    Errors,
-    ThrowOnError
-  >({
-    responseType: "json",
-    security: [
-      {
-        scheme: "bearer",
-        type: "http",
-      },
-    ],
-    url: "/docs/api_keys/",
-    ...options,
-  });
-};
-
-
-
-
-
-
-
-
-
-//Read Key
-
-
-
-export type ReadKeyData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: "/docs/api_keys/";
-};
-
-
-export type KeyRead = {
-  key_id: string;
-  base_key: string;
-  api_key: string;
-}
-
-export type ReadKeyResponses = {
-  200: Array<KeyRead>;
-};
-
-export const readKeyList = <ThrowOnError extends boolean = false>(
-  options?: Options<ReadKeyData, ThrowOnError>,
-) => {
-  return (options?.client ?? client).get<
-    ReadKeyResponses,
-    Errors,
-    ThrowOnError
-  >({
-    responseType: "json",
-    security: [
-      {
-        scheme: "bearer",
-        type: "http",
-      },
-    ],
-    url: "/docs/api_keys/",
-    ...options,
-  });
-};
-
-
-
-
-//Delete Key
-
-
-
-export type DeleteKeyData = {
-  body?: never;
-  path: {
-    key_id: string;
-  };
-  query?: never;
-  url: "/docs/api_keys/{key_id}";
-};
-
-
-export type DeleteKeyResponses = {
-  200: unknown;
-};
-
-export type DeleteKeyErrors = {
-  422: HttpValidationError;
-};
-
-export const deleteKey = <ThrowOnError extends boolean = false>(
-  options: Options<DeleteKeyData, ThrowOnError>,
-) => {
-  return (options.client ?? client).delete<
-    DeleteKeyResponses,
-    DeleteKeyErrors,
-    ThrowOnError
-  >({
-    responseType: "json",
-    security: [
-      {
-        scheme: "bearer",
-        type: "http",
-      },
-    ],
-    url: "/docs/api_keys/{key_id}",
-    ...options,
-  });
-};
-
-
 */}
+
+

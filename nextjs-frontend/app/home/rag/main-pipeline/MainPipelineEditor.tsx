@@ -1,21 +1,24 @@
 "use client";
 
 import {
-  fetchPipeline,
-  addPipeline,
-  run,
+  addPipeline, run,
 } from "@/app/api/rag/main-pipeline/pipeline-action";
+
 import { useEffect, useMemo, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+
+
 import {FlexibleMethodCard} from "@/components/custom-ui/FlexibleMethodCard";
 
-
+import {Button} from "@/components/ui/button";
 
 import { GENERATOR_PROMPTS, EMBEDDING_QUERY_PROMPTS, REASONER_QUERY_PROMPTS,
   BM25_QUERY_PROMPTS, GENERATOR_QUERY_PROMPTS } from "@/components/frontend_data/Prompts";
 
 import { EMBEDDING_MODELS, GENERATOR_MODELS } from "@/components/frontend_data/models";
-import {SaveActions} from "@/components/custom-ui/SaveRunActions";
+import {SaveActions, ThreeRunActions} from "@/components/custom-ui/SaveRunActions";
+import * as React from "react";
 
 
 /* ---------- Types ---------- */
@@ -197,11 +200,11 @@ function SlotEditor({
             type="text"
             value={String(value ?? "")}
             onChange={(e) => updateField(slot, key, e.target.value)}
-            style={{ width: "100%" }}
+            style={{width: "100%"}}
           />
           <datalist id="generator-prompts">
             {GENERATOR_PROMPTS.map((w) => (
-              <option key={w} value={w} />
+              <option key={w} value={w}/>
             ))}
           </datalist>
         </>
@@ -216,11 +219,11 @@ function SlotEditor({
             type="text"
             value={String(value ?? "")}
             onChange={(e) => updateField(slot, key, e.target.value)}
-            style={{ width: "100%" }}
+            style={{width: "100%"}}
           />
           <datalist id="embedding-query-prompts">
             {EMBEDDING_QUERY_PROMPTS.map((w) => (
-              <option key={w} value={w} />
+              <option key={w} value={w}/>
             ))}
           </datalist>
         </>
@@ -235,11 +238,11 @@ function SlotEditor({
             type="text"
             value={String(value ?? "")}
             onChange={(e) => updateField(slot, key, e.target.value)}
-            style={{ width: "100%" }}
+            style={{width: "100%"}}
           />
           <datalist id="bm25-query-prompts">
             {BM25_QUERY_PROMPTS.map((w) => (
-              <option key={w} value={w} />
+              <option key={w} value={w}/>
             ))}
           </datalist>
         </>
@@ -254,11 +257,11 @@ function SlotEditor({
             type="text"
             value={String(value ?? "")}
             onChange={(e) => updateField(slot, key, e.target.value)}
-            style={{ width: "100%" }}
+            style={{width: "100%"}}
           />
           <datalist id="reasoner-query-prompts">
             {REASONER_QUERY_PROMPTS.map((w) => (
-              <option key={w} value={w} />
+              <option key={w} value={w}/>
             ))}
           </datalist>
         </>
@@ -273,11 +276,11 @@ function SlotEditor({
             type="text"
             value={String(value ?? "")}
             onChange={(e) => updateField(slot, key, e.target.value)}
-            style={{ width: "100%" }}
+            style={{width: "100%"}}
           />
           <datalist id="generator-query-prompts">
             {GENERATOR_QUERY_PROMPTS.map((w) => (
-              <option key={w} value={w} />
+              <option key={w} value={w}/>
             ))}
           </datalist>
         </>
@@ -285,6 +288,7 @@ function SlotEditor({
     }
 
     return (
+
       <input
         type="text"
         value={String(value)}
@@ -295,25 +299,50 @@ function SlotEditor({
 
   // Typed fallback (only relevant for non-generator slots)
   const typeToUse: RetrieverType = selectedType ?? RETRIEVER_TYPES[0];
-
   return (
-    <div style={{ border: "1px solid #eee", padding: 12 }}>
-      <h3 style={{ marginTop: 0 }}>{label}</h3>
+    <div
+      className={cn(
+        "rounded-xl border border-border/70 shadow-sm",
+        // parent padding + layout
+        "p-4",
+        // parent texture (neutral)
+        "[background-image:linear-gradient(135deg,rgba(0,0,0,0.03)_0%,rgba(0,0,0,0)_35%,rgba(0,0,0,0.04)_70%,rgba(0,0,0,0)_100%),radial-gradient(900px_200px_at_20%_0%,rgba(255,255,255,0.6),rgba(255,255,255,0)_60%)]",
+        "dark:[background-image:linear-gradient(135deg,rgba(255,255,255,0.04)_0%,rgba(255,255,255,0)_35%,rgba(255,255,255,0.05)_70%,rgba(255,255,255,0)_100%),radial-gradient(900px_200px_at_20%_0%,rgba(255,255,255,0.08),rgba(255,255,255,0)_60%)]",
+      )}
+    >
+      {/* Header: centered fancy label (in normal flow) */}
+      <div className="flex justify-center mb-3">
+        <div className="relative">
+          <div
+            aria-hidden="true"
+            className={cn(
+              "pointer-events-none absolute -inset-3 rounded-full",
+              "[background-image:radial-gradient(90px_30px_at_50%_50%,rgba(59,130,246,0.28),rgba(59,130,246,0)_70%)]",
+              "opacity-80 dark:opacity-60",
+            )}
+          />
+          <Badge
+            variant="outline"
+            className={cn(
+              "rounded-full px-4 py-1.5",
+              "bg-background/95 backdrop-blur",
+              "border-border/70 shadow-md",
+              "text-foreground tracking-wide",
+            )}
+          >
+            {label}
+          </Badge>
+        </div>
+      </div>
 
       {/* Selector / Add */}
-      <div
-        style={{
-          display: "flex",
-          gap: 8,
-          alignItems: "center",
-          marginBottom: 12,
-        }}
-      >
+      <div className="flex flex-wrap items-center gap-2 mb-3">
         {slot !== "generator" ? (
           <>
             <select
               value={typeToUse}
               onChange={(e) => setSelectedType(e.target.value as RetrieverType)}
+              className="h-9 rounded-md border bg-background px-2 text-sm"
             >
               {RETRIEVER_TYPES.map((t) => (
                 <option key={t} value={t}>
@@ -322,32 +351,67 @@ function SlotEditor({
               ))}
             </select>
 
-            <button onClick={() => setSlot(slot, createRetriever(typeToUse))}>
+            <Button
+              type="button"
+              onClick={() => setSlot(slot, createRetriever(typeToUse))}
+              size="sm"
+            >
               {hasMethod ? `Replace ${slot}` : `Add ${slot}`}
-            </button>
+            </Button>
           </>
         ) : (
-          <button onClick={() => setSlot(slot, structuredClone(GENERATOR_TEMPLATE))}>
+          <Button
+            type="button"
+            onClick={() => setSlot(slot, structuredClone(GENERATOR_TEMPLATE))}
+            size="sm"
+          >
             {hasMethod ? `Replace ${slot}` : `Add ${slot}`}
-          </button>
+          </Button>
         )}
       </div>
 
-      {/* Method box (collapsible) */}
-      {hasMethod && method && (
-        <div style={{ marginTop: 12 }}>
-          <FlexibleMethodCard
-            method={method}
-            onDelete={() => setSlot(slot, null)}
-            renderValue={(key, value) => renderField(key, value)}
-            onColorChange={(next) => updateField(slot, "color", next)}
-            defaultOpen={false}
-          />
+      {/* BLUE method container */}
+      <div
+        className={cn(
+          "relative w-full rounded-xl overflow-hidden",
+          "border border-blue-500/25 ring-1 ring-blue-500/25 shadow-sm",
+        )}
+      >
+        {/* blue inner texture */}
+        <div
+          aria-hidden="true"
+          className={cn(
+            "pointer-events-none absolute inset-0 rounded-xl z-0",
+            "outline outline-1 outline-blue-500/20 outline-offset-[-6px]",
+            "[background-image:linear-gradient(135deg,rgba(59,130,246,0.07)_0%,rgba(59,130,246,0)_35%,rgba(59,130,246,0.06)_70%,rgba(59,130,246,0)_100%),radial-gradient(1200px_260px_at_20%_0%,rgba(255,255,255,0.40),rgba(255,255,255,0)_60%),radial-gradient(800px_260px_at_80%_100%,rgba(0,0,0,0.08),rgba(0,0,0,0)_55%)]",
+            "dark:[background-image:linear-gradient(135deg,rgba(59,130,246,0.10)_0%,rgba(59,130,246,0)_35%,rgba(59,130,246,0.08)_70%,rgba(59,130,246,0)_100%),radial-gradient(1200px_260px_at_20%_0%,rgba(255,255,255,0.10),rgba(255,255,255,0)_60%),radial-gradient(800px_260px_at_80%_100%,rgba(0,0,0,0.25),rgba(0,0,0,0)_55%)]",
+          )}
+        />
+
+        <div
+          className="pointer-events-none absolute left-3 right-3 top-2 h-px bg-gradient-to-r from-transparent via-blue-500/25 to-transparent"/>
+
+        <div className="relative z-10 p-4">
+          {hasMethod && method ? (
+            <FlexibleMethodCard
+              method={method}
+              onDelete={() => setSlot(slot, null)}
+              renderValue={(key, value) => renderField(key, value)}
+              onColorChange={(next) => updateField(slot, "color", next)}
+              defaultOpen={false}
+            />
+          ) : (
+            <div className="text-sm text-muted-foreground">
+              No {slot} yet — add one above.
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
+
+
 
 
 
@@ -397,8 +461,6 @@ export function MainPipelineEditor({
 
   return (
     <div style={{display: "flex", flexDirection: "column", height: "100%"}}>
-      <h2>Main Pipeline</h2>
-
       <div
         style={{
           flex: 1,
@@ -413,15 +475,24 @@ export function MainPipelineEditor({
           style={{
             display: "flex",
             justifyContent: "flex-end",
+            alignItems: "center",
+            gap: 8,              // spacing between buttons
             marginBottom: 12,
           }}
         >
+          <ThreeRunActions
+            runConversion={() => run("conversion")}
+            runChunking={() => run("chunking")}
+            runRetrieval={() => run("retrieval")}
+          />
+
           <SaveActions
             addFunction={addPipeline}
             pipelineJson={JSON.stringify(pipeline)}
             saveLabel="Main Pipeline"
           />
         </div>
+
 
         {/* editors area */}
         <div style={{flex: 1, minHeight: 0, overflow: "auto"}}>
@@ -431,6 +502,7 @@ export function MainPipelineEditor({
               gridTemplateColumns: "1fr 1fr 1fr",
               gap: 12,
               width: "100%",
+              alignItems: "start",
             }}
           >
             <SlotEditor

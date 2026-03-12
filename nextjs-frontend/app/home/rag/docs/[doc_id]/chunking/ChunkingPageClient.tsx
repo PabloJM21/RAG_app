@@ -7,7 +7,7 @@ import { RunButton } from "@/components/custom-ui/RunButton";
 import { SaveButton } from "@/components/custom-ui/SaveButton";
 
 
-import { EvaluatorEditor } from "@/components/Editors/EvaluatorEditor";
+import { EvaluatorSettingsCard } from "@/components/Editors/EvaluatorEditor";
 import { ChunkingEditor } from "@/components/Editors/ChunkingEditor";
 import {PipelineTabsBar} from "@/components/custom-ui/PipelineTabsBar";
 import {SaveRunActions} from "@/components/custom-ui/SaveRunActions";
@@ -24,7 +24,13 @@ type RoutingEditorProps = {
 
 function RoutingEditor({ pipelineKey, methods, onChange }: RoutingEditorProps) {
   if (pipelineKey === "evaluator") {
-    return <EvaluatorEditor method={methods} onChange={onChange} />;
+    return (
+      <EvaluatorSettingsCard
+        methods={methods}
+        onChange={onChange}
+        type="Chunking"
+      />
+    );
   }
 
   if (/^\d+$/.test(pipelineKey)) {
@@ -33,6 +39,7 @@ function RoutingEditor({ pipelineKey, methods, onChange }: RoutingEditorProps) {
 
   return null;
 }
+
 
 function nextPipelineId(pipelines: PipelineSpec): string {
   const numericKeys = Object.keys(pipelines).filter((k) => /^\d+$/.test(k));

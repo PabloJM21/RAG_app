@@ -231,13 +231,15 @@ class BaseRetriever:
 
         return out
 
-    @staticmethod
-    def update_output_dict(retrieval_dict, output_dict):
+
+    def update_output_dict(self, retrieval_dict, output_dict):
 
         # add the doc_ids of the retrieved chunks to the output_dict
         output_dict["doc_id"] = []
         for i, retrieval_id in enumerate(retrieval_dict["retrieval_id"]):
-            if retrieval_id in output_dict["retrieval_id"]:
+            #self.logger.log_step(task="info_text", log_text=f"Is ID {retrieval_id} in {output_dict["retrieval_id"]}?")
+            if str(retrieval_id) in output_dict["retrieval_id"]:
+                #self.logger.log_step(task="info_text",log_text=f"Yes")
                 output_dict["doc_id"].append(retrieval_dict["doc_id"][i])
 
     @staticmethod
@@ -305,8 +307,8 @@ class BaseRetriever:
         if retrieval_ids:
             where = {"user_id": self.user_id, "retrieval_id": retrieval_ids}
 
-            self.logger.log_step(task="info_text", layer=1, log_text=f"Getting content, input size: {len(retrieval_ids)} Chunks")
-            self.logger.log_step(task="info_text", layer=1, log_text=f"Getting (unique) content, input size: {len(set(retrieval_ids))} Chunks")
+            #self.logger.log_step(task="info_text", layer=1, log_text=f"Getting content, input size: {len(retrieval_ids)} Chunks")
+            #self.logger.log_step(task="info_text", layer=1, log_text=f"Getting (unique) content, input size: {len(set(retrieval_ids))} Chunks")
 
             retrieval_rows, columns = await Retrieval.get_all(
                 columns=["retrieval_id", "content"],
@@ -314,8 +316,7 @@ class BaseRetriever:
                 db=self.db,
             )
 
-            self.logger.log_step(task="info_text", layer=1,
-                                 log_text=f"Getting content, output size: {len(retrieval_rows)} Chunks")
+            #self.logger.log_step(task="info_text", layer=1, log_text=f"Getting content, output size: {len(retrieval_rows)} Chunks")
 
 
 
@@ -395,6 +396,13 @@ class BaseRetriever:
             db=self.db,
         )
 
+        # convert retrieval_id to string, to allow comparability
+        """
+        for row in retrieval_rows:
+            row = dict(row) # detach ORM object
+            row["retrieval_id"] = str(row["retrieval_id"])
+            """
+
         return self.rows_to_columns(retrieval_rows)
 
 
@@ -469,9 +477,12 @@ class BaseRetriever:
         self.logger.log_step(task="info_text", layer=1, log_text=f"Retrieving {self.k} out of {len(retrieval_dict["retrieval_id"])} Chunks")
 
         # call to child method
+        #self.logger.log_step(task="info_text", layer=1, log_text=f"Input dict:\n{retrieval_dict}")
+
         retrieval_output_ids = await self.run_retriever(query, retrieval_dict)
         output_dict = {"retrieval_id": retrieval_output_ids}
 
+        #self.logger.log_step(task="info_text", layer=1, log_text=f"Output IDs:\n{retrieval_output_ids}")
         # output_dict = {"retrieval_id": retrieval_output_dict["retrieval_id"]}
 
 
@@ -643,7 +654,7 @@ class EmbeddingRetriever(BaseRetriever):
 
 
 
-        self.logger.log_step(log_text=f"Embedding the retrieval input of each {self.level}")
+        #self.logger.log_step(log_text=f"Embedding the retrieval input of each {self.level}")
 
         retrieval_dict = await self._filter_content(filter_ids)
 
@@ -976,9 +987,10 @@ async def run_retrieval(query: str, retrieval_dict: Dict[str, Any], user_id: UUI
         router_method.update({"logger": session_logger, "user_id": user_id, "db": db})
         router_instance = TYPE_MAPPER[router_type](**router_method)
 
+
         router_dict = await router_instance.run_retrieval(query=query)
 
-        session_logger.log_step(task="info_text", layer=2, log_text=f"Finishing Routing Pipeline")
+        #session_logger.log_step(task="info_text", layer=2, log_text=f"Finishing Routing Pipeline. Obtained following dict:\n{router_dict}")
 
         input_ids = router_dict["retrieval_id"]
 
@@ -1082,13 +1094,17 @@ async def run_retrieval(query: str, retrieval_dict: Dict[str, Any], user_id: UUI
 
 
     output_content = await get_content(user_id=user_id, retrieval_ids=output_ids, db=db)
+    #session_logger.log_step(task="info_text", log_text=f"Input content for generator: \n{output_content}")
     chunk_list = output_content["content"]
 
     # pass chunks and query to generator
     generator_type = generator_method.pop("type")
     generator_method.update({"logger": session_logger, "user_id": user_id, "db": db})
     generator_instance = TYPE_MAPPER[generator_type](**generator_method)
+
+    session_logger.log_step(task="info_text", layer=1, log_text=f"Starting generator call")
     output_answer = await generator_instance.run_generation(query=query, input_chunks=chunk_list)
+    session_logger.log_step(task="info_text", layer=2, log_text=f"Finishing generator call. Output answer:\n{output_answer}")
 
     session_logger.log_step(task="header_2", layer=2, log_text=f"Final Results")
 

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { SaveRunActions } from "@/components/custom-ui/SaveRunActions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FlexibleMethodCard } from "@/components/custom-ui/FlexibleMethodCard";
+import {MethodsContainerCard} from "@/components/custom-ui/Containers";
 
 /* ---------- Domain options ---------- */
 
@@ -143,35 +144,20 @@ export function ConversionEditor({
       </div>
 
       {/* Methods container */}
-      <Card className="border-2 border-blue-500/60 rounded-xl w-fit max-w-full min-h-0">
-        <CardHeader className="py-3">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Pipeline</CardTitle>
-        </CardHeader>
 
-        <CardContent className="pt-0 h-full min-h-0">
-          <div className="h-full min-h-0 overflow-x-auto overflow-y-hidden pb-2">
-            <div className="flex gap-4 min-w-max">
-              {pipeline.map((m, index) => (
-                <div key={index} style={{ marginTop: 12 }}>
-                  <FlexibleMethodCard
-                    method={m}
-                    onDelete={() => deleteMethod()}
-                    renderValue={(key, value) => renderValueEditor(key, value)}
-                    onColorChange={(next) => updateMethod("color", next)}
-                    defaultOpen={false}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {pipeline.length === 0 && (
-            <div className="text-sm text-muted-foreground mt-2">
-              No methods yet — add one above.
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <MethodsContainerCard
+        title="Pipeline"
+        methods={pipeline}
+        renderMethod={(method, index) => (
+          <FlexibleMethodCard
+            method={method}
+            onDelete={() => deleteMethod()}
+            renderValue={(key, value) => renderValueEditor(key, value)}
+            onColorChange={(next) => updateMethod("color", next)}
+            defaultOpen={false}
+          />
+        )}
+      />
     </section>
   );
 }

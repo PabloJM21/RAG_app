@@ -65,6 +65,14 @@ import type {
   ExportDocPipelineData,
   ExportDocPipelineResponses,
   ExportDocPipelineErrors,
+  LoadDocPipelineData,
+  LoadDocPipelineResponses,
+  LoadDocPipelineErrors,
+  ListDocPipelinesData,
+  ListDocPipelinesResponses,
+  DeleteDocPipelineData,
+  DeleteDocPipelineResponses,
+  DeleteDocPipelineErrors,
   ReadApiKey2Data,
   ReadApiKey2Responses,
   SaveApiKey2Data,
@@ -86,6 +94,14 @@ import type {
   ExportDocPipeline2Data,
   ExportDocPipeline2Responses,
   ExportDocPipeline2Errors,
+  LoadDocPipeline2Data,
+  LoadDocPipeline2Responses,
+  LoadDocPipeline2Errors,
+  ListDocPipelines2Data,
+  ListDocPipelines2Responses,
+  DeleteDocPipeline2Data,
+  DeleteDocPipeline2Responses,
+  DeleteDocPipeline2Errors,
   ReadPipelineData,
   ReadPipelineResponses,
   AddPipelineData,
@@ -109,8 +125,8 @@ import type {
   RunProcessingPipelineData,
   RunProcessingPipelineResponses,
   RunProcessingPipelineErrors,
-  RunConversionPipeline2Data,
-  RunConversionPipeline2Responses,
+  ConvertAllData,
+  ConvertAllResponses,
   ReadChunkingPipelineData,
   ReadChunkingPipelineResponses,
   ReadChunkingPipelineErrors,
@@ -132,8 +148,8 @@ import type {
   ReadMarkdownResultsData,
   ReadMarkdownResultsResponses,
   ReadMarkdownResultsErrors,
-  RunChunkingPipeline2Data,
-  RunChunkingPipeline2Responses,
+  ChunkAllData,
+  ChunkAllResponses,
   ReadExtractionPipelineData,
   ReadExtractionPipelineResponses,
   ReadExtractionPipelineErrors,
@@ -642,12 +658,85 @@ export const exportDocPipeline = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/docs/export/",
+    url: "/docs/pipelines/export/",
     ...options,
     headers: {
       "Content-Type": "application/json",
       ...options.headers,
     },
+  });
+};
+
+/**
+ * Load Doc Pipeline
+ */
+export const loadDocPipeline = <ThrowOnError extends boolean = false>(
+  options: Options<LoadDocPipelineData, ThrowOnError>,
+) => {
+  return (options.client ?? client).post<
+    LoadDocPipelineResponses,
+    LoadDocPipelineErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/docs/pipelines/load/",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * List Doc Pipelines
+ */
+export const listDocPipelines = <ThrowOnError extends boolean = false>(
+  options?: Options<ListDocPipelinesData, ThrowOnError>,
+) => {
+  return (options?.client ?? client).get<
+    ListDocPipelinesResponses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/docs/pipelines/list/",
+    ...options,
+  });
+};
+
+/**
+ * Delete Doc Pipeline
+ */
+export const deleteDocPipeline = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteDocPipelineData, ThrowOnError>,
+) => {
+  return (options.client ?? client).delete<
+    DeleteDocPipelineResponses,
+    DeleteDocPipelineErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/docs/pipelines/{pipeline_id}",
+    ...options,
   });
 };
 
@@ -839,12 +928,85 @@ export const exportDocPipeline2 = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/api_keys/export/",
+    url: "/api_keys/pipelines/export/",
     ...options,
     headers: {
       "Content-Type": "application/json",
       ...options.headers,
     },
+  });
+};
+
+/**
+ * Load Doc Pipeline
+ */
+export const loadDocPipeline2 = <ThrowOnError extends boolean = false>(
+  options: Options<LoadDocPipeline2Data, ThrowOnError>,
+) => {
+  return (options.client ?? client).post<
+    LoadDocPipeline2Responses,
+    LoadDocPipeline2Errors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/api_keys/pipelines/load/",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * List Doc Pipelines
+ */
+export const listDocPipelines2 = <ThrowOnError extends boolean = false>(
+  options?: Options<ListDocPipelines2Data, ThrowOnError>,
+) => {
+  return (options?.client ?? client).get<
+    ListDocPipelines2Responses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/api_keys/pipelines/list/",
+    ...options,
+  });
+};
+
+/**
+ * Delete Doc Pipeline
+ */
+export const deleteDocPipeline2 = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteDocPipeline2Data, ThrowOnError>,
+) => {
+  return (options.client ?? client).delete<
+    DeleteDocPipeline2Responses,
+    DeleteDocPipeline2Errors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/api_keys/pipelines/{pipeline_id}",
+    ...options,
   });
 };
 
@@ -1045,13 +1207,13 @@ export const runProcessingPipeline = <ThrowOnError extends boolean = false>(
 };
 
 /**
- * Run Conversion Pipeline
+ * Convert All
  */
-export const runConversionPipeline2 = <ThrowOnError extends boolean = false>(
-  options?: Options<RunConversionPipeline2Data, ThrowOnError>,
+export const convertAll = <ThrowOnError extends boolean = false>(
+  options?: Options<ConvertAllData, ThrowOnError>,
 ) => {
   return (options?.client ?? client).post<
-    RunConversionPipeline2Responses,
+    ConvertAllResponses,
     unknown,
     ThrowOnError
   >({
@@ -1237,13 +1399,13 @@ export const readMarkdownResults = <ThrowOnError extends boolean = false>(
 };
 
 /**
- * Run Chunking Pipeline
+ * Chunk All
  */
-export const runChunkingPipeline2 = <ThrowOnError extends boolean = false>(
-  options?: Options<RunChunkingPipeline2Data, ThrowOnError>,
+export const chunkAll = <ThrowOnError extends boolean = false>(
+  options?: Options<ChunkAllData, ThrowOnError>,
 ) => {
   return (options?.client ?? client).post<
-    RunChunkingPipeline2Responses,
+    ChunkAllResponses,
     unknown,
     ThrowOnError
   >({

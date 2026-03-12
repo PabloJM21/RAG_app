@@ -15,7 +15,7 @@ from app.rag_apis.chat_api import ChatOrchestrator
 
 # External methods (Enrichers and Filters)
 from app.rag_services.extraction_service import Enricher, Filter
-from app.rag_services.evaluator_service import ChunkerEvaluator, EnricherEvaluator
+from app.rag_services.evaluator_service import ChunkerEvaluator, EnricherEvaluator, evaluation_wrapper
 # -----------------------------------------
 # Docling
 # -----------------------------------------
@@ -94,7 +94,8 @@ from app.models import DocPipelines, Paragraph, Retrieval
 
 
 
-
+import base64
+import binascii
 
 
 
@@ -108,7 +109,6 @@ class ImageConverter:
         self.db = db
         self.logger = logger
 
-        self.image_dict = {}
         self.image_id = 0
         self.prompt = prompt
         self.image_starting_mark = image_starting_mark
@@ -140,30 +140,50 @@ class ImageConverter:
 
 
 
+    @staticmethod
+    def is_valid_base64(s: str) -> bool:
+        if not isinstance(s, str) or not s:
+            return False
+
+        try:
+            # Remove whitespace (base64 often contains newlines)
+            s_clean = "".join(s.split())
+
+            # Validate + decode
+            base64.b64decode(s_clean, validate=True)
+
+            return True
+        except (binascii.Error, ValueError):
+            return False
+
+
+
     async def process_b64_images(self, line):
-        
+
+
         def replace_with_dict(match):
             key = match.group(0)  # the full matched string, e.g. "picture-1.png"
-            image_caption = self.image_dict.get(key, "")  # fallback to "" if not found
+            image_caption = self.image_dict_b64.get(key, "")  # fallback to "" if not found
 
             return image_caption
+
 
         if line.endswith(".png"):
             b64_image = re.sub(r"picture-\d+\.png", replace_with_dict, line)
 
 
+            if self.is_valid_base64(b64_image):
+                #start = time.time()
+                response = await self.vision_client.describe(b64_image, question=self.prompt, label="vision_only")
+                #end = time.time()
 
-            start = time.time()
-            response = await self.vision_client.describe(b64_image, question=self.prompt, label="vision_only")
-            end = time.time()
+                pattern = r"\*\*Main Object:\*\*(.*?)\*\*Text Captions:\*\*"
+                match = re.search(pattern, response, flags=re.DOTALL)
+                if match:
+                    content = match.group(1).strip()
+                    #self.logger.log_step(task="info_text", layer=1, log_text=f"Generated following Image Content in {round(end - start, 2)} seconds:\n\n {content}")
 
-            pattern = r"\*\*Main Object:\*\*(.*?)\*\*Text Captions:\*\*"
-            match = re.search(pattern, response, flags=re.DOTALL)
-            if match:
-                content = match.group(1).strip()
-                #self.logger.log_step(task="info_text", layer=1, log_text=f"Generated following Image Content in {round(end - start, 2)} seconds:\n\n {content}")
-
-                return f"{self.image_starting_mark}\n" + content + f"\n{self.image_ending_mark}"
+                    return f"{self.image_starting_mark}\n" + content + f"\n{self.image_ending_mark}"
 
 
         return line
@@ -261,7 +281,7 @@ class CustomConverter(BaseConverter):
             self.image_converter.init_b64_image_dict(images)
             end = time.time()
 
-            self.logger.log_step(task="info_text", layer=1, log_text=f"Images converted to text in {round(end - start, 2)} seconds")
+            self.logger.log_step(task="info_text", layer=1, log_text=f"b64 fict initiated in {round(end - start, 2)} seconds")
 
         else:
             before = len(md_text)
@@ -293,11 +313,7 @@ class CustomConverter(BaseConverter):
                 line = await self.image_converter.process_b64_images(line) # self.image_converter.process_images(line)
 
 
-
-
             output_dict["text"] += f"{line}\n"
-
-
 
 
         return output_dict["text"]
@@ -463,7 +479,28 @@ class ItemEnricher:
     # INTERNAL HELPERS
     # ============================================================
 
+    @staticmethod
+    def unwrap_answer(chat_output):
+        # Not a dict → just stringify
+        if not isinstance(chat_output, dict):
+            return str(chat_output)
 
+        # Case 1: direct Output string
+        output = chat_output.get("Output")
+        if isinstance(output, str):
+            return output
+
+        # Case 2: schema-style nested description
+        props = chat_output.get("properties", {})
+        if isinstance(props, dict):
+            nested = props.get("Output", {})
+            if isinstance(nested, dict):
+                description = nested.get("description")
+                if isinstance(description, str):
+                    return description
+
+        # Fallback
+        return str(chat_output)
 
     async def init_clients(self):
         user_key_list = await get_user_api_keys(user_id=self.user_id, base_api="https://chat-ai.academiccloud.de/v1",
@@ -489,7 +526,7 @@ class ItemEnricher:
                 self.chat_orchestrator.call(label=self.model, system_prompt=system_prompt,
                                             user_prompt=user_prompt))
 
-        return output_dict["Output"]
+        return self.unwrap_answer(output_dict)
 
     def _enrich_chunk(self, chunk: str) -> str:
         # Qwen3-Coder is explicitly an instruction-tuned coder model, so its usage profile lines up with OpenAIs mini line
@@ -503,7 +540,7 @@ class ItemEnricher:
                             "type": "object",
                             "properties": {{
                                 "Output": {{
-                                    "title": "Structured Output",
+                                    "title": "Output",
                                     "description": {self.prompt},
                                     "type": "string"
                                 }}
@@ -660,12 +697,18 @@ class ItemFilter:
         self.chat_orchestrator: Optional[ChatOrchestrator] = None
         self.do_history = history
         self.history: list[dict[str, Any]] = []
-        self.system_prompt = self._get_system_prompt()
 
-
-
-
-
+    @staticmethod
+    def extract_bool(s):
+        try:
+            x = json.loads(s.lower() if isinstance(s, str) else s)
+            if isinstance(x, bool): return x
+            if isinstance(x, dict): return next(v for v in x.values() if isinstance(v, bool))
+        except:
+            pass
+        m = re.search(r'\btrue\b|\bfalse\b', str(s), re.I)
+        if m: return m.group(0).lower() == "true"
+        raise ValueError("No boolean found")
 
 
 
@@ -678,23 +721,25 @@ class ItemFilter:
 
     def _call_orchestrator(self, user_prompt, system_prompt):
         if self.do_history:
-            output_dict = json.loads(
-                self.chat_orchestrator.call_with_history(label=self.model, system_prompt=system_prompt,
-                                                         user_prompt=user_prompt, history=self.history))
+
+            chat_output = self.chat_orchestrator.call_with_history(label=self.model, system_prompt=system_prompt,
+                                                                   user_prompt=user_prompt, history=self.history)
+
+            # self.logger.log_step(task="info_text", log_text=f"Unwrapping following answer: {chat_output}")
+            output_bool = self.extract_bool(chat_output)
 
             # update history list with user and assistant input of the new call
             self.history += [{"role": "user", "content": user_prompt},
-                             {"role": "assistant", "content": output_dict["Boolean"]}]
+                             {"role": "assistant", "content": str(output_bool)}]
 
         else:
-            output_dict = json.loads(
-                self.chat_orchestrator.call(label=self.model, system_prompt=system_prompt,
-                                            user_prompt=user_prompt))
+            chat_output = self.chat_orchestrator.call(label=self.model, system_prompt=system_prompt,
+                                                      user_prompt=user_prompt)
+            # self.logger.log_step(task="info_text", log_text=f"Unwrapping following answer: {chat_output}")
 
-        return output_dict["Boolean"]
+            output_bool = self.extract_bool(chat_output)
 
-
-
+        return output_bool
 
     def _decide_relevance(self, input_chunk):
         """
@@ -703,31 +748,33 @@ class ItemFilter:
         """
 
         system_prompt = f"""
-                        You are an assistant that must always respond in valid JSON following this schema:
+                            You are an assistant that must always respond in valid JSON following this schema:
 
-                        {{  
-                            "title": "Json",
-                            "description": "Structured Json",
-                            "type": "object",
-                            "properties": {{
-                                "Boolean": {{
-                                    "title": "Boolean",
-                                    "description": {self.prompt},
-                                    "type": "Boolean"
-                                }}
-                            }}  
-                        }}   
-
-                """
-
-        user_prompt = f"""
-                    Analyze the content of following CHUNK and generate the specified Boolean. 
-
-                    CHUNK:
-                    ---
-                    {input_chunk}
+                            {{  
+                                "title": "Json",
+                                "description": "Structured Json",
+                                "type": "object",
+                                "properties": {{
+                                    "Boolean": {{
+                                        "title": "Boolean",
+                                        "description": {self.prompt},
+                                        "type": "Boolean"
+                                    }}
+                                }}  
+                            }}   
 
                     """
+
+        user_prompt = f"""
+                        Analyze the content of following CHUNK and generate the specified Boolean. 
+
+                        CHUNK:
+                        ---
+                        {input_chunk}
+
+                        """
+
+        # self.logger.log_step(task="info_text", layer=1, log_text=f"Starting to filter following chunk: {input_chunk}")
 
         bool_output = self._call_orchestrator(user_prompt, system_prompt)
 
@@ -1081,7 +1128,7 @@ class ChunkingEnricher:
 
 
         specific_prompt = f"""Output: {{
-                                    "title": "Structured Output",
+                                    "title": "Output",
                                     "description": {self.prompt},
                                     "type": "string"
                                     }}"""
@@ -1311,15 +1358,18 @@ class ChunkingFilter:
             is_relevant = self.filter_image_content(content)
 
             if not is_relevant:
+                self.logger.log_step(task="info_text", log_text=f"Chunk not relevant:\n {content}")
                 irrelevant_ids.append(input_id)
                 await Retrieval.delete_data(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level_id": input_id, "level": self.level}, db=self.db)
 
 
-
+        self.logger.log_step(task="info_text", log_text=f"Obtained irrelevant_ids:\n {irrelevant_ids}")
         # Finally we update chunk_array
         for i, chunk_dict in enumerate(chunk_array):
             if chunk_dict[f"{self.level}_id"] in irrelevant_ids:
                 chunk_array.pop(i)
+            else:
+                self.logger.log_step(task="info_text", log_text=f"chunk {i} is relevant")
 
         return chunk_array
 
@@ -1586,7 +1636,244 @@ EVALUATOR_TYPE_MAPPER = {
     "Enriching": EnricherEvaluator,
 }
 
+
+
+
 async def run_chunking(pipelines: dict[str, list[dict[str, Any]]], user_id: UUID, doc_id: UUID, db: AsyncSession):
+    _, input_path = await get_doc_paths(user_id, doc_id, db=db)
+    log_path = await get_log_path(user_id, stage="chunking")
+    session_logger = InfoLogger(log_path=log_path, stage="chunking")
+    doc_title = await get_doc_title(user_id, doc_id, db=db)
+    session_logger.log_step(task="header_1", log_text=f"Starting Chunking for document: {doc_title}")
+
+    evaluator_args = {"user_id": user_id, "doc_id": doc_id, "db": db, "session_logger": session_logger}
+    runner_args = {"user_id": user_id, "doc_id": doc_id, "db": db, "session_logger": session_logger,
+                   "input_path": input_path, "doc_title": doc_title}
+
+    await evaluation_wrapper(pipelines=pipelines, evaluator_args=evaluator_args, runner_args=runner_args,
+                             session_logger=session_logger, log_path=log_path, runner_fn=run_chunking_pipeline)
+
+
+
+
+
+
+
+
+# Run each Pipeline
+
+CHUNKING_TYPE_MAPPER = {
+    "Paragraph Chunker": ParagraphChunker,
+    "Hybrid Chunker": HybridChunker,
+    "Sliding Window Chunker": SlidingChunker,
+    "Enricher": ChunkingEnricher,
+    "Filter": ChunkingFilter,
+}
+
+async def run_chunking_pipeline(method_list: list[dict[str, Any]], user_id: UUID, doc_id: UUID, db: AsyncSession, session_logger: InfoLogger, session_evaluator: ChunkerEvaluator, input_path: str, doc_title: str):
+
+    def insert_past_levels(method_list):
+       """
+       Aimed at "Enricher" and "Filter" methods
+       """
+       first_method = method_list[0]
+       if first_method["type"] in ["Enricher", "Filter"]:
+           first_method["level_name"] = "document"
+
+       for i in range(1, len(method_list)):
+           method = method_list[i]
+           if method["type"] in ["Enricher", "Filter"]:
+               method["level_name"] = method_list[i-1]["level_name"]
+
+       # finally change level key to match the Enricher/Filter class
+       for method in method_list:
+           if method["type"] in ["Enricher", "Filter"] and "level_name" in method:
+               method["where"] = method.pop("level_name")
+
+       return method_list
+
+
+
+
+    # LIMIT Chunking iterations
+    method_limit = 2
+
+    # Delete previous occurrences of this doc in the "Retrievals" table
+    await Retrieval.delete_data({"user_id": user_id, "doc_id": doc_id}, db)
+
+    async def generate_offspring(input_chunks, input_method):
+        output_chunks = []
+        for input_chunk in input_chunks:
+
+            new_chunks = await input_method.run_text_chunking(input_chunk)
+            output_chunks += new_chunks
+
+        return output_chunks
+
+
+    # insert levels of previous chunker/method to each Enricher/Filter
+    method_list = insert_past_levels(method_list)
+
+    first_method = method_list.pop(0)
+    first_method.pop("color", None)
+    method_type = first_method.pop("type")
+    first_method.update({"logger": session_logger, "evaluator": session_evaluator, "user_id": user_id, "doc_id": doc_id, "db": db, "doc_title": doc_title})
+
+    #session_logger.log_step(task="info_text", log_text=f"Attempting to init first method for user: {user_id}")
+    method_instance = CHUNKING_TYPE_MAPPER[method_type](**first_method)
+
+
+    # Record Pipeline Start
+    pipeline_start = time.time()
+
+    # apply first chunker to the document at this path
+    doc_start = time.time()
+    old_chunk_array = await method_instance.run_doc_chunking(input_path)
+    doc_end = time.time()
+
+    session_logger.log_step(task="info_text", layer=2, log_text=f"Chunking at {first_method["level_name"]} level completed in {round(doc_end - doc_start, 2)} seconds ")
+
+
+
+    new_chunk_array = []
+
+
+    for i, method in enumerate(method_list):
+        method.pop("color", None)
+        # New Chunking Method
+        method_type = method.pop("type")
+
+        # We don't evaluate these methods (not propper chunkers)
+        if method_type in ["Enricher", "Filter"]:
+            method.update({"logger": session_logger, "user_id": user_id, "doc_id": doc_id, "db": db})
+
+            # Instance new method
+            method_instance = CHUNKING_TYPE_MAPPER[method_type](**method)
+
+            text_start = time.time()
+            new_chunk_array = await method_instance.run_method(old_chunk_array)
+            text_end = time.time()
+
+            session_logger.log_step(task="info_text", layer=2, log_text=f"{method_type} step at {method["where"]} level completed in {round(text_end - text_start, 2)} seconds ")
+
+
+
+        else:
+            if session_evaluator:
+                session_evaluator.current_level = method["level_name"]
+
+            method.update({"logger": session_logger, "evaluator": session_evaluator, "user_id": user_id, "doc_id": doc_id, "db": db, "doc_title": doc_title})
+
+            # Instance new method
+            method_instance = CHUNKING_TYPE_MAPPER[method_type](**method)
+            session_logger.log_step(task="info_text", log_text="Can we generate offspring?")
+
+            # Generate offspring based on past generation of chunks
+            text_start = time.time()
+            new_chunk_array = await generate_offspring(old_chunk_array, method_instance)
+            text_end = time.time()
+
+            session_logger.log_step(task="info_text", layer=2, log_text=f"Chunking at {method["level_name"]} level completed in {round(text_end - text_start, 2)} seconds ")
+
+            # Commit evaluation of method
+            #if session_evaluator:
+                #session_evaluator.commit_evaluation()
+
+
+
+        if i+2 > min(method_limit, len(method_list)): break
+
+        old_chunk_array = new_chunk_array
+
+
+    pipeline_end = time.time()
+
+    # Commit pipeline evaluation
+    if session_evaluator:
+        session_evaluator.commit_evaluation()
+
+
+    # After all chunking iterations, we introduce the latest new_chunks into the "Paragraphs" table with all recorded level IDs
+    session_logger.log_step(task="info_text", layer=2, log_text=f"Completed chunking in {round(pipeline_end - pipeline_start, 2)} seconds")
+
+
+    # First delete previous occurrences of this doc in the table
+    await Paragraph.delete_data({"user_id": user_id, "doc_id": doc_id}, db)
+
+    #session_logger.log_step(task="table", layer=1, log_text=f"Inserting following data into the Paragraphs table", table_data=new_chunk_array)
+
+    for chunk_dict in new_chunk_array:
+        #session_logger.log_step(task="info_text", log_text=f"Inserting dict: {chunk_dict}")
+        await Paragraph.insert_paragraphs(data_dict=chunk_dict, db=db)
+
+
+
+
+
+
+
+# Levels
+
+
+async def load_chunking_levels(user_id: UUID, doc_id: UUID, db: AsyncSession)-> List[str]:
+
+
+
+    rows, columns = await Retrieval.get_all(where_dict={"user_id": user_id, "doc_id": doc_id}, db=db)
+    retrieval_df = pd.DataFrame(rows, columns=columns)
+
+    chunking_levels = list(set(retrieval_df["level"]))
+
+    return chunking_levels
+
+
+
+# Results
+
+
+async def load_chunking_results(user_id: UUID, doc_id: UUID, db: AsyncSession)-> List[Dict[str, Any]]:
+
+
+
+    rows, columns = await Retrieval.get_all(where_dict={"user_id": user_id, "doc_id": doc_id}, db=db)
+    retrieval_df = pd.DataFrame(rows, columns=columns)
+
+    indexed_levels = list(set(retrieval_df["level"]))
+
+    output_list = []
+    for level in indexed_levels:
+        level_mask = retrieval_df["level"] == level
+        item_list = retrieval_df.loc[level_mask, ["retrieval_id", "title", "content"]].to_dict(orient="records")
+
+        output_list.append({"level": level, "items": item_list})
+
+    return output_list
+
+
+
+
+async def update_chunking_results(user_id: UUID, db: AsyncSession, result_list: List[Dict[str, Any]]):
+
+
+    df0 = pd.DataFrame(result_list).explode("items", ignore_index=True)
+    df = df0.drop(columns=["items"]).join(pd.json_normalize(df0["items"]))
+
+    input_list = df.to_dict(orient="records")
+
+    for row in input_list:
+        # we only need to add the user_id, as row already contains the pk "retrieval_id"
+        row["user_id"] = user_id
+        data_dict = {"content": row.pop("content")}
+
+        await Retrieval.update_data(data_dict=data_dict, where_dict=row, db=db)
+
+
+
+# MARKDOWN RESULTS
+
+
+"""
+async def run_chunking_old(pipelines: dict[str, list[dict[str, Any]]], user_id: UUID, doc_id: UUID, db: AsyncSession):
 
     _, input_path = await get_doc_paths(user_id, doc_id, db=db)
     log_path = await get_log_path(user_id, stage="chunking")
@@ -1651,254 +1938,4 @@ async def run_chunking(pipelines: dict[str, list[dict[str, Any]]], user_id: UUID
     # Finally we export the logs to md
     await export_logs(log_path)
 
-
-
-
-
-
-
-
 """
-
-_, input_path = await get_doc_paths(user_id, doc_id, db=db)
-log_path = await get_log_path(user_id, stage="chunking")
-session_logger = InfoLogger(log_path=log_path, stage="chunking")
-doc_title = await get_doc_title(user_id, doc_id, db=db)
-session_logger.log_step(task="header_1", log_text=f"Starting Chunking for document: {doc_title}")
-
-
-evaluator_args = {"user_id": user_id, "doc_id": doc_id, "db": db, "session_logger": session_logger}
-runner_args = {"user_id": user_id, "doc_id": doc_id, "db": db, "session_logger": session_logger, "input_path": input_path, "log_path": log_path, "doc_title": doc_title}
-
-
-"""
-
-
-
-
-
-
-
-
-
-
-
-
-# Run each Pipeline
-
-CHUNKING_TYPE_MAPPER = {
-    "Paragraph Chunker": ParagraphChunker,
-    "Hybrid Chunker": HybridChunker,
-    "Sliding Window Chunker": SlidingChunker,
-    "Enricher": ChunkingEnricher,
-    "Filter": ChunkingFilter,
-}
-
-async def run_chunking_pipeline(method_list: list[dict[str, Any]], user_id: UUID, doc_id: UUID, db: AsyncSession, session_logger: InfoLogger, session_evaluator: ChunkerEvaluator, input_path: str, log_path: str, doc_title: str):
-
-    def insert_past_levels(method_list):
-       """
-       Aimed at "Enricher" and "Filter" methods
-       """
-       first_method = method_list[0]
-       if first_method["type"] in ["Enricher", "Filter"]:
-           first_method["level_name"] = "document"
-
-       for i in range(1, len(method_list)):
-           method = method_list[i]
-           if method["type"] in ["Enricher", "Filter"]:
-               method["level_name"] = method_list[i-1]["level_name"]
-
-       # finally change level key to match the Enricher/Filter class
-       for method in method_list:
-           if method["type"] in ["Enricher", "Filter"] and "level_name" in method:
-               method["where"] = method.pop("level_name")
-
-       return method_list
-
-
-
-
-    # LIMIT Chunking iterations
-    method_limit = 2
-
-    # Delete previous occurrences of this doc in the "Retrievals" table
-    await Retrieval.delete_data({"user_id": user_id, "doc_id": doc_id}, db)
-
-    async def generate_offspring(input_chunks, input_method):
-        output_chunks = []
-        for input_chunk in input_chunks:
-
-            new_chunks = await input_method.run_text_chunking(input_chunk)
-            output_chunks += new_chunks
-
-        return output_chunks
-
-
-    # insert levels of previous chunker/method to each Enricher/Filter
-    method_list = insert_past_levels(method_list)
-
-    first_method = method_list.pop(0)
-    method_type = first_method.pop("type")
-    first_method.update({"logger": session_logger, "evaluator": session_evaluator, "user_id": user_id, "doc_id": doc_id, "db": db, "doc_title": doc_title})
-
-    #session_logger.log_step(task="info_text", log_text=f"Attempting to init first method for user: {user_id}")
-    method_instance = CHUNKING_TYPE_MAPPER[method_type](**first_method)
-
-
-    # Record Pipeline Start
-    pipeline_start = time.time()
-
-    # apply first chunker to the document at this path
-    doc_start = time.time()
-    old_chunk_array = await method_instance.run_doc_chunking(input_path)
-    doc_end = time.time()
-
-    session_logger.log_step(task="info_text", layer=2, log_text=f"Chunking at {first_method["level_name"]} level completed in {round(doc_end - doc_start, 2)} seconds ")
-
-
-
-    new_chunk_array = []
-
-
-    for i, method in enumerate(method_list):
-        # New Chunking Method
-        method_type = method.pop("type")
-
-        # We don't evaluate these methods (not propper chunkers)
-        if method_type in ["Enricher", "Filter"]:
-            method.update({"logger": session_logger, "user_id": user_id, "doc_id": doc_id, "db": db, "doc_title": doc_title})
-
-            # Instance new method
-            method_instance = CHUNKING_TYPE_MAPPER[method_type](**method)
-
-            text_start = time.time()
-            new_chunk_array = await method_instance.run_method(old_chunk_array)
-            text_end = time.time()
-
-            session_logger.log_step(task="info_text", layer=2, log_text=f"{method_type} step at {method["level_name"]} level completed in {round(text_end - text_start, 2)} seconds ")
-
-
-
-        else:
-            if session_evaluator:
-                session_evaluator.current_level = method["level_name"]
-
-            method.update({"logger": session_logger, "evaluator": session_evaluator, "user_id": user_id, "doc_id": doc_id, "db": db, "doc_title": doc_title})
-
-            # Instance new method
-            method_instance = CHUNKING_TYPE_MAPPER[method_type](**method)
-            session_logger.log_step(task="info_text", log_text="Can we generate offspring?")
-
-            # Generate offspring based on past generation of chunks
-            text_start = time.time()
-            new_chunk_array = await generate_offspring(old_chunk_array, method_instance)
-            text_end = time.time()
-
-            session_logger.log_step(task="info_text", layer=2, log_text=f"Chunking at {method["level_name"]} level completed in {round(text_end - text_start, 2)} seconds ")
-
-            # Commit evaluation of method
-            #if session_evaluator:
-                #session_evaluator.commit_evaluation()
-
-
-
-        if i+2 > min(method_limit, len(method_list)): break
-
-        old_chunk_array = new_chunk_array
-
-
-    pipeline_end = time.time()
-
-    # Commit pipeline evaluation
-    if session_evaluator:
-        session_evaluator.commit_evaluation()
-
-
-    # After all chunking iterations, we introduce the latest new_chunks into the "Paragraphs" table with all recorded level IDs
-    session_logger.log_step(task="info_text", layer=2, log_text=f"Completed chunking in {round(pipeline_end - pipeline_start, 2)} seconds")
-
-
-    # First delete previous occurrences of this doc in the table
-    await Paragraph.delete_data({"user_id": user_id, "doc_id": doc_id}, db)
-
-    #session_logger.log_step(task="table", layer=1, log_text=f"Inserting following data into the Paragraphs table", table_data=new_chunk_array)
-
-    for chunk_dict in new_chunk_array:
-        #session_logger.log_step(task="info_text", log_text=f"Inserting dict: {chunk_dict}")
-        await Paragraph.insert_paragraphs(data_dict=chunk_dict, db=db)
-
-
-
-
-
-
-
-
-
-
-        
-            
-
-
-
-# Levels
-
-
-async def load_chunking_levels(user_id: UUID, doc_id: UUID, db: AsyncSession)-> List[str]:
-
-
-
-    rows, columns = await Retrieval.get_all(where_dict={"user_id": user_id, "doc_id": doc_id}, db=db)
-    retrieval_df = pd.DataFrame(rows, columns=columns)
-
-    chunking_levels = list(set(retrieval_df["level"]))
-
-    return chunking_levels
-
-
-
-# Results
-
-
-async def load_chunking_results(user_id: UUID, doc_id: UUID, db: AsyncSession)-> List[Dict[str, Any]]:
-
-
-
-    rows, columns = await Retrieval.get_all(where_dict={"user_id": user_id, "doc_id": doc_id}, db=db)
-    retrieval_df = pd.DataFrame(rows, columns=columns)
-
-    indexed_levels = list(set(retrieval_df["level"]))
-
-    output_list = []
-    for level in indexed_levels:
-        level_mask = retrieval_df["level"] == level
-        item_list = retrieval_df.loc[level_mask, ["retrieval_id", "title", "content"]].to_dict(orient="records")
-
-        output_list.append({"level": level, "items": item_list})
-
-    return output_list
-
-
-
-
-async def update_chunking_results(user_id: UUID, db: AsyncSession, result_list: List[Dict[str, Any]]):
-
-
-    df0 = pd.DataFrame(result_list).explode("items", ignore_index=True)
-    df = df0.drop(columns=["items"]).join(pd.json_normalize(df0["items"]))
-
-    input_list = df.to_dict(orient="records")
-
-    for row in input_list:
-        # we only need to add the user_id, as row already contains the pk "retrieval_id"
-        row["user_id"] = user_id
-        data_dict = {"content": row.pop("content")}
-
-        await Retrieval.update_data(data_dict=data_dict, where_dict=row, db=db)
-
-
-
-# MARKDOWN RESULTS
-
-

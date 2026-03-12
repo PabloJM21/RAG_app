@@ -10,6 +10,7 @@ import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import {FlexibleMethodCard} from "@/components/custom-ui/FlexibleMethodCard";
 import {Button} from "@/components/ui/button";
 import {BM25_QUERY_PROMPTS, EMBEDDING_QUERY_PROMPTS, REASONER_QUERY_PROMPTS} from "@/components/frontend_data/Prompts";
+import {MethodsContainerCard} from "@/components/custom-ui/Containers";
 
 
 type MethodSpec = Record<string, any>;
@@ -134,21 +135,23 @@ export function RetrievalEditor({
     // level dropdown (+ rerank)
     if (key === "level") {
       return (
-        <select
-          value={value}
-          onChange={(e) =>
-            updatePipeline(index, key, e.target.value)
-          }
-        >
-          <option value="">—</option>
-          {[...levels, ...RETRIEVER_LEVEL_EXTRA].map(
-            (lvl) => (
-              <option key={lvl} value={lvl}>
-                {lvl}
-              </option>
-            )
-          )}
-        </select>
+        <>
+          <input
+            list="levels"
+            type="text"
+            value={String(value ?? "")}
+            onChange={(e) =>
+              updatePipeline(index, key, e.target.value)
+            }
+            style={{width: "100%"}}
+          />
+
+          <datalist id="levels">
+            {levels.map((lvl) => (
+              <option key={lvl} value={lvl}/>
+            ))}
+          </datalist>
+        </>
       );
     }
 
@@ -313,39 +316,19 @@ export function RetrievalEditor({
       </div>
 
       {/* Methods container (blue border card) */}
-      <Card className="border-2 border-blue-500/60 rounded-xl w-fit max-w-full min-h-0">
-        <CardHeader className="py-3">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            Methods
-          </CardTitle>
-        </CardHeader>
-
-        <CardContent className="pt-0 h-full min-h-0">
-          {/* Horizontal scroll area for the method cards */}
-          <div className="h-full min-h-0 overflow-x-auto overflow-y-hidden pb-2">
-            <div className="flex gap-4 min-w-max">
-              {methods.map((method, index) => (
-                <div style={{ marginTop: 12 }}>
-                  <FlexibleMethodCard
-                    method={method}
-                    onDelete={() => deleteMethod(index)}
-                    renderValue={(key, value) => renderValueEditor(method, index, key, value)}
-                    onColorChange={(next) => updatePipeline(index, "color", next)}
-                    defaultOpen={false}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Empty state */}
-          {methods.length === 0 && (
-            <div className="text-sm text-muted-foreground mt-2">
-              No methods yet — add one above.
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <MethodsContainerCard
+        title="Pipeline"
+        methods={methods}
+        renderMethod={(method, index) => (
+          <FlexibleMethodCard
+            method={method}
+            onDelete={() => deleteMethod(index)}
+            renderValue={(key, value) => renderValueEditor(method, index, key, value)}
+            onColorChange={(next) => updatePipeline(index, "color", next)}
+            defaultOpen={false}
+          />
+        )}
+      />
     </section>
   );
 }

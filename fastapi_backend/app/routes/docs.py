@@ -12,7 +12,7 @@ from sqlalchemy.orm import DeclarativeBase, relationship
 
 from app.database import User, get_async_session, create_db_and_tables
 from app.users import current_active_user
-from app.models import DocPipelines
+from app.models import DocPipelines, ExportedPipelines, Retrieval, Paragraph, Embedding
 
 from typing import List
 from uuid import uuid4
@@ -37,6 +37,9 @@ load_dotenv()
 
 
 from loguru import logger as AgentLogger
+
+
+
 class KeyData(BaseModel):
     base_key: str
     api_key: str
@@ -240,6 +243,13 @@ async def delete_doc(
     if not row:
         raise HTTPException(status_code=404, detail="Doc not found or not authorized")
 
+    # Delete entries in DB tables
+
+    await Retrieval.delete_data({"user_id": user.id, "doc_id": doc_id}, db)
+    await Paragraph.delete_data({"user_id": user.id, "doc_id": doc_id}, db)
+    await Embedding.delete_data({"user_id": user.id, "doc_id": doc_id}, db)
+
+
     # Delete filesystem artifacts
     if row.path:
         file_path = Path(row.path).resolve()
@@ -289,28 +299,151 @@ async def read_doc_list(
 
 
 
-# Store pipelines
 
-"""
 
-@router.get("/pipelines/", response_model=List[DocResponse])
-async def read_pipeline_list(
+
+# ---------- EXPORT PIPELINES ----------
+
+
+class ExportBody(BaseModel):
+    pipelineName: str
+    doc_id: str
+
+
+@router.post("/pipelines/export/")
+async def export_doc_pipeline(
+    body: ExportBody,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
-    rows, _ = await DocPipelines.get_all(columns=["name", "doc_id"], where_dict={"user_id": user.id}, db=db) #"path": None
+    source_id = body.doc_id
+    export_name = body.pipelineName
+
+    row = await DocPipelines.get_row(
+        where_dict={"doc_id": UUID(source_id), "user_id": user.id},
+        db=db,
+    )
+
+    if not row:
+        raise HTTPException(status_code=404, detail="Doc not found or not authorized")
+
+    pipeline_names = ["conversion_pipeline", "processing_pipeline", "chunking_pipeline", "extraction_pipeline", "retrieval_pipeline"]
+
+    output_pipelines = {}
+    for key in pipeline_names:
+        row_pipeline = json.loads(getattr(row, key))
+        if row_pipeline:
+            output_pipelines.update({key: row_pipeline})
+
+
+
+    # insert new pipeline
+    #pipeline = await ExportedPipelines.insert_data()
+    await ExportedPipelines.update_data(
+        data_dict={"pipeline": json.dumps(output_pipelines)}, where_dict={"kind": "document", "name": export_name, "user_id": user.id},
+        db=db,
+    )
+
+    await db.commit()
+    #await db.refresh(pipeline)
+
+    return {"status": "ok"}
+
+
+
+
+
+
+class LoadBody(BaseModel):
+    pipeline_id: str
+    doc_id: str
+
+@router.post("/pipelines/load/")
+async def load_doc_pipeline(
+    body: LoadBody,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+    target_id = body.doc_id
+    pipeline_id = body.pipeline_id
+
+    row = await ExportedPipelines.get_row(
+        where_dict={"pipeline_id": UUID(pipeline_id), "user_id": user.id},
+        db=db,
+    )
+
+    if not row.pipeline:
+        raise HTTPException(status_code=404, detail="Pipeline not found or not authorized")
+
+    pipeline_names = ["conversion_pipeline", "processing_pipeline", "chunking_pipeline", "extraction_pipeline", "retrieval_pipeline"]
+
+    loaded_pipeline: dict = json.loads(row.pipeline)
+
+    output_pipelines = {}
+    for key in pipeline_names:
+        value_dict = loaded_pipeline.get(key)  # dict access
+        if value_dict:  # or `if value is not None` depending on your schema
+            output_pipelines[key] = json.dumps(value_dict)
+
+    await DocPipelines.update_data(
+        data_dict=output_pipelines, where_dict={"doc_id": UUID(target_id), "user_id": user.id},
+        db=db,
+    )
+
+    return {"status": "ok"}
+
+
+
+
+
+class PipelineResponse(BaseModel):
+    pipelineName: str
+    pipeline_id: UUID
+
+
+@router.get("/pipelines/list/", response_model=List[PipelineResponse])
+async def list_doc_pipelines(
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+    rows, _ = await ExportedPipelines.get_all(columns=["pipeline_id", "name"], where_dict={"kind": "document", "user_id": user.id}, db=db) #"path": None
 
     return [
-        DocResponse(
-            name=row["name"],
-            doc_id=row["doc_id"],
+        PipelineResponse(
+            pipeline_id=row["pipeline_id"],
+            pipelineName=row["name"],
         )
         for row in rows
     ]
 
+@router.delete("/pipelines/{pipeline_id}")
+async def delete_doc_pipeline(
+    pipeline_id: UUID,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+    row = await ExportedPipelines.get_row(
+        where_dict={
+            "user_id": user.id,
+            "pipeline_id": pipeline_id,
+        },
+        db=db,
+    )
+
+    if not row:
+        raise HTTPException(status_code=404, detail="API key not found")
+
+
+
+    await db.delete(row)
+    await db.commit()
+
+    return {"message": "Doc Pipeline deleted"}
+
 
 """
 
+OLD
 
 class ExportBody(BaseModel):
     source_id: str
@@ -352,4 +485,4 @@ async def export_doc_pipeline(
 
 
 
-
+"""

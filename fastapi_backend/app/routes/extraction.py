@@ -96,7 +96,7 @@ async def run_extraction_pipeline(
 
 
     # NEXT: Set exported=0
-    row.exported = 0
+    row.exported = False
 
     await db.commit()
 
@@ -140,10 +140,10 @@ async def extract_all(
             # After extraction
 
             # Set extracted=1
-            row.extracted = 1
+            row.extracted = True
 
             # NEXT: Set exported=0
-            row.exported = 0
+            row.exported = False
 
     await db.commit()
 

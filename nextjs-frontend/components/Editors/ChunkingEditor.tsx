@@ -1,9 +1,10 @@
-import {useEffect, useState} from "react";
-import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger} from "@/components/ui/dropdown-menu";
-import {X} from "lucide-react";
+import {useState} from "react";
+
 import {Button} from "@/components/ui/button";
-import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
+
 import {FlexibleMethodCard} from "@/components/custom-ui/FlexibleMethodCard";
+import {MethodsContainerCard} from "@/components/custom-ui/Containers";
+import {FILTER_PROMPTS} from "@/components/frontend_data/Prompts";
 
 type MethodSpec = Record<string, any>;
 
@@ -11,12 +12,11 @@ type MethodSpec = Record<string, any>;
 
 const METHOD_TYPES = ["Paragraph Chunker", "Hybrid Chunker", "Sliding Chunker", "Enricher", "Filter"] as const;
 
-const BOOLEAN_OPTIONS = ["true", "false"];
 
 const ENRICHER_POSITION = ["top", "bottom", "replace"];
 const ENRICHER_MODELS = ["coder", "thinker", "classifier", "generator", "reasoner"]
 const ENRICHER_PROMPTS = ["A fluent and complete version of this chunk in the same language."]
-const FILTER_PROMPTS = ["A boolean that is False if the specified chunk is not scientific text, and True otherwise"]
+
 
 const EMBEDDING_MODELS = [
   "intfloat/e5-mistral-7b-instruct",
@@ -279,39 +279,19 @@ export function ChunkingEditor({
       </div>
 
       {/* Methods container (blue border card) */}
-      <Card className="border-2 border-blue-500/60 rounded-xl w-fit max-w-full min-h-0">
-        <CardHeader className="py-3">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            Pipeline
-          </CardTitle>
-        </CardHeader>
-
-        <CardContent className="pt-0 h-full min-h-0">
-          {/* Horizontal scroll area for the method cards */}
-          <div className="h-full min-h-0 overflow-x-auto overflow-y-hidden pb-2">
-            <div className="flex gap-4 min-w-max">
-              {methods.map((method, index) => (
-                <div style={{ marginTop: 12 }}>
-                  <FlexibleMethodCard
-                    method={method}
-                    onDelete={() => deleteMethod(index)}
-                    renderValue={(key, value) => renderValueEditor(method, index, key, value)}
-                    onColorChange={(next) => updatePipeline(index, "color", next)}
-                    defaultOpen={false}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Empty state */}
-          {methods.length === 0 && (
-            <div className="text-sm text-muted-foreground mt-2">
-              No methods yet — add one above.
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <MethodsContainerCard
+        title="Pipeline"
+        methods={methods}
+        renderMethod={(method, index) => (
+          <FlexibleMethodCard
+            method={method}
+            onDelete={() => deleteMethod(index)}
+            renderValue={(key, value) => renderValueEditor(method, index, key, value)}
+            onColorChange={(next) => updatePipeline(index, "color", next)}
+            defaultOpen={false}
+          />
+        )}
+      />
     </section>
   );
 }

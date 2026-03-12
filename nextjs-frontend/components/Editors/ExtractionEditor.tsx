@@ -1,11 +1,12 @@
 import {useEffect, useState} from "react";
-import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger} from "@/components/ui/dropdown-menu";
-import {X} from "lucide-react";
+
 import {Button} from "@/components/ui/button";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-  import { Table, TableBody, TableRow, TableCell } from "@/components/ui/table";
+
 import {FlexibleMethodCard} from "@/components/custom-ui/FlexibleMethodCard";
+import {MethodsContainerCard} from "@/components/custom-ui/Containers";
+
+import {ENRICHER_PROMPTS, FILTER_PROMPTS} from "@/components/frontend_data/Prompts"
 
 type MethodSpec = Record<string, any>;
 type PipelineSpec = MethodSpec[]
@@ -20,10 +21,8 @@ const EXTRACTOR_CAPTIONS = ["A section title of this document", "Context"]
 
 const ENRICHER_POSITION = ["top", "bottom", "replace"];
 const ENRICHER_MODELS = ["coder", "thinker", "classifier", "generator", "reasoner"]
-const ENRICHER_PROMPTS = ["A concise 1-2 sentence summary of the chunk in the same language.", "A list of 5-7 key topics or entities mentioned in this chunk in the same language.", "A list of 3-5 questions this chunk could answer."]
 const ENRICHER_CAPTIONS = ["Summary", "Key Words", "Hypothetical Questions"]
 
-const FILTER_PROMPTS = ["A boolean that is True if the chunk's content could be study material, and False if it's empty or personal data.", "A boolean that is False if the chunk's content doesn't align with the provided context, and True otherwise"]
 
 /* ---------- Templates ---------- */
 
@@ -166,19 +165,23 @@ export function ExtractionEditor({
       key === "from" || key === "to" || key === "where"
     ) {
       return (
-        <select
-          value={value}
-          onChange={(e) =>
-            updatePipeline(index, key, e.target.value)
-          }
-        >
-          <option value="">—</option>
-          {levels.map((lvl) => (
-            <option key={lvl} value={lvl}>
-              {lvl}
-            </option>
-          ))}
-        </select>
+        <>
+          <input
+            list="levels"
+            type="text"
+            value={String(value ?? "")}
+            onChange={(e) =>
+              updatePipeline(index, key, e.target.value)
+            }
+            style={{width: "100%"}}
+          />
+
+          <datalist id="levels">
+            {levels.map((lvl) => (
+              <option key={lvl} value={lvl}/>
+            ))}
+          </datalist>
+        </>
       );
     }
 
@@ -360,39 +363,19 @@ export function ExtractionEditor({
       </div>
 
       {/* Methods container (blue border card) */}
-      <Card className="border-2 border-blue-500/60 rounded-xl w-fit max-w-full min-h-0">
-        <CardHeader className="py-3">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            Pipeline
-          </CardTitle>
-        </CardHeader>
-
-        <CardContent className="pt-0 h-full min-h-0">
-          {/* Horizontal scroll area for the method cards */}
-          <div className="h-full min-h-0 overflow-x-auto overflow-y-hidden pb-2">
-            <div className="flex gap-4 min-w-max">
-              {methods.map((method, index) => (
-                <div style={{ marginTop: 12 }}>
-                  <FlexibleMethodCard
-                    method={method}
-                    onDelete={() => deleteMethod(index)}
-                    renderValue={(key, value) => renderValueEditor(method, index, key, value)}
-                    onColorChange={(next) => updatePipeline(index, "color", next)}
-                    defaultOpen={false}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Empty state */}
-          {methods.length === 0 && (
-            <div className="text-sm text-muted-foreground mt-2">
-              No methods yet — add one above.
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <MethodsContainerCard
+        title="Pipeline"
+        methods={methods}
+        renderMethod={(method, index) => (
+          <FlexibleMethodCard
+            method={method}
+            onDelete={() => deleteMethod(index)}
+            renderValue={(key, value) => renderValueEditor(method, index, key, value)}
+            onColorChange={(next) => updatePipeline(index, "color", next)}
+            defaultOpen={false}
+          />
+        )}
+      />
     </section>
   );
 }

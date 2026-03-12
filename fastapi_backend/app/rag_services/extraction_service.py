@@ -106,8 +106,6 @@ class Extractor:
         paragraphs_rows, paragraphs_columns = await Paragraph.get_all_paragraphs(columns=[f"{self.input_level}_id", f"{self.output_level}_id"], where_dict={"user_id": self.user_id, "doc_id": self.doc_id}, db=self.db)
         paragraphs_df = pd.DataFrame(paragraphs_rows, columns=paragraphs_columns)
 
-        #self.logger.log_step(task="info_text", log_text=f"Extracted Paragraphs for columns: {paragraphs_columns}")
-        #self.logger.log_step(task="info_text", log_text=f"These are as follows: {paragraphs_rows}")
 
         input_rows, input_columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.input_level}, db=self.db)
         input_rows = [dict(row) for row in input_rows]
@@ -125,10 +123,7 @@ class Extractor:
 
 
 
-
-
         # PURPOSE: if input_level < output_level, we ensure that the titles of input_level_id_names get attached in order.
-        # This is because the title_content gets attached on top of the old content, unlike in the enrichment case.
         if self.position == "top":
             input_ids.sort(reverse=True)
 
@@ -136,37 +131,26 @@ class Extractor:
         insert_data = []
 
         output_rows, _ = await Retrieval.get_all(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.output_level}, db=self.db)
-        output_rows = [dict(row) for row in output_rows]
+        output_rows = [dict(row) for row in output_rows] #detach from ORM object
 
         await Retrieval.delete_data(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.output_level}, db=self.db)
 
+        if self.position == "replace":
+            for row in output_rows:
+                row["content"] = ""
 
-        #output_dict = self.rows_to_columns(output_rows)
         for input_id in input_ids:
 
 
             if self.title:
                 content = str(self.get_row_title(input_rows, input_id))
-                #content = input_df.loc[input_df["level_id"] == input_id, "title"].dropna().astype(str).iloc[0]  # one row dataframe
             else:
                 content = str(self.get_row_content(input_rows, input_id))
-                #content = input_df.loc[input_df["level_id"] == input_id, "content"].dropna().astype(str).iloc[0]  # one row dataframe
 
             if self.caption:
                 new_content = f"{self.caption}: {content}\n"
             else:
                 new_content = f"{content}\n"
-
-            #output_rows, output_columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.output_level}, db=self.db)
-            #output_df = pd.DataFrame(output_rows, columns=output_columns)
-
-            # has only one element if input_ids-output_ids relationship is 1-to-1 or 1-to-* (e.g. paragraph-section, section-document)
-            # otherwise it's a list (e.g. section-paragraph) and we have to iterate over all output_ids (paragraphs)
-
-              # like the retrievals table, but one for each hierarchy level
-            #filtered_df = paragraphs_df[paragraphs_df[f"{self.input_level}_id"] == input_id]
-            #output_ids = list(set(filtered_df[f"{self.output_level}_id"]))
-
 
 
             raw_output_ids = []
@@ -176,55 +160,39 @@ class Extractor:
 
             output_ids = sorted(set(raw_output_ids))
 
-            #self.logger.log_step(task="info_text", log_text=f"Output IDs: {output_ids}")
 
             for output_id in output_ids:
-                #old_row = Retrieval.get_row(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.output_level, "level_id": output_id}, db=self.db)
-                #output_content = old_row["content"]
 
                 output_content = self.get_row_content(output_rows, output_id)
-                
-                
-
-                # check if the content type (input or output) already exists
-                #output_content = output_df.loc[output_df["level_id"] == output_id, "content"].iloc[0] # one row dataframe
 
 
                 old_content = str(output_content) if output_content else ""
 
-                #self.logger.log_step(task="info_text", log_text=f"Old content of output level: {old_content}")
 
 
                 if old_content:
 
-                    if self.position in ["top", "bottom"]:
+                    #if self.position in ["top", "bottom"]:
 
-                        if self.position == "top": # title at the top
-                            updated_content = f"{new_content}\n{old_content}"
-                        else: # content at the bottom
-                            updated_content = f"{old_content}\n{new_content}"
+                    if self.position == "top": # title at the top
+                        updated_content = f"{new_content}\n\n{old_content}"
 
-                        #await Retrieval.update_data(data_dict={"content": updated_content}, where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level_id": output_id, "level": self.output_level}, db=self.db)
-                        self.insert_row_content(output_rows, output_id, updated_content)
-                        
-                        #self.logger.log_step(task="info_text", log_text=f"Extraction: Updating doc_id, level_id, level: {self.doc_id, output_id, self.output_level}, with following content: {updated_content}")
-                        update_data.append({"Input": old_content, "Output": updated_content})
+                    else: #elif position in ["bottom", "replace"]
 
-                    else:
-                        #await Retrieval.update_data(data_dict={"content": new_content}, where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level_id": output_id, "level": self.output_level}, db=self.db)
-                        self.insert_row_content(output_rows, output_id, new_content)
+                        # content at the bottom of old content, or in case of replace, at the bottom of new content of previous iterations
+                        updated_content = f"{old_content}\n\n{new_content}"
 
-                        update_data.append({"Input": old_content, "Output": new_content})
+                    self.insert_row_content(output_rows, output_id, updated_content)
+
+                    update_data.append({"Input": old_content, "Output": updated_content})
+
 
 
                 else:
 
-                    #await Retrieval.insert_data(data_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level_id": output_id, "level": self.output_level, "content": new_content}, db=self.db)
                     self.insert_row_content(output_rows, output_id, new_content)
 
                     insert_data.append({"Output": new_content})
-
-            #await self.db.commit()
 
 
         # After Completion
@@ -289,12 +257,26 @@ class Enricher:
 
     @staticmethod
     def unwrap_answer(chat_output):
-        if isinstance(chat_output, dict):
-            return str(chat_output["Output"])
+        # Not a dict → just stringify
+        if not isinstance(chat_output, dict):
+            return str(chat_output)
 
+        # Case 1: direct Output string
+        output = chat_output.get("Output")
+        if isinstance(output, str):
+            return output
+
+        # Case 2: schema-style nested description
+        props = chat_output.get("properties", {})
+        if isinstance(props, dict):
+            nested = props.get("Output", {})
+            if isinstance(nested, dict):
+                description = nested.get("description")
+                if isinstance(description, str):
+                    return description
+
+        # Fallback
         return str(chat_output)
-
-
 
     async def init_clients(self):
 
@@ -306,6 +288,7 @@ class Enricher:
     def _call_orchestrator(self, system_prompt, user_prompt):
         if self.do_history:
             chat_output = json.loads(self.chat_orchestrator.call_with_history(label=self.model, system_prompt=system_prompt, user_prompt=user_prompt, history=self.history))
+            self.logger.log_step(task="info_text", log_text=f"Here is the chat output: {chat_output}")
             output_string = self.unwrap_answer(chat_output)
 
             # update history list with user and assistant input of the new call
@@ -313,6 +296,7 @@ class Enricher:
 
         else:
             chat_output = json.loads(self.chat_orchestrator.call(label=self.model, system_prompt=system_prompt, user_prompt=user_prompt))
+            self.logger.log_step(task="info_text", log_text=f"Here is the chat output: {chat_output}")
             output_string = self.unwrap_answer(chat_output)
 
         return output_string
@@ -322,7 +306,7 @@ class Enricher:
         # Qwen3-Coder is explicitly an instruction-tuned coder model, so its usage profile lines up with OpenAIs mini line
 
         specific_prompt = f"""Output: {{
-                                    "title": "Structured Output",
+                                    "title": "Output",
                                     "description": {self.prompt},
                                     "type": "string"
                                     }}"""
@@ -397,7 +381,7 @@ class Enricher:
 
             # instead of extracting chunk from paragraphs table, we search for the input or output column of the retrievals table
 
-            old_content = input_df.loc[input_df["level_id"] == input_id, "content"].dropna().astype(str).iloc[0]  # one row dataframe
+            old_content = input_df.loc[input_df["level_id"] == input_id, "content"].astype(str).iloc[0]  # one row dataframe
 
             if not old_content:
 
@@ -442,7 +426,6 @@ class Filter:
 
 
     @staticmethod
-
     def extract_bool(s):
         try:
             x = json.loads(s.lower() if isinstance(s, str) else s)
@@ -532,8 +515,6 @@ class Filter:
 
 
 
-
-
     async def run_method(self) -> None:
         # use the content of input_level to generate metadata for output_level (e.g. section for section, or section for paragraph)
         # for example generate a section summary to enrich each section or provide context for all paragraphs in that section
@@ -542,8 +523,6 @@ class Filter:
         await self.init_clients()
 
         rows, columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.input_level}, db=self.db)
-
-
 
         input_df = pd.DataFrame(rows, columns=columns)  # like the retrievals table, but one for each hierarchy level
 
@@ -554,8 +533,7 @@ class Filter:
 
             # instead of extracting chunk from paragraphs table, we search for the input or output column of the retrievals table
 
-            content = input_df.loc[input_df["level_id"] == input_id, "content"].dropna().astype(str).iloc[0]  # one row dataframe
-
+            content = input_df.loc[input_df["level_id"] == input_id, "content"].astype(str).iloc[0]  # one row dataframe
 
             is_relevant = self._decide_relevance(content)
 
@@ -568,13 +546,10 @@ class Filter:
 
 
 
-
-
-
 class Reseter:
 
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, where: str = "section"):
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, where: str):
 
         self.db = db
         self.user_id = user_id

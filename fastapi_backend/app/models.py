@@ -1,6 +1,6 @@
 from fastapi_users.db import SQLAlchemyBaseUserTableUUID
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy import Column, String, Integer, ForeignKey, Text, and_, func
+from sqlalchemy import Column, String, Integer, Boolean, false, ForeignKey, Text, and_, func
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 from uuid import uuid4
@@ -66,7 +66,7 @@ class Base(DeclarativeBase):
             db.add(new_row)
 
         await db.commit()
-        await db.refresh(pipeline)
+
 
 
 
@@ -163,6 +163,7 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     # main page
     doc_pipelines = relationship("DocPipelines", back_populates="user", cascade="all, delete-orphan")
     main_pipeline = relationship("MainPipeline", back_populates="user", cascade="all, delete-orphan")
+    exported_pipelines = relationship("ExportedPipelines", back_populates="user", cascade="all, delete-orphan")
 
     #api_keys
     api_keys = relationship("ApiKey", back_populates="user", cascade="all, delete-orphan")
@@ -183,18 +184,18 @@ class DocPipelines(Base):
     path = Column(String, nullable=True)
 
     conversion_pipeline = Column(String, nullable=True)  # string representing a Dict
-    converted = Column(Integer, nullable=True)  # 0 or 1
+    converted = Column(Boolean, nullable=False, server_default=false())
 
     processing_pipeline = Column(String, nullable=True)  # string representing a List[Dict]
 
     chunking_pipeline = Column(String, nullable=True)  # string representing a
-    chunked = Column(Integer, nullable=True)  # 0 or 1
+    chunked = Column(Boolean, nullable=False, server_default=false())
 
     extraction_pipeline = Column(String, nullable=True) # string representing a List[Dict]
     #extracted = Column(Integer, nullable=True) # 0 or 1
 
     retrieval_pipeline = Column(String, nullable=True) # string representing a List[Dict]
-    exported = Column(Integer, nullable=True) # 0 or 1
+    exported = Column(Boolean, nullable=False, server_default=false())
 
     user_id = Column(UUID(as_uuid=True), ForeignKey("user.id"), nullable=False)
 
@@ -231,7 +232,19 @@ class MainPipeline(Base):
     user = relationship("User", back_populates="main_pipeline")
 
 
+# Exported Pipelines
 
+class ExportedPipelines(Base):
+    __tablename__ = "ExportedPipelines"
+
+    pipeline_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    kind = Column(String, nullable=True) # document, main
+    name = Column(String, nullable=True)
+    pipeline = Column(String, nullable=True)
+
+    user_id = Column(UUID(as_uuid=True), ForeignKey("user.id"), nullable=False)
+
+    user = relationship("User", back_populates="exported_pipelines")
 
 # -------RAG OPS-------
 

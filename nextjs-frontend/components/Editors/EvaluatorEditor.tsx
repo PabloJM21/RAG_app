@@ -1,236 +1,149 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import {X} from "lucide-react";
-import {Button} from "@/components/ui/button";
-import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
-import {FlexibleMethodCard} from "@/components/custom-ui/FlexibleMethodCard";
+import * as React from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-/* ---------- Domain options ---------- */
+const ENRICHER_MODELS = [
+  "coder",
+  "thinker",
+  "classifier",
+  "generator",
+  "reasoner",
+] as const;
 
-const METHOD_TYPES = ["Chunking", "Enriching"] as const;
-
-const ENRICHER_MODELS = ["coder", "thinker", "classifier", "generator", "reasoner"]
-
-
-
-
-/* ---------- Types (simple approach) ---------- */
-
+type EvaluatorType = "Chunking" | "Enriching";
 type MethodSpec = Record<string, any>;
 
-
-
-/* ---------- Templates ---------- */
-
-// Evaluate the pipelines in order returning the current pipeline if the score surpasses min_score
-{/*
-const SEQUENTIAL_TEMPLATE: MethodSpec = {
-  type: "Sequential Evaluator",
-  min_score: "",
-  model: "",
-  prompt: "",
-  input_level: "",
-  output_level: "",
-}; */}
-
-
-
-// Evaluate all pipelines and choose the most voted one
-
-
-const CHUNKER_TEMPLATE: MethodSpec = {
+const CHUNKING_TEMPLATE: MethodSpec = {
   type: "Chunking",
   model: "",
-  prompt: "A score in the range 0-100 that evaluates the quality of the chunking process",
-  target_level: "", // Name of the chunk to evaluate. Evaluation based on input and output of the chunker. Average score across inputs
+  prompt:
+    "A score in the range 0-100 that evaluates the quality of the chunking process",
+  target_level: "",
   history: false,
-}
-
-const ENRICHER_TEMPLATE: MethodSpec = {
-  type: "Enriching",
-  model: "",
-  prompt: "A score in the range 0-100 that evaluates the quality of the chunking process",
-  target_level: "", // Name of the chunk to evaluate. Evaluation based on chunk content before and after pipeline. Average score across chunks
-  history: false,
-}
-
-
-
-
-const RETRIEVER_TEMPLATE: MethodSpec = {
-  type: "Retrieving",
-  model: "",
-  prompt: "",   // evaluation of Retrieval Pipeline based on query and retrieved chunks
-}
-
-
-
-
-const TEMPLATE_MAP: Record<(typeof METHOD_TYPES)[number], MethodSpec> = {
-  Chunking: CHUNKER_TEMPLATE,
-  Enriching: ENRICHER_TEMPLATE,
 };
 
-function templateFor(
-  type: (typeof METHOD_TYPES)[number]
-): MethodSpec {
-  return structuredClone(TEMPLATE_MAP[type]);
+const ENRICHING_TEMPLATE: MethodSpec = {
+  type: "Enriching",
+  model: "",
+  prompt:
+    "A score in the range 0-100 that evaluates the quality of the chunking process",
+  target_level: "",
+  history: false,
+};
+
+function templateFor(type: EvaluatorType): MethodSpec {
+  return structuredClone(type === "Chunking" ? CHUNKING_TEMPLATE : ENRICHING_TEMPLATE);
 }
 
-/* ---------- Component ---------- */
-
-export function EvaluatorEditor({
-  method,
-  onChange
+export function EvaluatorSettingsCard({
+  methods,
+  onChange,
+  type,
+  title = "Evaluator settings",
 }: {
-  method: MethodSpec[]; // pass full array
-  onChange: (methods: MethodSpec[]) => void;
+  methods: MethodSpec[]; // same as your other editors
+  onChange: (next: MethodSpec[]) => void;
+  type: EvaluatorType; // fixed
+  title?: string;
 }) {
-  const [selectedType, setSelectedType] =
-    useState<(typeof METHOD_TYPES)[number]>(
-      "Chunking"
-    );
+  const current = methods[0];
 
-  /* ---------------- Helpers ---------------- */
+  // Ensure exactly one method exists and matches the fixed type.
+  React.useEffect(() => {
+    const needsInit =
+      !current || methods.length !== 1 || String(current.type) !== type;
 
-  const addMethod = () => {
-    const template =
-      structuredClone(templateFor(selectedType));
-
-    const next = [
-      { ...template, type: selectedType }
-    ];
-
-    onChange(next); // enforce single method
-  };
-
-  const updateMethod = (key: string, value: any) => {
-    if (method.length === 0) return;
-
-    const next = [
-      { ...method[0], [key]: value }
-    ];
-
-    onChange(next);
-  };
-
-  const deleteMethod = () => {
-    onChange([]);
-  };
-
-  /* ---------------- Field renderer ---------------- */
-
-  function renderValueEditor(
-    key: string,
-    value: any
-  ) {
-    if (key === "type") {
-      return <span>{String(value)}</span>;
+    if (needsInit) {
+      onChange([{ ...templateFor(type), type }]);
     }
+    // intentionally only depend on `type`
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [type]);
 
-    if (key === "model") {
-      return (
-        <select
-          value={value}
-          onChange={(e) =>
-            updateMethod(key, e.target.value)
-          }
-        >
-          <option value="">—</option>
-          {ENRICHER_MODELS.map((m) => (
-            <option key={m} value={m}>
-              {m}
-            </option>
-          ))}
-        </select>
-      );
+  // Render immediately even before parent applies the onChange result.
+  const safe = React.useMemo(() => {
+    if (!current || String(current.type) !== type) {
+      return { ...templateFor(type), type };
     }
+    return current;
+  }, [current, type]);
 
-    return (
-      <input
-        type="text"
-        value={String(value)}
-        onChange={(e) =>
-          updateMethod(key, e.target.value)
-        }
-        style={{ width: "100%" }}
-      />
-    );
-  }
-
-  /* ---------------- Render ---------------- */
+  const updateField = (key: string, value: any) => {
+    onChange([{ ...safe, [key]: value }]);
+  };
 
   return (
-    <section className="h-full flex flex-col gap-3">
-      {/* Top toolbar (fixed at top) */}
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold">Extraction</h2>
+    <Card className="rounded-xl border bg-card text-card-foreground shadow">
+      <CardHeader className="py-4 bg-muted/30 border-b">
+        <CardTitle className="text-sm font-medium text-muted-foreground">
+          {title}
+        </CardTitle>
+      </CardHeader>
 
-        <div className="flex items-center gap-2">
+      <CardContent className="p-4 space-y-4">
+        {/* Model */}
+        <div className="space-y-1">
+          <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            Model
+          </div>
           <select
-            value={selectedType}
-            onChange={(e) =>
-              setSelectedType(
-                e.target.value as any
-              )
-            }
+            className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+            value={safe.model ?? ""}
+            onChange={(e) => updateField("model", e.target.value)}
           >
-            {METHOD_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t}
+            <option value="">—</option>
+            {ENRICHER_MODELS.map((m) => (
+              <option key={m} value={m}>
+                {m}
               </option>
             ))}
           </select>
-
-          <button onClick={addMethod}>
-            {method.length === 0
-              ? "Add method"
-              : "Replace method"}
-          </button>
         </div>
-      </div>
 
-      {/* Methods container (blue border card) */}
-      <Card className="border-2 border-blue-500/60 rounded-xl w-fit max-w-full min-h-0">
-        <CardHeader className="py-3">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            Methods
-          </CardTitle>
-        </CardHeader>
+        {/* Target level */}
+        <div className="space-y-1">
+          <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            Target level
+          </div>
+          <input
+            className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+            value={safe.target_level ?? ""}
+            onChange={(e) => updateField("target_level", e.target.value)}
+            placeholder="e.g. level_1"
+          />
+        </div>
 
-        <CardContent className="pt-0 h-full min-h-0">
-          {/* Horizontal scroll area for the method cards */}
-          <div className="h-full min-h-0 overflow-x-auto overflow-y-hidden pb-2">
-            <div className="flex gap-4 min-w-max">
-              {method.map((m, index) => (
-                <div style={{ marginTop: 12 }}>
-                  <FlexibleMethodCard
-                    method={m}
-                    onDelete={() => deleteMethod()}
-                    renderValue={(key, value) => renderValueEditor(key, value)}
-                    onColorChange={(next) => updateMethod("color", next)}
-                    defaultOpen={false}
-                  />
-                </div>
-              ))}
+        {/* Prompt */}
+        <div className="space-y-1">
+          <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            Prompt
+          </div>
+          <textarea
+            className="min-h-[110px] w-full resize-y rounded-md border bg-background px-3 py-2 text-sm leading-relaxed
+                       focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+            value={safe.prompt ?? ""}
+            onChange={(e) => updateField("prompt", e.target.value)}
+          />
+        </div>
+
+        {/* History */}
+        <label className="flex items-center justify-between gap-3 rounded-md border bg-background px-3 py-2">
+          <div>
+            <div className="text-sm font-medium">History</div>
+            <div className="text-xs text-muted-foreground">
+              Include prior context when evaluating.
             </div>
           </div>
 
-          {/* Empty state */}
-          {method.length === 0 && (
-            <div className="text-sm text-muted-foreground mt-2">
-              No methods yet — add one above.
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </section>
+          <input
+            type="checkbox"
+            checked={!!safe.history}
+            onChange={(e) => updateField("history", e.target.checked)}
+            className="h-4 w-4"
+          />
+        </label>
+      </CardContent>
+    </Card>
   );
 }
-
-
-
-
-
-

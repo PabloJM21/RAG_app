@@ -110,12 +110,12 @@ async def run_conversion_pipeline(
     # After conversion
 
     # Set converted=1
-    row.converted = 1
+    row.converted = True
 
-    row.chunked = 0
+    row.chunked = False
 
     # NEXT: Set exported=0
-    row.exported = 0
+    row.exported = False
 
     await db.commit()
 
@@ -199,11 +199,11 @@ async def run_processing_pipeline(
 
     # After processing
 
-    row.chunked = 0
+    row.chunked = False
 
 
     # NEXT: Set exported=0
-    row.exported = 0
+    row.exported = False
 
     await db.commit()
 
@@ -220,7 +220,7 @@ async def run_processing_pipeline(
 
 # ---------- ALL DOCs ----------
 @router.post("/run")
-async def run_conversion_pipeline(
+async def convert_all(
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
@@ -247,13 +247,13 @@ async def run_conversion_pipeline(
             # After conversion
 
             # Set converted=1
-            row.converted = 1
+            row.converted = True
 
             # Set chunked=0
-            row.chunked = 0
+            row.chunked = False
 
             # Set exported=0
-            row.exported = 0
+            row.exported = False
 
     await db.commit()
 

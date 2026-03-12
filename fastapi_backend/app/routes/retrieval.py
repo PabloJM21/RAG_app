@@ -115,7 +115,7 @@ async def export_pipeline(
 
         # NEXT: Set exported=1
 
-        row.exported = 1
+        row.exported = True
 
         # finally update main_pipeline with the created document_pipelines dict
         if document_pipelines:
@@ -172,7 +172,7 @@ async def export_all(
                 document_pipelines[str(doc_id)] = retrieval_pipeline
 
                 # NEXT: Set exported=1
-                row.exported = 1
+                row.exported = True
 
 
     

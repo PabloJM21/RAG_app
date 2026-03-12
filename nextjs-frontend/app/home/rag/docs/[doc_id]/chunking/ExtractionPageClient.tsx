@@ -7,12 +7,13 @@ import {
   runExtraction,
 } from "@/app/api/rag/docs/[doc_id]/extraction/extraction-action";
 
-import { EvaluatorEditor } from "@/components/Editors/EvaluatorEditor";
+import {EvaluatorSettingsCard} from "@/components/Editors/EvaluatorEditor";
 import { ExtractionEditor } from "@/components/Editors/ExtractionEditor";
 
 
 import {PipelineTabsBar} from "@/components/custom-ui/PipelineTabsBar";
 import {SaveRunActions} from "@/components/custom-ui/SaveRunActions";
+
 
 type MethodSpec = Record<string, any>;
 type PipelineSpec = Record<string, MethodSpec[]>;
@@ -26,7 +27,13 @@ type RoutingEditorProps = {
 
 function RoutingEditor({ pipelineKey, methods, levels, onChange }: RoutingEditorProps) {
   if (pipelineKey === "evaluator") {
-    return <EvaluatorEditor method={methods} onChange={onChange} />;
+    return (
+      <EvaluatorSettingsCard
+        methods={methods}
+        onChange={onChange}
+        type="Enriching"
+      />
+    );
   }
 
   if (/^\d+$/.test(pipelineKey)) {
@@ -35,6 +42,9 @@ function RoutingEditor({ pipelineKey, methods, levels, onChange }: RoutingEditor
 
   return null;
 }
+
+
+
 
 function nextPipelineId(pipelines: PipelineSpec): string {
   const numericKeys = Object.keys(pipelines).filter((k) => /^\d+$/.test(k));

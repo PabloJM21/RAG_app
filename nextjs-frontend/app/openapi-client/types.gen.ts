@@ -111,13 +111,13 @@ export type ErrorModel = {
  */
 export type ExportBody = {
   /**
-   * Source Id
+   * Pipelinename
    */
-  source_id: string;
+  pipelineName: string;
   /**
-   * Target Id
+   * Doc Id
    */
-  target_id: string;
+  doc_id: string;
 };
 
 /**
@@ -173,6 +173,20 @@ export type KeyReadData = {
 };
 
 /**
+ * LoadBody
+ */
+export type LoadBody = {
+  /**
+   * Pipeline Id
+   */
+  pipeline_id: string;
+  /**
+   * Doc Id
+   */
+  doc_id: string;
+};
+
+/**
  * MCPQueryRequest
  */
 export type McpQueryRequest = {
@@ -212,30 +226,6 @@ export type McpSource = {
    * Score
    */
   score: number | null;
-};
-
-/**
- * PipelineResponse
- */
-export type PipelineResponse = {
-  /**
-   * Router
-   */
-  router: {
-    [key: string]: unknown;
-  };
-  /**
-   * Reranker
-   */
-  reranker: {
-    [key: string]: unknown;
-  };
-  /**
-   * Generator
-   */
-  generator: {
-    [key: string]: unknown;
-  };
 };
 
 /**
@@ -350,6 +340,44 @@ export type ValidationError = {
    * Error Type
    */
   type: string;
+};
+
+/**
+ * PipelineResponse
+ */
+export type AppRoutesDocsPipelineResponse = {
+  /**
+   * Pipelinename
+   */
+  pipelineName: string;
+  /**
+   * Pipeline Id
+   */
+  pipeline_id: string;
+};
+
+/**
+ * PipelineResponse
+ */
+export type AppRoutesMainPipelinePipelineResponse = {
+  /**
+   * Router
+   */
+  router: {
+    [key: string]: unknown;
+  };
+  /**
+   * Reranker
+   */
+  reranker: {
+    [key: string]: unknown;
+  };
+  /**
+   * Generator
+   */
+  generator: {
+    [key: string]: unknown;
+  };
 };
 
 /**
@@ -925,7 +953,7 @@ export type ExportDocPipelineData = {
   body: ExportBody;
   path?: never;
   query?: never;
-  url: "/docs/export/";
+  url: "/docs/pipelines/export/";
 };
 
 export type ExportDocPipelineErrors = {
@@ -939,6 +967,77 @@ export type ExportDocPipelineError =
   ExportDocPipelineErrors[keyof ExportDocPipelineErrors];
 
 export type ExportDocPipelineResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type LoadDocPipelineData = {
+  body: LoadBody;
+  path?: never;
+  query?: never;
+  url: "/docs/pipelines/load/";
+};
+
+export type LoadDocPipelineErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type LoadDocPipelineError =
+  LoadDocPipelineErrors[keyof LoadDocPipelineErrors];
+
+export type LoadDocPipelineResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type ListDocPipelinesData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/docs/pipelines/list/";
+};
+
+export type ListDocPipelinesResponses = {
+  /**
+   * Response Docs-List Doc Pipelines
+   * Successful Response
+   */
+  200: Array<AppRoutesDocsPipelineResponse>;
+};
+
+export type ListDocPipelinesResponse =
+  ListDocPipelinesResponses[keyof ListDocPipelinesResponses];
+
+export type DeleteDocPipelineData = {
+  body?: never;
+  path: {
+    /**
+     * Pipeline Id
+     */
+    pipeline_id: string;
+  };
+  query?: never;
+  url: "/docs/pipelines/{pipeline_id}";
+};
+
+export type DeleteDocPipelineErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type DeleteDocPipelineError =
+  DeleteDocPipelineErrors[keyof DeleteDocPipelineErrors];
+
+export type DeleteDocPipelineResponses = {
   /**
    * Successful Response
    */
@@ -1109,7 +1208,7 @@ export type ExportDocPipeline2Data = {
   body: ExportBody;
   path?: never;
   query?: never;
-  url: "/api_keys/export/";
+  url: "/api_keys/pipelines/export/";
 };
 
 export type ExportDocPipeline2Errors = {
@@ -1129,6 +1228,77 @@ export type ExportDocPipeline2Responses = {
   200: unknown;
 };
 
+export type LoadDocPipeline2Data = {
+  body: LoadBody;
+  path?: never;
+  query?: never;
+  url: "/api_keys/pipelines/load/";
+};
+
+export type LoadDocPipeline2Errors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type LoadDocPipeline2Error =
+  LoadDocPipeline2Errors[keyof LoadDocPipeline2Errors];
+
+export type LoadDocPipeline2Responses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type ListDocPipelines2Data = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/api_keys/pipelines/list/";
+};
+
+export type ListDocPipelines2Responses = {
+  /**
+   * Response Docs-List Doc Pipelines
+   * Successful Response
+   */
+  200: Array<AppRoutesDocsPipelineResponse>;
+};
+
+export type ListDocPipelines2Response =
+  ListDocPipelines2Responses[keyof ListDocPipelines2Responses];
+
+export type DeleteDocPipeline2Data = {
+  body?: never;
+  path: {
+    /**
+     * Pipeline Id
+     */
+    pipeline_id: string;
+  };
+  query?: never;
+  url: "/api_keys/pipelines/{pipeline_id}";
+};
+
+export type DeleteDocPipeline2Errors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type DeleteDocPipeline2Error =
+  DeleteDocPipeline2Errors[keyof DeleteDocPipeline2Errors];
+
+export type DeleteDocPipeline2Responses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
 export type ReadPipelineData = {
   body?: never;
   path?: never;
@@ -1140,7 +1310,7 @@ export type ReadPipelineResponses = {
   /**
    * Successful Response
    */
-  200: PipelineResponse;
+  200: AppRoutesMainPipelinePipelineResponse;
 };
 
 export type ReadPipelineResponse =
@@ -1365,14 +1535,14 @@ export type RunProcessingPipelineResponses = {
   200: unknown;
 };
 
-export type RunConversionPipeline2Data = {
+export type ConvertAllData = {
   body?: never;
   path?: never;
   query?: never;
   url: "/conversion/run";
 };
 
-export type RunConversionPipeline2Responses = {
+export type ConvertAllResponses = {
   /**
    * Successful Response
    */
@@ -1618,14 +1788,14 @@ export type ReadMarkdownResultsResponses = {
 export type ReadMarkdownResultsResponse =
   ReadMarkdownResultsResponses[keyof ReadMarkdownResultsResponses];
 
-export type RunChunkingPipeline2Data = {
+export type ChunkAllData = {
   body?: never;
   path?: never;
   query?: never;
   url: "/chunking/run";
 };
 
-export type RunChunkingPipeline2Responses = {
+export type ChunkAllResponses = {
   /**
    * Successful Response
    */

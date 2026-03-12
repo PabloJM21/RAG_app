@@ -113,11 +113,11 @@ async def run_chunking_pipeline(
     # After Chunking
 
     # Set chunked=1
-    row.chunked = 1
+    row.chunked = True
 
 
     # NEXT: Set exported=0
-    row.exported = 0
+    row.exported = False
 
     await db.commit()
 
@@ -194,7 +194,7 @@ async def read_markdown_results(
 
 # ---------- ALL DOCs ----------
 @router.post("/run")
-async def run_chunking_pipeline(
+async def chunk_all(
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
@@ -221,11 +221,11 @@ async def run_chunking_pipeline(
                 await run_extraction(extraction_pipeline, user.id, doc_id, db)
 
             # Set chunked=1
-            row.chunked = 1
+            row.chunked = True
 
 
             # Set exported=0
-            row.exported = 0
+            row.exported = False
 
     await db.commit()
 

@@ -68,7 +68,7 @@ export default function CreateKeyPage() {
           </div>
 
           <div className="flex items-center justify-end gap-3">
-            <Link href="/rag/profile">
+            <Link href="/home/profile">
               <Button type="button" variant="outline">
                 Cancel
               </Button>

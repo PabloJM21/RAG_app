@@ -8,11 +8,12 @@ import { X } from "lucide-react";
 
 import {
   addProcessingPipeline,
-  fetchProcessingPipeline, runProcessing
+  runProcessing,
 } from "@/app/api/rag/docs/[doc_id]/conversion_processing/processing-action";
+
 import {SaveRunActions} from "@/components/custom-ui/SaveRunActions";
-import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import {FlexibleMethodCard} from "@/components/custom-ui/FlexibleMethodCard";
+import {MethodsContainerCard} from "@/components/custom-ui/Containers";
 
 
 
@@ -212,35 +213,19 @@ export function ProcessingEditor({
       </div>
 
       {/* Methods container (blue border card) */}
-      <Card className="border-2 border-blue-500/60 rounded-xl w-fit max-w-full min-h-0">
-        <CardHeader className="py-3">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Pipeline</CardTitle>
-        </CardHeader>
-
-        <CardContent className="pt-0 h-full min-h-0">
-          {/* Horizontal scroll area for the method cards */}
-          <div className="h-full min-h-0 overflow-x-auto overflow-y-hidden pb-2">
-            <div className="flex gap-4 min-w-max">
-              {pipeline.map((method, index) => (
-                <div key={index} style={{ marginTop: 12 }}>
-                  <FlexibleMethodCard
-                    method={method}
-                    onDelete={() => deleteMethod(index)}
-                    renderValue={(key, value) => renderValueEditor(method, index, key, value)}
-                    onColorChange={(next) => updatePipeline(index, "color", next)}
-                    defaultOpen={false}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Empty state */}
-          {pipeline.length === 0 && (
-            <div className="text-sm text-muted-foreground mt-2">No methods yet — add one above.</div>
-          )}
-        </CardContent>
-      </Card>
+      <MethodsContainerCard
+        title="Pipeline"
+        methods={methods}
+        renderMethod={(method, index) => (
+          <FlexibleMethodCard
+            method={method}
+            onDelete={() => deleteMethod(index)}
+            renderValue={(key, value) => renderValueEditor(method, index, key, value)}
+            onColorChange={(next) => updatePipeline(index, "color", next)}
+            defaultOpen={false}
+          />
+        )}
+      />
     </section>
   );
 }
