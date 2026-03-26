@@ -1,23 +1,25 @@
-import { fetchPipeline } from "@/app/api/rag/main-pipeline/pipeline-action";
-import { MainPipelineEditor } from "./MainPipelineEditor";
+import {fetchGenerator, fetchRetrievers} from "@/app/api/rag/main-pipeline/pipeline-action";
+import MainPipelineTabs from "./MainPipelineTabs";
+
 
 type MethodSpec = Record<string, any>;
-type PipelineSlot = "router" | "reranker" | "generator";
-type PipelineSpec = Partial<Record<PipelineSlot, MethodSpec>>;
 
 export default async function MainPipelinePage() {
-  let pipeline: PipelineSpec = {};
-  let error: string | null = null;
 
-  try {
-    const data = await fetchPipeline();
-    pipeline = (data ?? {}) as PipelineSpec;
-  } catch (err: any) {
-    error = err?.message ?? "Unknown error";
-    console.error("Failed to fetch main pipeline", err);
-  }
 
-  if (error) return <div style={{ color: "red" }}>Error: {error}</div>;
+  const [Generator, Retrievers] = await Promise.all([
+    fetchGenerator(),
+    fetchRetrievers(),
+  ]);
 
-  return <MainPipelineEditor initialPipeline={pipeline} />;
+  return (
+    <div className="h-screen flex flex-col overflow-hidden">
+      <div className="flex-1 overflow-hidden">
+        <MainPipelineTabs
+          initialGenerator={(Generator ?? {}) as MethodSpec}
+          initialRetrievers={(Retrievers ?? []) as MethodSpec[]}
+        />
+      </div>
+    </div>
+  );
 }

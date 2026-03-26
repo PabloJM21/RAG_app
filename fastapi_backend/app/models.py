@@ -186,8 +186,6 @@ class DocPipelines(Base):
     conversion_pipeline = Column(String, nullable=True)  # string representing a Dict
     converted = Column(Boolean, nullable=False, server_default=false())
 
-    processing_pipeline = Column(String, nullable=True)  # string representing a List[Dict]
-
     chunking_pipeline = Column(String, nullable=True)  # string representing a
     chunked = Column(Boolean, nullable=False, server_default=false())
 

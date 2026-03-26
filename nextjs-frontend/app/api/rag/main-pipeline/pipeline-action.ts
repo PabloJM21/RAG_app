@@ -3,7 +3,8 @@
 
 import {cookies} from "next/headers";
 import {revalidatePath} from "next/cache";
-import {createPipeline, PipelineSpec, readPipeline, runPipeline} from "./sdk.gen";
+import {createGenerator, GeneratorSpec, readGenerator, createRetrievers, RetrieversSpec, readRetrievers, runPipeline} from "./sdk.gen";
+
 
 
 
@@ -35,10 +36,10 @@ export async function run(stage: string) {
 
 
 
-export async function addPipeline(formData: FormData) {
+export async function addGenerator(formData: FormData) {
   const pipeline = JSON.parse(
     formData.get("pipeline") as string
-  ) as PipelineSpec;
+  ) as GeneratorSpec;
 
   const cookieStore = await cookies();
   const token = cookieStore.get("accessToken")?.value;
@@ -47,7 +48,7 @@ export async function addPipeline(formData: FormData) {
     throw new Error("No access token found");
   }
 
-  const result = await createPipeline({
+  const result = await createGenerator({
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -64,7 +65,7 @@ export async function addPipeline(formData: FormData) {
 
 
 
-export async function fetchPipeline(): Promise<PipelineSpec> {
+export async function fetchGenerator(): Promise<GeneratorSpec> {
   const cookieStore = await cookies();
   const token = cookieStore.get("accessToken")?.value;
 
@@ -72,7 +73,59 @@ export async function fetchPipeline(): Promise<PipelineSpec> {
     throw new Error("No access token found");
   }
 
-  const result = await readPipeline({
+  const result = await readGenerator({
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  return result.data;
+}
+
+
+
+export async function addRetrievers(formData: FormData) {
+
+  const pipeline = JSON.parse(formData.get("pipeline") as string) as RetrieversSpec;
+
+  const cookieStore = await cookies();
+  const token = cookieStore.get("accessToken")?.value;
+
+  if (!token) {
+    throw new Error("No access token found");
+  }
+
+  const result = await createRetrievers({
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: pipeline,
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  revalidatePath(`home/rag/main-pipeline`);
+}
+
+
+
+
+export async function fetchRetrievers(): Promise<RetrieversSpec> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("accessToken")?.value;
+
+
+  if (!token) {
+    throw new Error("No access token found");
+  }
+
+  const result = await readRetrievers({
     headers: {
       Authorization: `Bearer ${token}`,
     },

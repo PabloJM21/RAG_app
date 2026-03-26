@@ -102,11 +102,16 @@ import type {
   DeleteDocPipeline2Data,
   DeleteDocPipeline2Responses,
   DeleteDocPipeline2Errors,
-  ReadPipelineData,
-  ReadPipelineResponses,
-  AddPipelineData,
-  AddPipelineResponses,
-  AddPipelineErrors,
+  ReadGeneratorData,
+  ReadGeneratorResponses,
+  AddGeneratorData,
+  AddGeneratorResponses,
+  AddGeneratorErrors,
+  ReadRetrieversData,
+  ReadRetrieversResponses,
+  AddRetrieversData,
+  AddRetrieversResponses,
+  AddRetrieversErrors,
   ReadConversionPipelineData,
   ReadConversionPipelineResponses,
   ReadConversionPipelineErrors,
@@ -1011,13 +1016,13 @@ export const deleteDocPipeline2 = <ThrowOnError extends boolean = false>(
 };
 
 /**
- * Read Pipeline
+ * Read Generator
  */
-export const readPipeline = <ThrowOnError extends boolean = false>(
-  options?: Options<ReadPipelineData, ThrowOnError>,
+export const readGenerator = <ThrowOnError extends boolean = false>(
+  options?: Options<ReadGeneratorData, ThrowOnError>,
 ) => {
   return (options?.client ?? client).get<
-    ReadPipelineResponses,
+    ReadGeneratorResponses,
     unknown,
     ThrowOnError
   >({
@@ -1028,20 +1033,20 @@ export const readPipeline = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/main-pipeline/pipeline/data/",
+    url: "/main-pipeline/generator/",
     ...options,
   });
 };
 
 /**
- * Add Pipeline
+ * Add Generator
  */
-export const addPipeline = <ThrowOnError extends boolean = false>(
-  options: Options<AddPipelineData, ThrowOnError>,
+export const addGenerator = <ThrowOnError extends boolean = false>(
+  options: Options<AddGeneratorData, ThrowOnError>,
 ) => {
   return (options.client ?? client).post<
-    AddPipelineResponses,
-    AddPipelineErrors,
+    AddGeneratorResponses,
+    AddGeneratorErrors,
     ThrowOnError
   >({
     responseType: "json",
@@ -1051,7 +1056,57 @@ export const addPipeline = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/main-pipeline/pipeline/data/",
+    url: "/main-pipeline/generator/",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Read Retrievers
+ */
+export const readRetrievers = <ThrowOnError extends boolean = false>(
+  options?: Options<ReadRetrieversData, ThrowOnError>,
+) => {
+  return (options?.client ?? client).get<
+    ReadRetrieversResponses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/main-pipeline/retrievers/",
+    ...options,
+  });
+};
+
+/**
+ * Add Retrievers
+ */
+export const addRetrievers = <ThrowOnError extends boolean = false>(
+  options: Options<AddRetrieversData, ThrowOnError>,
+) => {
+  return (options.client ?? client).post<
+    AddRetrieversResponses,
+    AddRetrieversErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/main-pipeline/retrievers/",
     ...options,
     headers: {
       "Content-Type": "application/json",

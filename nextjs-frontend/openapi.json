@@ -1051,7 +1051,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/app__routes__docs__PipelineResponse"
+                    "$ref": "#/components/schemas/PipelineResponse"
                   },
                   "type": "array",
                   "title": "Response Docs-List Doc Pipelines"
@@ -1489,7 +1489,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/app__routes__docs__PipelineResponse"
+                    "$ref": "#/components/schemas/PipelineResponse"
                   },
                   "type": "array",
                   "title": "Response Docs-List Doc Pipelines"
@@ -1551,20 +1551,22 @@
         }
       }
     },
-    "/main-pipeline/pipeline/data/": {
+    "/main-pipeline/generator/": {
       "get": {
         "tags": [
           "main-pipeline"
         ],
-        "summary": "Read Pipeline",
-        "operationId": "read_pipeline",
+        "summary": "Read Generator",
+        "operationId": "read_generator",
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__routes__main_pipeline__PipelineResponse"
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Main-Pipeline-Read Generator"
                 }
               }
             }
@@ -1580,13 +1582,93 @@
         "tags": [
           "main-pipeline"
         ],
-        "summary": "Add Pipeline",
-        "operationId": "add_pipeline",
+        "summary": "Add Generator",
+        "operationId": "add_generator",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PipelineUpdate"
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Generator"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/main-pipeline/retrievers/": {
+      "get": {
+        "tags": [
+          "main-pipeline"
+        ],
+        "summary": "Read Retrievers",
+        "operationId": "read_retrievers",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "type": "array",
+                  "title": "Response Main-Pipeline-Read Retrievers"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "main-pipeline"
+        ],
+        "summary": "Add Retrievers",
+        "operationId": "add_retrievers",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array",
+                "title": "Retrievers"
               }
             }
           },
@@ -1732,164 +1814,6 @@
         ],
         "summary": "Run Conversion Pipeline",
         "operationId": "run_conversion_pipeline",
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "doc_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Doc Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/conversion/processing/{doc_id}/data": {
-      "get": {
-        "tags": [
-          "conversion"
-        ],
-        "summary": "Read Processing Pipeline",
-        "operationId": "read_processing_pipeline",
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "doc_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Doc Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "additionalProperties": true
-                  },
-                  "title": "Response Conversion-Read Processing Pipeline"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "conversion"
-        ],
-        "summary": "Add Processing Pipeline",
-        "operationId": "add_processing_pipeline",
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "doc_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Doc Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "additionalProperties": true
-                },
-                "title": "Pipeline"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/conversion/processing/{doc_id}/run": {
-      "post": {
-        "tags": [
-          "conversion"
-        ],
-        "summary": "Run Processing Pipeline",
-        "operationId": "run_processing_pipeline",
         "security": [
           {
             "OAuth2PasswordBearer": []
@@ -3155,38 +3079,24 @@
         ],
         "title": "MCPSource"
       },
-      "PipelineUpdate": {
+      "PipelineResponse": {
         "properties": {
-          "router": {
-            "anyOf": [
-              {},
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Router"
+          "pipelineName": {
+            "type": "string",
+            "title": "Pipelinename"
           },
-          "reranker": {
-            "anyOf": [
-              {},
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Reranker"
-          },
-          "generator": {
-            "anyOf": [
-              {},
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Generator"
+          "pipeline_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Pipeline Id"
           }
         },
         "type": "object",
-        "title": "PipelineUpdate"
+        "required": [
+          "pipelineName",
+          "pipeline_id"
+        ],
+        "title": "PipelineResponse"
       },
       "UserCreate": {
         "properties": {
@@ -3372,51 +3282,6 @@
           "type"
         ],
         "title": "ValidationError"
-      },
-      "app__routes__docs__PipelineResponse": {
-        "properties": {
-          "pipelineName": {
-            "type": "string",
-            "title": "Pipelinename"
-          },
-          "pipeline_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Pipeline Id"
-          }
-        },
-        "type": "object",
-        "required": [
-          "pipelineName",
-          "pipeline_id"
-        ],
-        "title": "PipelineResponse"
-      },
-      "app__routes__main_pipeline__PipelineResponse": {
-        "properties": {
-          "router": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Router"
-          },
-          "reranker": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Reranker"
-          },
-          "generator": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Generator"
-          }
-        },
-        "type": "object",
-        "required": [
-          "router",
-          "reranker",
-          "generator"
-        ],
-        "title": "PipelineResponse"
       },
       "login": {
         "properties": {

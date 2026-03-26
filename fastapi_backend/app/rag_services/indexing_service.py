@@ -81,24 +81,8 @@ from app.models import DocPipelines, Paragraph, Retrieval
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 import base64
 import binascii
-
-
-
 
 
 
@@ -225,16 +209,15 @@ class BaseConverter:
 class CustomConverter(BaseConverter):
 
     def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, input_path: str, output_path: str,
-                 do_ocr: bool, image_starting_mark: str, image_ending_mark: str, prompt: str):
+                 do_ocr: bool, keep_tables: bool, ocr_prompt: str):
         super().__init__(db=db, logger=logger, user_id=user_id, doc_id=doc_id, input_path=input_path, output_path=output_path)
 
         # --- IMAGE LOGIC ---
         self.do_ocr = do_ocr
-
-
+        self.keep_tables = keep_tables
 
         # --------------------
-        self.image_converter = ImageConverter(user_id=user_id, db=db, logger=self.logger, prompt=prompt, image_starting_mark=image_starting_mark, image_ending_mark=image_ending_mark)
+        self.image_converter = ImageConverter(user_id=user_id, db=db, logger=self.logger, prompt=ocr_prompt, image_starting_mark="[IMAGE_START]", image_ending_mark="[IMAGE_END]")
 
         self.docling_client = ""
 
@@ -250,11 +233,7 @@ class CustomConverter(BaseConverter):
 
     async def convert_file(self, input_path: str):
 
-        #
-
-
         await self.init_clients()
-
 
         start = time.time()
         result = await self.docling_client.convert(
@@ -302,18 +281,25 @@ class CustomConverter(BaseConverter):
 
         # start processing paragraphs
 
+        in_table = False
         for i, line in enumerate(lines):
 
-            #line = line.strip()
-            #if not line:
-                #continue
+            # insert table mark
+            if line.startswith("|") and not in_table:
+                in_table = True
+                line = f"[TABLE_START]\n{line}"
+
+            elif line == "" and in_table:
+                in_table = False
+                line = "[TABLE_END]"
 
             # process images
             if self.do_ocr:
                 line = await self.image_converter.process_b64_images(line) # self.image_converter.process_images(line)
 
 
-            output_dict["text"] += f"{line}\n"
+            if (self.keep_tables or not in_table):
+                output_dict["text"] += f"{line}\n"
 
 
         return output_dict["text"]
@@ -340,12 +326,12 @@ class DoclingConverter(BaseConverter):
     """
 
     def __init__(self, db: AsyncSession, logger: InfoLogger, user_id, doc_id: UUID,
-                 input_path: str, output_path: str, do_ocr=True, do_tables=True):
+                 input_path: str, output_path: str, do_ocr=True, keep_tables=True):
 
         super().__init__(db=db, logger=logger, user_id=user_id, doc_id=doc_id, input_path=input_path, output_path=output_path)
 
         self.do_ocr = do_ocr
-        self.do_table_structure = do_tables
+        self.do_table_structure = keep_tables
         # Force CPU
 
 
@@ -404,15 +390,107 @@ async def maybe_await(value):
 
 CONVERSION_TYPE_MAPPER = {
     "Docling": DoclingConverter,
-    "Custom": CustomConverter,
+    "Custom Conversion": CustomConverter,
 }
+
+def pop_processing_args(input_dict):
+    image_args = [
+        "image_filter",
+        "image_filter_model",
+        "image_filter_prompt",
+        "image_rewrite",
+        "image_rewrite_model",
+        "image_rewrite_prompt",
+    ]
+    table_args = [
+        "table_filter",
+        "table_filter_model",
+        "table_filter_prompt",
+        "table_rewrite",
+        "table_rewrite_model",
+        "table_rewrite_prompt",
+    ]
+
+    image_dict = {}
+    for arg in image_args:
+        image_dict[arg] = input_dict.pop(arg)
+
+    table_dict = {}
+    for arg in table_args:
+        table_dict[arg] = input_dict.pop(arg)
+
+    return image_dict, table_dict
+
+
+
+
+
+
+def run_processing(image_dict, table_dict, md_path, user_id: UUID, db: AsyncSession, logger: InfoLogger):
+
+    #========================================================
+    #==================== Filtering =========================
+    # ========================================================
+
+    # ==================== Image =========================
+
+    if image_dict["image_filter"]:
+        image_filter_args = {"user_id": user_id, "db": db, "logger": logger, "model": image_dict["image_filter_model"],
+                             "prompt": image_dict["image_filter_prompt"], "starting_mark": "[IMAGE_START]", "ending_mark": "[IMAGE_END]"}
+
+
+        filter_instance = ItemFilter(**image_filter_args)
+        filter_instance.run_method(md_path)
+
+    # ==================== Table =========================
+
+    if table_dict["table_filter"]:
+        table_filter_args = {"user_id": user_id, "db": db, "logger": logger, "model": table_dict["table_filter_model"],
+                             "prompt": table_dict["table_filter_prompt"], "starting_mark": "[TABLE_START]", "ending_mark": "[TABLE_END]"}
+
+
+        filter_instance = ItemFilter(**table_filter_args)
+        filter_instance.run_method(md_path)
+
+    # ========================================================
+    # ==================== Rewriting =========================
+    # ========================================================
+
+    # ==================== Image =========================
+
+    if image_dict["image_rewrite"]:
+        image_rewrite_args = {"user_id": user_id, "db": db, "logger": logger, "model": image_dict["image_rewrite_model"],
+                             "prompt": image_dict["image_rewrite_prompt"], "starting_mark": "[IMAGE_START]",
+                             "ending_mark": "[IMAGE_END]"}
+
+        filter_instance = ItemFilter(**image_rewrite_args)
+        filter_instance.run_method(md_path)
+
+
+
+    # ==================== Table =========================
+
+    if table_dict["table_rewrite"]:
+        table_rewrite_args = {"user_id": user_id, "db": db, "logger": logger, "model": table_dict["table_rewrite_model"],
+                             "prompt": table_dict["table_rewrite_prompt"], "starting_mark": "[TABLE_START]", "ending_mark": "[TABLE_END]"}
+
+        filter_instance = ItemFilter(**table_rewrite_args)
+        filter_instance.run_method(md_path)
+
+
+
+    # remove image and table marks (needed if rewriters didn't run)
+    with open(md_path, "r+", encoding="utf-8") as f:
+        md_text = f.read()
+        md_text = md_text.replace("[TABLE_START]", "", 1).replace("[TABLE_END]", "", 1)
+        md_text = md_text.replace("[IMAGE_START]", "", 1).replace("[IMAGE_END]", "", 1)
+        f.write(md_text)
+
 
 
 
 
 async def run_conversion(converter_dict: Dict[str, Any], user_id: UUID, doc_id: UUID, db: AsyncSession):
-
-
 
     input_path, output_path = await get_doc_paths(user_id, doc_id, db=db)
     log_path = await get_log_path(user_id, stage="conversion")
@@ -423,17 +501,31 @@ async def run_conversion(converter_dict: Dict[str, Any], user_id: UUID, doc_id: 
     session_logger.log_step(task="header_1", layer=2, log_text=f"Starting Conversion to Markdown for document: {doc_title}")
     session_logger.log_step(task="table", layer=2, log_text=f"Using following method: ", table_data=converter_dict)
 
+
+
     converter_dict.update({"db": db, "user_id": user_id, "doc_id": doc_id, "input_path": input_path, "output_path": output_path, "logger": session_logger})
     converter_type = converter_dict.pop("type")
+
+    # extract processing args
+    if converter_type == "Custom Conversion":
+        image_dict, table_dict = pop_processing_args(converter_dict)
+
+
     converter = CONVERSION_TYPE_MAPPER[converter_type](**converter_dict)
 
     method_start = time.time()
     await maybe_await(converter.run_conversion())
     method_end = time.time()
 
+    # run processing
+    if converter_type == "Custom":
+        run_processing(image_dict, table_dict, output_path, user_id, db, session_logger)
+
+
     # Finally we label this doc as "converted"
     await DocPipelines.update_data(data_dict={"converted": 1}, where_dict={"user_id": user_id, "doc_id": doc_id},
                           db=db)
+
 
     # And after that export the logs to md
 
@@ -449,7 +541,28 @@ async def run_conversion(converter_dict: Dict[str, Any], user_id: UUID, doc_id: 
 # ---------------- Markdown post-processing --------------------
 
 # ---------------------------------------------
+def scan_paragraphs(starting_mark, ending_mark, lines: List[str]):
 
+    item_lines = set()
+
+    in_item = False
+
+    for i, line in enumerate(lines):
+        line = line.strip()
+
+        if not in_item:
+            if line == starting_mark:
+                item_lines.add(i)
+                in_item = True
+
+        else:
+            if line == ending_mark:
+                item_lines.add(i)
+                in_item = False
+            else:
+                item_lines.add(i)
+
+    return item_lines
 
 
 class ItemEnricher:
@@ -458,7 +571,7 @@ class ItemEnricher:
     """
 
     def __init__(self, user_id: UUID, logger: InfoLogger, db: AsyncSession, prompt: str, model: str,
-                 starting_mark: str = "|", ending_mark: str = "", history: bool = False):
+                 starting_mark: str = "|", ending_mark: str = "", remove_mark: bool = True, history: bool = False):
 
         self.user_id = user_id
         self.db = db
@@ -468,6 +581,7 @@ class ItemEnricher:
         self.current_chunk = ""  # stores paragraph from previous iterations
         self.starting_mark = starting_mark
         self.ending_mark = ending_mark
+        self.remove_mark = remove_mark
 
         self.prompt = prompt
         self.model = model
@@ -562,26 +676,7 @@ class ItemEnricher:
 
         return enriched_output
 
-    def scan_paragraphs(self, lines: List[str]):
 
-        item_lines = set()
-
-        in_table = False
-
-        for i, line in enumerate(lines):
-            stripped = line.strip()
-
-            if not in_table:
-                if stripped.startswith(self.starting_mark):
-                    in_table = True
-                    item_lines.add(i)
-            else:
-                if stripped == self.ending_mark:
-                    in_table = False
-                else:
-                    item_lines.add(i)
-
-        self.item_lines = item_lines
 
 
 
@@ -594,6 +689,9 @@ class ItemEnricher:
             return True
 
         if self.current_chunk:
+
+            self.current_chunk = self.current_chunk.replace(self.starting_mark, "", 1).replace(self.ending_mark, "", 1)
+
             # process item into readable text
             explained_item = self._enrich_chunk(self.current_chunk)
 
@@ -612,6 +710,8 @@ class ItemEnricher:
 
     def process_last_item(self, output_dict):
         if self.current_chunk:
+            self.current_chunk = self.current_chunk.replace(self.starting_mark, "", 1).replace(self.ending_mark, "", 1)
+
             explained_item = self._enrich_chunk(self.current_chunk)
 
             output_dict["text"] += f"{explained_item}\n"
@@ -633,7 +733,7 @@ class ItemEnricher:
         start = time.time()
         await self.init_clients()
 
-        self.scan_paragraphs(lines)
+        self.item_lines = scan_paragraphs(self.starting_mark, self.ending_mark, lines)
         end = time.time()
 
         self.logger.log_step(task="info_text", layer=1, log_text=f"Scanned items in {round(end - start, 2)} seconds")
@@ -647,10 +747,6 @@ class ItemEnricher:
         # start processing paragraphs
         start = time.time()
         for i, line in enumerate(lines):
-
-            line = line.strip()
-            if not line:
-                continue
 
             is_item = self.process_items(i, line, output_dict)
             if is_item:
@@ -666,6 +762,8 @@ class ItemEnricher:
         self.logger.log_step(task="info_text", layer=2, log_text=f"Processed items in {round(end - start, 2)} seconds")
 
         output_text = output_dict["text"]
+
+
 
         with open(md_path, "w", encoding="utf-8") as f:
             f.write(output_text)
@@ -780,26 +878,7 @@ class ItemFilter:
 
         return bool_output
 
-    def scan_paragraphs(self, lines: List[str]):
 
-        item_lines = set()
-
-        in_table = False
-
-        for i, line in enumerate(lines):
-            stripped = line.strip()
-
-            if not in_table:
-                if stripped.startswith(self.starting_mark):
-                    in_table = True
-                    item_lines.add(i)
-            else:
-                if stripped == self.ending_mark:
-                    in_table = False
-                else:
-                    item_lines.add(i)
-
-        self.item_lines = item_lines
 
 
 
@@ -807,24 +886,17 @@ class ItemFilter:
 
         if i in self.item_lines:
             # update actual paragraph for next iteration
-            self.current_chunk += line
+            self.current_chunk += f"{line}\n"
             return True
 
         if self.current_chunk:
 
-            is_relevant = self._decide_relevance(self.current_chunk)
+            input_chunk = self.current_chunk.replace(self.starting_mark, "", 1).replace(self.ending_mark, "", 1)
+
+            is_relevant = self._decide_relevance(input_chunk)
 
             if is_relevant:
-                current_chunk = self.current_chunk
-                if self.remove_mark:
-                    # from the left
-                    current_chunk = current_chunk.replace(self.starting_mark, "", 1)
-                    # from the right
-                    parts = current_chunk.rsplit(self.ending_mark, 1)
-                    current_chunk = parts[0] + parts[1]
-
-                output_dict["text"] += f"{current_chunk}\n"
-
+                output_dict["text"] += f"{self.current_chunk}\n"
 
             else:
                 self.logger.log_step(task="info_text", layer=1, log_text=f"Removed item:\n {self.current_chunk}\n")
@@ -842,15 +914,7 @@ class ItemFilter:
             is_relevant = self._decide_relevance(self.current_chunk)
 
             if is_relevant:
-                current_chunk = self.current_chunk
-                if self.remove_mark:
-                    # from the left
-                    current_chunk = current_chunk.replace(self.starting_mark, "", 1)
-                    # from the right
-                    parts = current_chunk.rsplit(self.ending_mark, 1)
-                    current_chunk = parts[0] + parts[1]
-
-                output_dict["text"] += f"{current_chunk}\n"
+                output_dict["text"] += f"{self.current_chunk}\n"
 
                 #self.logger.log_step(task="info_text", layer=1, log_text=f"Saved last item:\n {current_chunk}\n")
 
@@ -874,7 +938,7 @@ class ItemFilter:
         start = time.time()
         await self.init_clients()
 
-        self.scan_paragraphs(lines)
+        self.item_lines = scan_paragraphs(self.starting_mark, self.ending_mark, lines)
         end = time.time()
 
         self.logger.log_step(task="info_text", layer=1, log_text=f"Scanned items in {round(end - start, 2)} seconds")
@@ -889,9 +953,9 @@ class ItemFilter:
         start = time.time()
         for i, line in enumerate(lines):
 
-            line = line.strip()
-            if not line:
-                continue
+            #line = line.strip()
+            #if not line:
+                #continue
 
             is_item = self.process_items(i, line, output_dict)
             if is_item:
@@ -982,8 +1046,6 @@ class BaseChunker:
 
 
     def get_tokenizer_tools(self, model: str, max_tokens: int = 512):
-
-
 
         hf_tok = AutoTokenizer.from_pretrained(model)
 

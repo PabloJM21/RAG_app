@@ -229,21 +229,17 @@ export type McpSource = {
 };
 
 /**
- * PipelineUpdate
+ * PipelineResponse
  */
-export type PipelineUpdate = {
+export type PipelineResponse = {
   /**
-   * Router
+   * Pipelinename
    */
-  router?: unknown | null;
+  pipelineName: string;
   /**
-   * Reranker
+   * Pipeline Id
    */
-  reranker?: unknown | null;
-  /**
-   * Generator
-   */
-  generator?: unknown | null;
+  pipeline_id: string;
 };
 
 /**
@@ -340,44 +336,6 @@ export type ValidationError = {
    * Error Type
    */
   type: string;
-};
-
-/**
- * PipelineResponse
- */
-export type AppRoutesDocsPipelineResponse = {
-  /**
-   * Pipelinename
-   */
-  pipelineName: string;
-  /**
-   * Pipeline Id
-   */
-  pipeline_id: string;
-};
-
-/**
- * PipelineResponse
- */
-export type AppRoutesMainPipelinePipelineResponse = {
-  /**
-   * Router
-   */
-  router: {
-    [key: string]: unknown;
-  };
-  /**
-   * Reranker
-   */
-  reranker: {
-    [key: string]: unknown;
-  };
-  /**
-   * Generator
-   */
-  generator: {
-    [key: string]: unknown;
-  };
 };
 
 /**
@@ -1009,7 +967,7 @@ export type ListDocPipelinesResponses = {
    * Response Docs-List Doc Pipelines
    * Successful Response
    */
-  200: Array<AppRoutesDocsPipelineResponse>;
+  200: Array<PipelineResponse>;
 };
 
 export type ListDocPipelinesResponse =
@@ -1264,7 +1222,7 @@ export type ListDocPipelines2Responses = {
    * Response Docs-List Doc Pipelines
    * Successful Response
    */
-  200: Array<AppRoutesDocsPipelineResponse>;
+  200: Array<PipelineResponse>;
 };
 
 export type ListDocPipelines2Response =
@@ -1299,40 +1257,96 @@ export type DeleteDocPipeline2Responses = {
   200: unknown;
 };
 
-export type ReadPipelineData = {
+export type ReadGeneratorData = {
   body?: never;
   path?: never;
   query?: never;
-  url: "/main-pipeline/pipeline/data/";
+  url: "/main-pipeline/generator/";
 };
 
-export type ReadPipelineResponses = {
+export type ReadGeneratorResponses = {
   /**
+   * Response Main-Pipeline-Read Generator
    * Successful Response
    */
-  200: AppRoutesMainPipelinePipelineResponse;
+  200: {
+    [key: string]: unknown;
+  };
 };
 
-export type ReadPipelineResponse =
-  ReadPipelineResponses[keyof ReadPipelineResponses];
+export type ReadGeneratorResponse =
+  ReadGeneratorResponses[keyof ReadGeneratorResponses];
 
-export type AddPipelineData = {
-  body: PipelineUpdate;
+export type AddGeneratorData = {
+  /**
+   * Generator
+   */
+  body: {
+    [key: string]: unknown;
+  };
   path?: never;
   query?: never;
-  url: "/main-pipeline/pipeline/data/";
+  url: "/main-pipeline/generator/";
 };
 
-export type AddPipelineErrors = {
+export type AddGeneratorErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError;
 };
 
-export type AddPipelineError = AddPipelineErrors[keyof AddPipelineErrors];
+export type AddGeneratorError = AddGeneratorErrors[keyof AddGeneratorErrors];
 
-export type AddPipelineResponses = {
+export type AddGeneratorResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type ReadRetrieversData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/main-pipeline/retrievers/";
+};
+
+export type ReadRetrieversResponses = {
+  /**
+   * Response Main-Pipeline-Read Retrievers
+   * Successful Response
+   */
+  200: Array<{
+    [key: string]: unknown;
+  }>;
+};
+
+export type ReadRetrieversResponse =
+  ReadRetrieversResponses[keyof ReadRetrieversResponses];
+
+export type AddRetrieversData = {
+  /**
+   * Retrievers
+   */
+  body: Array<{
+    [key: string]: unknown;
+  }>;
+  path?: never;
+  query?: never;
+  url: "/main-pipeline/retrievers/";
+};
+
+export type AddRetrieversErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type AddRetrieversError = AddRetrieversErrors[keyof AddRetrieversErrors];
+
+export type AddRetrieversResponses = {
   /**
    * Successful Response
    */

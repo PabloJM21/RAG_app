@@ -5,6 +5,7 @@ import {
 } from "@/app/api/custom-openapi-client/client";
 
 import { client } from "@/app/api/custom-openapi-client/client.gen";
+import {PipelineSpec} from "@/app/api/rag/docs/[doc_id]/conversion/sdk.gen";
 
 
 
@@ -41,18 +42,12 @@ export type HttpValidationError = {
 };
 
 
-
-type MethodSpec = Record<string, any>;
-
-export type PipelineSpec = {
-  router: MethodSpec;
-  reranker: MethodSpec;
-  generator: MethodSpec;
-};
-
 export type Errors = {
   422: HttpValidationError;
 };
+
+export type GeneratorSpec = Record<string, any>;
+export type RetrieversSpec = Array<Record<string, any>>;
 
 
 
@@ -99,16 +94,16 @@ export const runPipeline = <ThrowOnError extends boolean = false>(
 
 
 /**
- * Create Pipeline
+ * Generator
  */
-export type CreatePipelineData = {
-  body: PipelineSpec;
+export type CreateGeneratorData = {
+  body: GeneratorSpec;
   path?: never;
   query?: never;
-  url: "/docs/";
+  url: "/main-pipeline/generator";
 };
 
-export type CreatePipelineResponses = {
+export type CreateGeneratorResponses = {
   200: unknown;
 };
 
@@ -116,11 +111,11 @@ export type CreatePipelineResponses = {
 
 
 
-export const createPipeline = <ThrowOnError extends boolean = false>(
-  options?: Options<CreatePipelineData, ThrowOnError>,
+export const createGenerator = <ThrowOnError extends boolean = false>(
+  options?: Options<CreateGeneratorData, ThrowOnError>,
 ) => {
   return (options?.client ?? client).post<
-    CreatePipelineResponses,
+    CreateGeneratorResponses,
     Errors,
     ThrowOnError
   >({
@@ -131,42 +126,29 @@ export const createPipeline = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/main-pipeline/pipeline/data",
+    url: "/main-pipeline/generator",
     ...options,
   });
 };
 
 
 
-
-
-
-
-
-/**
- * Read Pipeline
- */
-
-
-export type ReadPipelineData = {
+export type ReadGeneratorData = {
   body?: never;
-  path?: never;
   query?: never;
-  url: "/main-pipeline/pipeline/data";
+  url: "/main-pipeline/generator";
 };
 
 
-
-
-export type ReadPipelineResponses = {
-  200: PipelineSpec;
+export type ReadGeneratorResponses = {
+  200: GeneratorSpec;
 };
 
-export const readPipeline = <ThrowOnError extends boolean = false>(
-  options?: Options<ReadPipelineData, ThrowOnError>,
+export const readGenerator = <ThrowOnError extends boolean = false>(
+  options?: Options<ReadGeneratorData, ThrowOnError>,
 ) => {
   return (options?.client ?? client).get<
-    ReadPipelineResponses,
+    ReadGeneratorResponses,
     Errors,
     ThrowOnError
   >({
@@ -177,10 +159,84 @@ export const readPipeline = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/main-pipeline/pipeline/data",
+    url: "/main-pipeline/generator",
     ...options,
   });
 };
+
+/**
+ * Retrievers
+ */
+export type CreateRetrieversData = {
+  body: RetrieversSpec;
+  path?: never;
+  query?: never;
+  url: "/main-pipeline/retrievers";
+};
+
+export type CreateRetrieversResponses = {
+  200: unknown;
+};
+
+
+
+
+
+export const createRetrievers = <ThrowOnError extends boolean = false>(
+  options?: Options<CreateRetrieversData, ThrowOnError>,
+) => {
+  return (options?.client ?? client).post<
+    CreateRetrieversResponses,
+    Errors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/main-pipeline/retrievers",
+    ...options,
+  });
+};
+
+
+
+
+export type ReadRetrieversData = {
+  body?: never;
+  query?: never;
+  url: "/main-pipeline/retrievers";
+};
+
+
+export type ReadRetrieversResponses = {
+  200: RetrieversSpec;
+};
+
+export const readRetrievers = <ThrowOnError extends boolean = false>(
+  options?: Options<ReadRetrieversData, ThrowOnError>,
+) => {
+  return (options?.client ?? client).get<
+    ReadRetrieversResponses,
+    Errors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/main-pipeline/retrievers",
+    ...options,
+  });
+};
+
+
 
 
 

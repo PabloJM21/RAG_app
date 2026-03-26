@@ -1,9 +1,7 @@
-import ConversionTabs from "@/app/home/rag/docs/[doc_id]/conversion/ConversionTabs";
-import {fetchConversionPipeline} from "@/app/api/rag/docs/[doc_id]/conversion/conversion-action";
-import {fetchProcessingPipeline} from "@/app/api/rag/docs/[doc_id]/conversion_processing/processing-action";
+import ConversionPageClient from "@/app/home/rag/docs/[doc_id]/conversion/ConversionPageClient";
+import { fetchConversionPipeline } from "@/app/api/rag/docs/[doc_id]/conversion/conversion-action";
 
 type MethodSpec = Record<string, any>;
-
 
 export default async function IndexingPage({
   params,
@@ -12,22 +10,18 @@ export default async function IndexingPage({
 }) {
   const { doc_id } = await params;
 
-  const [ConversionPipeline, ProcessingPipeline] = await Promise.all([
-    fetchConversionPipeline(doc_id),
-    fetchProcessingPipeline(doc_id),
-  ]);
+  const conversionPipeline = await fetchConversionPipeline(doc_id);
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
-      <div className="flex-1 overflow-hidden">
-        <ConversionTabs
-          doc_id={doc_id}
-          initialConversion={(ConversionPipeline ?? {}) as MethodSpec}
-          initialProcessing={(ProcessingPipeline ?? []) as MethodSpec[]}
-        />
+    <div className="h-screen overflow-hidden">
+      <div className="h-full overflow-auto p-4">
+        <div className="mx-auto max-w-5xl">
+          <ConversionPageClient
+            doc_id={doc_id}
+            pipeline={(conversionPipeline ?? {}) as MethodSpec}
+          />
+        </div>
       </div>
     </div>
   );
 }
-
-

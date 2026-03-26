@@ -89,7 +89,6 @@ async def run_conversion_pipeline(
     # 1. filter: this endpoint is only triggered when a pipeline is fetched or created from the UI
     row = await DocPipelines.get_row(where_dict={"user_id": user.id, "doc_id": doc_id}, db=db)
 
-
     # ---------------
     # Avoid converted=1 to be converted again. This restriction should only apply to global conversion
     # ---------------
@@ -126,97 +125,6 @@ async def run_conversion_pipeline(
 
 
 
-# -------- Post-Processing ------------
-
-
-
-@router.get("/processing/{doc_id}/data", response_model=List[MethodSpec])
-async def read_processing_pipeline(
-    doc_id: UUID,
-    db: AsyncSession = Depends(get_async_session),
-    user: User = Depends(current_active_user),
-):
-    row = await DocPipelines.get_row(where_dict={"user_id": user.id, "doc_id": doc_id}, db=db)
-
-
-    if row.processing_pipeline is None:
-        # Return default empty pipeline if none exists
-        return []
-
-    processing_pipeline = json.loads(row.processing_pipeline)
-
-    return processing_pipeline
-
-
-
-
-@router.post("/processing/{doc_id}/data")
-async def add_processing_pipeline(
-    doc_id: UUID,
-    pipeline: List[MethodSpec],
-    db: AsyncSession = Depends(get_async_session),
-    user: User = Depends(current_active_user),
-):
-    # First we delete current pipeline if it's set
-    row = await DocPipelines.get_row(where_dict={"user_id": user.id, "doc_id": doc_id}, db=db)
-    row.processing_pipeline = json.dumps(pipeline)
-
-    await db.commit()
-    await db.refresh(row)
-
-    return {
-        "status": "ok"
-    }
-
-
-
-@router.post("/processing/{doc_id}/run")
-async def run_processing_pipeline(
-    doc_id: UUID,
-    db: AsyncSession = Depends(get_async_session),
-    user: User = Depends(current_active_user),
-):
-    # 1. filter: this endpoint is only triggered when a pipeline is fetched or created from the UI
-    row = await DocPipelines.get_row(where_dict={"user_id": user.id, "doc_id": doc_id}, db=db)
-
-
-    # ---------------
-    # Avoid converted=1 to be converted again. This restriction should only apply to global conversion
-    # ---------------
-    # 3. filter: output error if the pipeline's "converted" status is not zero,
-    #if int(row.converted):
-        #return {}
-    # ------------
-
-    # 2. filter: output error if the pipeline is created but not saved, and there is no previous pipeline
-    if not row.processing_pipeline:
-        raise HTTPException(status_code=404, detail="No pipeline was saved")
-
-    # Run conversion
-    processing_pipeline = json.loads(row.processing_pipeline)
-
-    await run_md_processing(processing_pipeline, user.id, doc_id, db)
-
-    # After processing
-
-    row.chunked = False
-
-
-    # NEXT: Set exported=0
-    row.exported = False
-
-    await db.commit()
-
-
-    return {
-        "status": "ok"
-    }
-
-
-
-
-
-
 
 # ---------- ALL DOCs ----------
 @router.post("/run")
@@ -237,12 +145,6 @@ async def convert_all(
             conversion_pipeline = json.loads(row.conversion_pipeline)
 
             await run_conversion(conversion_pipeline, user.id, doc_id, db)
-
-            if row.processing_pipeline:
-                # Run processing
-                processing_pipeline = json.loads(row.processing_pipeline)
-
-                await run_md_processing(processing_pipeline, user.id, doc_id, db)
 
             # After conversion
 

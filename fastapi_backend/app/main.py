@@ -83,9 +83,14 @@ app = FastAPI(
 
 #await drop_tables()
 #await drop_specific_table("Retrievals")
+#await drop_tables()
+#await drop_tables()
 
+import os
 @app.on_event("startup")
 async def on_startup():
+    print("DATABASE_URL =", settings.DATABASE_URL)
+    print("CWD =", os.getcwd())
     await create_db_and_tables()
 
 
