@@ -1,14 +1,14 @@
-// ExtractionPageClient.tsx
+// EnrichmentPageClient.tsx
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
 import {
-  addExtractionPipeline,
-  runExtraction,
-} from "@/app/api/rag/docs/[doc_id]/extraction/extraction-action";
+  addEnrichmentPipeline,
+  runEnrichment,
+} from "@/app/api/rag/docs/[doc_id]/Enrichment/Enrichment-action";
 
 import {EvaluatorSettingsCard} from "@/components/Editors/EvaluatorEditor";
-import { ExtractionEditor } from "@/components/Editors/ExtractionEditor";
+import { EnrichmentEditor } from "@/components/Editors/EnrichmentEditor";
 
 
 import {PipelineTabsBar} from "@/components/custom-ui/PipelineTabsBar";
@@ -37,7 +37,7 @@ function RoutingEditor({ pipelineKey, methods, levels, onChange }: RoutingEditor
   }
 
   if (/^\d+$/.test(pipelineKey)) {
-    return <ExtractionEditor methods={methods} levels={levels} onChange={onChange} />;
+    return <EnrichmentEditor methods={methods} levels={levels} onChange={onChange} />;
   }
 
   return null;
@@ -72,7 +72,7 @@ function initialPipelineId(pipeline: PipelineSpec): string {
 }
 
 
-export default function ExtractionPageClient({
+export default function EnrichmentPageClient({
   doc_id,
   initialPipeline,
   levels,
@@ -150,11 +150,11 @@ export default function ExtractionPageClient({
 
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
           <SaveRunActions
-            addFunction={addExtractionPipeline}
-            runFunction={runExtraction}
+            addFunction={addEnrichmentPipeline}
+            runFunction={runEnrichment}
             doc_id={doc_id}
             pipelineJson={pipelineJson}
-            runLabel="Extraction"
+            runLabel="Enrichment"
           />
         </div>
 

@@ -80,7 +80,7 @@ function templateFor(
   return structuredClone(TEMPLATE_MAP[type]);
 }
 
-export function ExtractionEditor({
+export function EnrichmentEditor({
   methods,
   levels,
   onChange
