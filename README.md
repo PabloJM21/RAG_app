@@ -1,70 +1,108 @@
-## Next.js FastAPI Template
+<div style="position: relative;">
 
-<a href="https://www.vintasoftware.com/blog/next-js-fastapi-template"><img src="docs/images/banner.png" alt="Next.js FastAPI Template" width="auto"></a>
+<!-- Background Image -->
+
 <p align="center">
-    <em>Next.js FastAPI Template: Python + Modern TypeScript stack with Zod validation.</em>
+  <img src="./nextjs-frontend/public/images/Homepage.png" alt="Try RAGain Homepage" width="100%" />
 </p>
+
+<!-- Foreground Content -->
+
+<div style="position: relative; z-index: 1; padding: 20px;">
+
+## Try RAGain
+
 <p align="center">
-<a href="https://github.com/vintasoftware/nextjs-fastapi-template/actions/workflows/ci.yml" target="_blank">
-    <img src="https://github.com/vintasoftware/nextjs-fastapi-template/actions/workflows/ci.yml/badge.svg" alt="CI">
-</a>
-<a href="https://coveralls.io/github/vintasoftware/nextjs-fastapi-template" target="_blank">
-    <img src="https://coveralls.io/repos/github/vintasoftware/nextjs-fastapi-template/badge.svg" alt="Coverage">
-</a>
+    <em>Create, manage, and interact with RAG pipelines across multiple document formats.</em>
 </p>
 
 ---
 
-**Documentation**: <a href="https://vintasoftware.github.io/nextjs-fastapi-template/" target="_blank">https://vintasoftware.github.io/nextjs-fastapi-template/</a>
+Try RAGain is a tool designed to simplify the creation and interaction with Retrieval-Augmented Generation (RAG) pipelines. It enables users to upload and work with multiple documents—such as PDFs, Word files, and other formats supported by the Docling API—and seamlessly query them through a unified interface.
 
-**Source Code**: <a href="https://github.com/vintasoftware/nextjs-fastapi-template/" target="_blank">https://github.com/vintasoftware/nextjs-fastapi-template/</a>
-
----
-
-The Next.js FastAPI Template provides a solid foundation for scalable, high-performance web applications, following clean architecture and best practices. It simplifies development by integrating FastAPI, Pydantic, and Next.js with TypeScript and Zod, ensuring end-to-end type safety and schema validation between frontend and backend.
-
-The FastAPI backend supports fully asynchronous operations, optimizing database queries, API routes, and test execution for better performance. Deployment is seamless, with both backend and frontend fully deployable to Vercel, enabling quick product releases with minimal configuration.
+Built with a modern full-stack architecture, Try RAGain provides a scalable environment for experimenting with and deploying RAG-based applications.
 
 ### Key features
-✔ End-to-end type safety – Automatically generated typed clients from the OpenAPI schema ensure seamless API contracts between frontend and backend.
 
-✔ Hot-reload updates – The client updates automatically when backend routes change, keeping FastAPI and Next.js in sync.
+✔ Multi-document support – Upload and process PDFs, Word files, and other formats supported by the Docling API.
 
-✔ Versatile foundation – Designed for MVPs and production-ready applications, with a pre-configured authentication system and API layer.
+✔ RAG pipeline management – Easily create, configure, and interact with multiple RAG pipelines.
 
-✔ Quick deployment – Deploys a full-stack application—including authentication flow and a dashboard—on Vercel in just a few steps.
+✔ End-to-end type safety – Strong typing across frontend and backend for reliable data handling.
 
-✔ Production-ready authentication – Includes a pre-configured authentication system and dashboard interface, allowing you to immediately start development with user management features.
+✔ Developer-friendly – Clean architecture and modern tooling for rapid development and iteration.
+
+---
 
 ## Technology stack
-This template features a carefully selected set of technologies to ensure efficiency, scalability, and ease of use:
 
-- Zod + TypeScript – Type safety and schema validation across the stack.
-- fastapi-users – Complete authentication system with:
-    - Secure password hashing
-    - JWT authentication
-- Email-based password recovery
-- shadcn/ui – Prebuilt React components with Tailwind CSS.
-- OpenAPI-fetch – Fully typed client generation from the OpenAPI schema.
-- UV – Simplified dependency management and packaging.
-- Docker Compose – Consistent environments for development and production.
-- Pre-commit hooks – Automated code linting, formatting, and validation before commits.
-- Vercel Deployment – Serverless backend and scalable frontend, deployable with minimal configuration.
+This project uses a modern set of technologies:
 
-This is a partial list of the technologies included in the template. For a complete overview, visit our [Technology selection](https://vintasoftware.github.io/nextjs-fastapi-template/technology-selection/) page.
+* FastAPI – High-performance backend for building APIs.
+* Next.js – React framework for building the frontend.
+* TypeScript – Type-safe frontend development.
+* UV – Python dependency management.
+* pnpm – Fast package manager.
 
-## Get Started
+---
 
-To use this template, visit our [Get Started](https://vintasoftware.github.io/nextjs-fastapi-template/get-started/) and follow the steps.
+## Setup
 
-## Using the template? Let's talk!
+### Installing Required Tools
 
-We’re always curious to see how the community builds on top of it and where it’s being used. To collaborate:
+#### 1. uv
 
-- Join the conversation on [GitHub Discussions](https://github.com/vintasoftware/nextjs-fastapi-template/discussions)
-- Report bugs or suggest improvements via [issues](https://github.com/vintasoftware/nextjs-fastapi-template/issues)
-- Check the [Contributing](https://vintasoftware.github.io/nextjs-fastapi-template/contributing/) guide to get involved
+`uv` is used to manage Python dependencies in the backend. Install it by following the official guide:
+https://docs.astral.sh/uv/getting-started/installation/
 
-This project is maintained by [Vinta Software](https://www.vinta.com.br/) and is actively used in production systems we build for clients. Talk to our expert consultants — get a free technical review: contact@vinta.com.br.
+#### 2. Node.js, npm, and pnpm
 
-*Disclaimer: This project is not affiliated with Vercel.*
+To run the frontend, ensure Node.js and npm are installed:
+https://nodejs.org/en/download/
+
+After that, install pnpm globally:
+
+```bash
+npm install -g pnpm
+```
+
+---
+
+## Build the Project
+
+To set up the project locally:
+
+### Backend
+
+Navigate to the `fastapi_backend` directory and run:
+
+```bash
+uv sync
+```
+
+### Frontend
+
+Navigate to the `nextjs-frontend` directory and run:
+
+```bash
+pnpm install
+```
+
+---
+
+## Running the Application
+
+Start the FastAPI server:
+
+```bash
+make start-backend
+```
+
+Start the Next.js development server:
+
+```bash
+make start-frontend
+```
+
+</div>
+</div>
