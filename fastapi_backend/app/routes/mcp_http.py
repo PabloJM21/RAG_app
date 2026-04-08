@@ -9,7 +9,9 @@ from app.models import User
 
 
 # helper for removing "color" from stored pipelines
-from app.rag_services.helpers import load_doc_pipelines, load_pipeline
+from app.rag_services.helpers import load_doc_pipelines, load_pipeline, ExtractionError
+
+
 
 router = APIRouter(prefix="/mcp-proto", tags=["mcp-proto"])
 
@@ -81,10 +83,24 @@ async def rag_query_tool(user: User, db: AsyncSession, query: str):
 
     retrieval_dict.update({"router": load_pipeline(row.router), "reranker": load_pipeline(row.reranker), "generator": load_pipeline(row.generator)})
 
-    output_answer, chunk_list = await run_retrieval(query=query, retrieval_dict=retrieval_dict, user_id=user.id, db=db)
+    try:
+        output = await run_retrieval(query=query, retrieval_dict=retrieval_dict, user_id=user.id, db=db)
+
+        if output:
+            output_answer, chunk_list = output
+            output_dict = {"answer": f"Hello {user.email}. You asked: {query}. Here is your answer:\n {output_answer}", "sources": chunk_list}
+            return output_dict
+
+        else:
+            output_dict = {"answer": f"Hello {user.email}. You asked: {query}. You got no answer"}
+            return output_dict
+
+    except ExtractionError as e:
+
+        raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
-    return {"answer": f"Hello {user.email}. You asked: {query}. Here is your answer:\n {output_answer}", "sources": chunk_list}
+
 
 
 

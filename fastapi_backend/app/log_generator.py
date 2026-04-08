@@ -38,7 +38,7 @@ class InfoLogger:
         # File sink (unique per stage)
         self.logger.add(
             log_path,
-            rotation="2.5 MB",
+            rotation="10 MB",
             format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {message} | {extra}",
             filter=lambda record: record["extra"].get("stage") == self.stage,
             enqueue=True,

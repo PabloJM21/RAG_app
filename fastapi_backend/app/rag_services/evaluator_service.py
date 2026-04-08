@@ -388,7 +388,6 @@ async def evaluation_wrapper(pipelines: dict[str, list[dict[str, Any]]], evaluat
 
     # If there is no evaluator, run the first pipeline only
     else:
-
         pipeline = sorted_pipelines[0]
         session_logger.log_step(task="header_2", layer=2, log_text=f"Running Pipeline 1")
         log_pipeline_methods(session_logger, pipeline)

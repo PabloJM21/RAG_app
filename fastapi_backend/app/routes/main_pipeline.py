@@ -74,7 +74,19 @@ async def add_generator(
 ):
     # First we delete current pipeline if it's set
     row = await MainPipeline.get_row(where_dict={"user_id": user.id}, db=db)
-    row.generator = json.dumps(generator)
+
+
+
+    if row:
+        row.generator = json.dumps(generator)
+    else:
+        row = await MainPipeline.insert_data(
+            data_dict={
+                "user_id": user.id,
+                "generator": json.dumps(generator),
+            },
+            db=db,
+        )
 
     await db.commit()
     await db.refresh(row)
@@ -90,9 +102,27 @@ async def add_retrievers(
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
+
+    """router = retrievers[0] if retrievers else {}
+    router = retrievers[1] if retrievers else {}"""
+
+
     # First we delete current pipeline if it's set
     row = await MainPipeline.get_row(where_dict={"user_id": user.id}, db=db)
-    row.router, row.reranker = json.dumps(retrievers[0]), json.dumps(retrievers[1])
+
+    if row:
+        row.router, row.reranker = json.dumps(retrievers[0]), json.dumps(retrievers[1])
+
+
+    else:
+        row = await MainPipeline.insert_data(
+            data_dict={
+                "user_id": user.id,
+                "router": json.dumps(retrievers[0]),
+                "reranker": json.dumps(retrievers[1]),
+            },
+            db=db,
+        )
 
     await db.commit()
     await db.refresh(row)

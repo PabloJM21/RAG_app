@@ -16,7 +16,7 @@ from app.rag_apis.chat_api import ChatOrchestrator
 from app.rag_services.evaluator_service import ChunkerEvaluator, EnricherEvaluator, evaluation_wrapper
 
 # helpers for disc paths
-from app.rag_services.helpers import get_doc_paths, get_log_path, get_doc_title, get_user_api_keys, log_pipeline_methods
+from app.rag_services.helpers import get_doc_paths, get_log_path, get_doc_title, get_user_api_keys, log_pipeline_methods, ExtractionError
 
 #loggs
 from app.log_generator import InfoLogger
@@ -208,6 +208,14 @@ class Extractor:
 
 
 
+def is_json(text: str) -> bool:
+    if not text or not text.strip():
+        return False
+    try:
+        json.loads(text)
+        return True
+    except (json.JSONDecodeError, TypeError):
+        return False
 
 
 
@@ -226,12 +234,12 @@ class Enricher:
     """
 
     def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID,
-                 where: str, model: str, prompt: str, position: str = "", caption: str = "", history: bool = False):
+                 level: str, model: str, prompt: str, position: str = "", caption: str = "", history: bool = False):
 
         self.db = db
         self.user_id = user_id
         self.doc_id = doc_id
-        self.input_level = where
+        self.input_level = level
         self.logger = logger
 
 
@@ -243,6 +251,9 @@ class Enricher:
         self.chat_orchestrator: Optional[ChatOrchestrator] = None
         self.do_history = history
         self.history: list[dict[str, Any]] = []
+
+        self.history_limit = 100
+
 
 
         # these instructions aim at replacing the content of a big chunk like "embedding_chunk" by a summary of its own input_content created previously by extracting its sections titles.
@@ -256,27 +267,25 @@ class Enricher:
     # ============================================================
 
     @staticmethod
-    def unwrap_answer(chat_output):
-        # Not a dict → just stringify
-        if not isinstance(chat_output, dict):
-            return str(chat_output)
+    def unwrap_answer(chat_output: str) -> Any:
+        if not isinstance(chat_output, str):
+            raise ExtractionError("Invalid response type (expected string)", status_code=422)
 
-        # Case 1: direct Output string
-        output = chat_output.get("Output")
+        try:
+            data = json.loads(chat_output)
+        except json.JSONDecodeError:
+            raise ExtractionError("Response is not valid JSON", status_code=422)
+
+        if not isinstance(data, dict):
+            raise ExtractionError("Response JSON is not an object", status_code=422)
+
+        output = data.get("output")
         if isinstance(output, str):
-            return output
+            return output.strip()
 
-        # Case 2: schema-style nested description
-        props = chat_output.get("properties", {})
-        if isinstance(props, dict):
-            nested = props.get("Output", {})
-            if isinstance(nested, dict):
-                description = nested.get("description")
-                if isinstance(description, str):
-                    return description
+        raise ExtractionError("No valid 'output' field found in response", status_code=422)
 
-        # Fallback
-        return str(chat_output)
+
 
     async def init_clients(self):
 
@@ -287,52 +296,75 @@ class Enricher:
 
     def _call_orchestrator(self, system_prompt, user_prompt):
         if self.do_history:
-            chat_output = json.loads(self.chat_orchestrator.call_with_history(label=self.model, system_prompt=system_prompt, user_prompt=user_prompt, history=self.history))
-            self.logger.log_step(task="info_text", log_text=f"Here is the chat output: {chat_output}")
-            output_string = self.unwrap_answer(chat_output)
-
-            # update history list with user and assistant input of the new call
-            self.history += [{"role": "user", "content": user_prompt}, {"role": "assistant", "content": output_string}]
-
+            chat_output = self.chat_orchestrator.call_with_history(
+                label=self.model,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                history=self.history,
+            )
         else:
-            chat_output = json.loads(self.chat_orchestrator.call(label=self.model, system_prompt=system_prompt, user_prompt=user_prompt))
-            self.logger.log_step(task="info_text", log_text=f"Here is the chat output: {chat_output}")
-            output_string = self.unwrap_answer(chat_output)
+            chat_output = self.chat_orchestrator.call(
+                label=self.model,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+            )
+
+        output_string = self.unwrap_answer(chat_output)
+
+
+        # Reject echoed instruction / schema garbage
+        #if self._looks_like_prompt_echo(output_string):
+            #output_string = ""
+
+        # Only store good assistant outputs in history
+        if self.do_history:
+            self.history.append({"role": "user", "content": user_prompt})
+            if output_string:
+                self.history.append({"role": "assistant", "content": output_string})
+
+            if len(self.history) > self.history_limit:
+                self.history = self.history[-self.history_limit:]
 
         return output_string
 
 
-    def _enrich_chunk(self, chunk: str) -> str:
-        # Qwen3-Coder is explicitly an instruction-tuned coder model, so its usage profile lines up with OpenAIs mini line
-
-        specific_prompt = f"""Output: {{
-                                    "title": "Output",
-                                    "description": {self.prompt},
-                                    "type": "string"
-                                    }}"""
+    def _enrich_chunk(self, chunk: str) -> Any:
+        """
+        self.prompt stays fully dynamic.
+        Example self.prompt:
+            'A concise 1-2 sentence summary of the chunk in english'
+        """
 
         system_prompt = f"""
-                You are an assistant that must always respond in valid JSON following this schema:
+        You are an assistant that processes text chunks.
 
-                {{
-                    "title": "Json",
-                    "description": "Structured Json",
-                    "type": "object",
-                    "properties": {{
-                        {specific_prompt}
-                    }}
-                }}
+        Return ONLY valid JSON with exactly this structure:
+        {{
+          "output": "string"
+        }}
 
-                """
+        The value of "output" must satisfy this instruction exactly:
+        {self.prompt}
+
+        Rules:
+        - Use the chunk content as the source.
+        - Do not repeat the instruction text.
+        - Do not return a schema.
+        - Do not return keys other than "output".
+        - Do not use markdown code fences.
+        - If the chunk does not contain enough meaningful information to satisfy the instruction, return:
+          {{"output": ""}}
+        """.strip()
 
         user_prompt = f"""
-            Please analyze following Chunk Content and generate the specified Output. 
+        Apply this instruction to the chunk below:
+        {self.prompt}
 
-            Chunk Content:
-            ---
-            {chunk}
-
-            """
+        Chunk Content:
+        ---
+        {chunk}
+        ---
+        """.strip()
 
 
         new_content = self._call_orchestrator(system_prompt, user_prompt)
@@ -358,7 +390,7 @@ class Enricher:
 
 
 
-    async def run_method(self) -> None:
+    async def run_method(self):
         # use the content of input_level to generate metadata for output_level (e.g. section for section, or section for paragraph)
         # for example generate a section summary to enrich each section or provide context for all paragraphs in that section
 
@@ -407,12 +439,12 @@ class Enricher:
 
 class Filter:
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, where: str, model: str, prompt: str, history: bool = False):
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, level: str, model: str, prompt: str, history: bool = False):
 
         self.db = db
         self.user_id = user_id
         self.doc_id = doc_id
-        self.input_level = where
+        self.input_level = level
         self.logger = logger
 
         self.prompt = prompt
@@ -421,21 +453,41 @@ class Filter:
         self.chat_orchestrator: Optional[ChatOrchestrator] = None
         self.do_history = history
         self.history: list[dict[str, Any]] = []
-
-
-
+        self.history_limit = 100
 
     @staticmethod
     def extract_bool(s):
+        json_error = None
+
         try:
-            x = json.loads(s.lower() if isinstance(s, str) else s)
-            if isinstance(x, bool): return x
-            if isinstance(x, dict): return next(v for v in x.values() if isinstance(v, bool))
-        except:
-            pass
+            x = json.loads(s) if isinstance(s, str) else s
+
+            if isinstance(x, bool):
+                return x
+
+            if isinstance(x, dict):
+                for v in x.values():
+                    if isinstance(v, bool):
+                        return v
+
+        except json.JSONDecodeError as e:
+            json_error = str(e)
+
+        # Regex fallback
         m = re.search(r'\btrue\b|\bfalse\b', str(s), re.I)
-        if m: return m.group(0).lower() == "true"
-        raise ValueError("No boolean found")
+        if m:
+            return m.group(0).lower() == "true"
+
+        if json_error:
+            raise ExtractionError(
+                f"No boolean found in response. JSON parsing issue: {json_error}",
+                status_code=422,
+            )
+
+        raise ExtractionError(
+            "No boolean found in response",
+            status_code=422,
+        )
 
 
 
@@ -461,6 +513,9 @@ class Filter:
 
             # update history list with user and assistant input of the new call
             self.history += [{"role": "user", "content": user_prompt}, {"role": "assistant", "content": str(output_bool)}]
+            if len(self.history) > self.history_limit:
+                self.history = self.history[-self.history_limit:]
+
 
         else:
             chat_output = self.chat_orchestrator.call(label=self.model, system_prompt=system_prompt, user_prompt=user_prompt)
@@ -507,6 +562,35 @@ class Filter:
 
                     """
 
+        system_prompt = f"""
+                You are an assistant that processes text chunks.
+
+                Return ONLY valid JSON with exactly this structure:
+                {{
+                  "output": "boolean"
+                }}
+
+                The value of "output" must satisfy this instruction exactly:
+                {self.prompt}
+
+                Rules:
+                - Use the chunk content as the source.
+                - Do not repeat the instruction text.
+                - Do not return a schema.
+                - Do not return keys other than "output".
+                - Do not use markdown code fences.
+                """.strip()
+
+        user_prompt = f"""
+                Apply this instruction to the chunk below:
+                {self.prompt}
+
+                Chunk Content:
+                ---
+                {input_chunk}
+                ---
+                """.strip()
+
         #self.logger.log_step(task="info_text", layer=1, log_text=f"Starting to filter following chunk: {input_chunk}")
 
         bool_output = self._call_orchestrator(user_prompt, system_prompt)
@@ -515,7 +599,7 @@ class Filter:
 
 
 
-    async def run_method(self) -> None:
+    async def run_method(self):
         # use the content of input_level to generate metadata for output_level (e.g. section for section, or section for paragraph)
         # for example generate a section summary to enrich each section or provide context for all paragraphs in that section
 
@@ -549,12 +633,12 @@ class Filter:
 class Reseter:
 
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, where: str):
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, level: str):
 
         self.db = db
         self.user_id = user_id
         self.doc_id = doc_id
-        self.level = where
+        self.level = level
         self.logger = logger
 
     async def run_method(self):
@@ -677,15 +761,15 @@ async def run_extraction_pipeline(method_list: list[dict[str, Any]], user_id: UU
 
 
         if method["type"] == "Extractor":
-            input_level = method.pop("from")
-            output_level = method.pop("to")
+            input_level = method.pop("input_level")
+            output_level = method.pop("output_level")
             method.update({"input_level": input_level, "output_level": output_level})
             method_type = method.pop("type")
 
             session_logger.log_step(task="header_3", layer=2, log_text=f"Starting Extractor from {input_level} to {output_level}")
 
         else:
-            target_level = method["where"]
+            target_level = method["level"]
             method_type = method.pop("type")
 
             session_logger.log_step(task="header_3", layer=2, log_text=f"Starting {method_type} at {target_level} level")

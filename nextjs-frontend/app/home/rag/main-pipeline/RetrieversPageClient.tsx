@@ -29,7 +29,6 @@ const RETRIEVER_TYPES = [
 const DEFAULT_METHOD_COLOR = "#ffffff";
 
 const BASE_RETRIEVER_FIELDS = {
-  level: "",
   retrieval_amount: "",
   query_transformation_model: "",
   query_transformation_prompt: "",
@@ -301,7 +300,6 @@ function RetrieverSlotCard({
                   onChange({ ...method, [fieldKey]: fieldValue }),
               })
             }
-            onColorChange={(next) => onChange({ ...method, color: next })}
             defaultOpen={false}
           />
         ) : (
@@ -338,7 +336,7 @@ export function RetrieversEditor({
     const copy = [...methods];
 
     if (next === null) {
-      copy.splice(index, 1);
+      copy[index] = {};
     } else {
       copy[index] = next;
     }

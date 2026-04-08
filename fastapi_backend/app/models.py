@@ -173,6 +173,8 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     retrievals = relationship("Retrieval", back_populates="user", cascade="all, delete-orphan") # also used for table
     embeddings = relationship("Embedding", back_populates="user", cascade="all, delete-orphan")
 
+    # settings
+    settings = relationship("Settings", back_populates="user", cascade="all, delete-orphan")
 
 # Docs
 
@@ -228,6 +230,19 @@ class MainPipeline(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("user.id"), nullable=False)
 
     user = relationship("User", back_populates="main_pipeline")
+
+# Settings
+
+class Settings(Base):
+    __tablename__ = "Settings"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    method_colors = Column(String, nullable=True)
+    themes = Column(String, nullable=True)
+
+    user_id = Column(UUID(as_uuid=True), ForeignKey("user.id"), nullable=False)
+
+    user = relationship("User", back_populates="settings")
 
 
 # Exported Pipelines

@@ -17,7 +17,8 @@ from uuid import uuid4
 import json
 
 # helper for removing "color" from stored pipelines
-from app.rag_services.helpers import load_pipeline
+from app.rag_services.helpers import load_pipeline, ExtractionError
+
 
 # Extraction service
 from app.rag_services.extraction_service import run_extraction
@@ -76,35 +77,24 @@ async def run_extraction_pipeline(
         db: AsyncSession = Depends(get_async_session),
         user: User = Depends(current_active_user),
 ):
-    # 1. filter: this endpoint is only triggered when a pipeline is fetched or created from the UI
-    row = await DocPipelines.get_row(where_dict={"user_id": user.id, "doc_id": doc_id}, db=db)
 
-    
-    
+    try:
+        row = await DocPipelines.get_row(where_dict={"user_id": user.id, "doc_id": doc_id}, db=db)
 
+        if not row.extraction_pipeline:
+            raise HTTPException(status_code=400, detail="No pipeline available")
 
-    # 2. filter: output error if the pipeline is created but not saved, and there is no previous pipeline
-    if not row.extraction_pipeline:
-        raise HTTPException(status_code=404, detail="No pipeline was saved")
+        extraction_pipeline = load_pipeline(row.extraction_pipeline)
 
-    extraction_pipeline = load_pipeline(row.extraction_pipeline)
+        await run_extraction(extraction_pipeline, user.id, doc_id, db)
 
-    # Run extraction
-    await run_extraction(extraction_pipeline, user.id, doc_id, db)
+        row.exported = False
+        await db.commit()
 
-    # After extraction
+        return {"status": "ok"}
 
-
-    # NEXT: Set exported=0
-    row.exported = False
-
-    await db.commit()
-
-
-    return {
-        "status": "ok"
-    }
-
+    except ExtractionError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
 

@@ -1,57 +1,59 @@
-import {useState} from "react";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
 
-import {Button} from "@/components/ui/button";
-
-import {FlexibleMethodCard} from "@/components/custom-ui/FlexibleMethodCard";
-import {MethodsContainerCard} from "@/components/custom-ui/Containers";
-import {FILTER_PROMPTS} from "@/components/frontend_data/Prompts";
+import { FlexibleMethodCard } from "@/components/custom-ui/FlexibleMethodCard";
+import {
+  MethodsContainerCard,
+  HierarchicalMethodsContainerCard,
+} from "@/components/custom-ui/Containers";
+import { FILTER_PROMPTS } from "@/components/frontend_data/Prompts";
 
 type MethodSpec = Record<string, any>;
+type StageColors = Record<string, string>;
 
-/* ---------- Domain options ---------- */
-
-const METHOD_TYPES = ["Paragraph Chunker", "Hybrid Chunker", "Sliding Chunker", "Enricher", "Filter"] as const;
-
+const METHOD_TYPES = [
+  "Paragraph Chunker",
+  "Hybrid Chunker",
+  "Sliding Chunker",
+  "Enricher",
+  "Filter",
+] as const;
 
 const ENRICHER_POSITION = ["top", "bottom", "replace"];
-const ENRICHER_MODELS = ["coder", "thinker", "classifier", "generator", "reasoner"]
-const ENRICHER_PROMPTS = ["A fluent and complete version of this chunk in the same language."]
-
+const ENRICHER_MODELS = ["coder", "thinker", "classifier", "generator", "reasoner"];
+const ENRICHER_PROMPTS = [
+  "A fluent and complete version of this chunk in the same language.",
+];
 
 const EMBEDDING_MODELS = [
   "intfloat/e5-mistral-7b-instruct",
   "intfloat/multilingual-e5-large-instruct",
   "Qwen/Qwen3-Embedding-4B",
 ];
-/* ---------- Templates ---------- */
-
-
 
 const PARAGRAPH_TEMPLATE: MethodSpec = {
   type: "Paragraph Chunker",
   level_name: "",
-  separator: "##", // Choose "\n" for paragraphs
-  tokenizer_model: "", // if empty, tokens will be characters
-  max_tokens: "", // if empty, max tokens of the model will be used //if both are empty, chunks are defined by separator only
+  separator: "##",
+  tokenizer_model: "",
+  max_tokens: "",
   with_title: false,
 };
-
-
 
 const HYBRID_TEMPLATE: MethodSpec = {
   type: "Hybrid Chunker",
   level_name: "",
-  tokenizer_model: "", // can't be empty
-  with_title: false, // max_tokens are given by model
+  tokenizer_model: "",
+  max_tokens: "",
+  with_title: false,
 };
-
 
 const SLIDING_TEMPLATE: MethodSpec = {
   type: "Sliding Window Chunker",
   level_name: "",
-  tokenizer_model: "", // if empty, tokens will be characters
-  max_tokens: "", // Window size. If empty, max_tokens are given by model
-  overlap_tokens: "", // Size of the overlap
+  tokenizer_model: "",
+  max_tokens: "",
+  overlap_tokens: "",
   with_title: false,
 };
 
@@ -60,16 +62,14 @@ const ENRICHER_TEMPLATE: MethodSpec = {
   model: "",
   prompt: "",
   position: "",
-  caption: ""
+  caption: "",
 };
-
 
 const FILTER_TEMPLATE: MethodSpec = {
   type: "Filter",
   model: "",
-  prompt: ""
+  prompt: "",
 };
-
 
 const TEMPLATE_MAP: Record<(typeof METHOD_TYPES)[number], MethodSpec> = {
   "Paragraph Chunker": PARAGRAPH_TEMPLATE,
@@ -79,42 +79,39 @@ const TEMPLATE_MAP: Record<(typeof METHOD_TYPES)[number], MethodSpec> = {
   Filter: FILTER_TEMPLATE,
 };
 
-function templateFor(
-  type: (typeof METHOD_TYPES)[number]
-): MethodSpec {
+function templateFor(type: (typeof METHOD_TYPES)[number]): MethodSpec {
   return structuredClone(TEMPLATE_MAP[type]);
+}
+
+function getMethodColor(method: MethodSpec, colors: StageColors) {
+  const type = String(method?.type ?? "");
+  return colors[type] ?? "#ffffff";
 }
 
 export function ChunkingEditor({
   methods,
-  onChange
+  onChange,
+  colors,
 }: {
   methods: MethodSpec[];
   onChange: (methods: MethodSpec[]) => void;
+  colors: StageColors;
 }) {
   const [selectedType, setSelectedType] =
-    useState<(typeof METHOD_TYPES)[number]>(
-      "Paragraph Chunker"
-    );
-
-  /* ---------------- Helpers ---------------- */
+    useState<(typeof METHOD_TYPES)[number]>("Paragraph Chunker");
 
   function updatePipeline(index: number, key: string, value: any) {
-    onChange(methods.map((m, i) => i === index ? { ...m, [key]: value } : m));
+    onChange(methods.map((m, i) => (i === index ? { ...m, [key]: value } : m)));
   }
-
 
   function deleteMethod(index: number) {
     onChange(methods.filter((_, i) => i !== index));
   }
 
   function addMethod() {
-    const template =
-      structuredClone(templateFor(selectedType));
+    const template = structuredClone(templateFor(selectedType));
     onChange([...methods, template]);
   }
-
-  /* ---------------- Field renderer ---------------- */
 
   function renderValueEditor(
     method: Partial<MethodSpec>,
@@ -131,11 +128,7 @@ export function ChunkingEditor({
         <select
           value={String(value)}
           onChange={(e) =>
-            updatePipeline(
-              index,
-              key,
-              e.target.value === "true"
-            )
+            updatePipeline(index, key, e.target.value === "true")
           }
         >
           <option value="true">true</option>
@@ -151,9 +144,7 @@ export function ChunkingEditor({
             list="enricher-prompts"
             type="text"
             value={String(value ?? "")}
-            onChange={(e) =>
-              updatePipeline(index, key, e.target.value)
-            }
+            onChange={(e) => updatePipeline(index, key, e.target.value)}
             style={{ width: "100%" }}
           />
           <datalist id="enricher-prompts">
@@ -169,9 +160,7 @@ export function ChunkingEditor({
       return (
         <select
           value={value}
-          onChange={(e) =>
-            updatePipeline(index, key, e.target.value)
-          }
+          onChange={(e) => updatePipeline(index, key, e.target.value)}
         >
           <option value="">—</option>
           {ENRICHER_POSITION.map((w) => (
@@ -190,9 +179,7 @@ export function ChunkingEditor({
             list="filter-prompts"
             type="text"
             value={String(value ?? "")}
-            onChange={(e) =>
-              updatePipeline(index, key, e.target.value)
-            }
+            onChange={(e) => updatePipeline(index, key, e.target.value)}
             style={{ width: "100%" }}
           />
           <datalist id="filter-prompts">
@@ -208,9 +195,7 @@ export function ChunkingEditor({
       return (
         <select
           value={value}
-          onChange={(e) =>
-            updatePipeline(index, key, e.target.value)
-          }
+          onChange={(e) => updatePipeline(index, key, e.target.value)}
         >
           <option value="">—</option>
           {ENRICHER_MODELS.map((label) => (
@@ -226,9 +211,7 @@ export function ChunkingEditor({
       return (
         <select
           value={value}
-          onChange={(e) =>
-            updatePipeline(index, key, e.target.value)
-          }
+          onChange={(e) => updatePipeline(index, key, e.target.value)}
         >
           <option value="">—</option>
           {EMBEDDING_MODELS.map((label) => (
@@ -244,21 +227,15 @@ export function ChunkingEditor({
       <input
         type="text"
         value={String(value)}
-        onChange={(e) =>
-          updatePipeline(index, key, e.target.value)
-        }
+        onChange={(e) => updatePipeline(index, key, e.target.value)}
         style={{ width: "100%" }}
       />
     );
   }
 
-  /* ---------------- Render ---------------- */
-
   return (
     <section className="h-full flex flex-col gap-3">
-      {/* Top toolbar (fixed at top) */}
       <div className="flex items-center justify-between gap-3">
-
         <div className="flex items-center gap-2">
           <select
             value={selectedType}
@@ -278,16 +255,18 @@ export function ChunkingEditor({
         </div>
       </div>
 
-      {/* Methods container (blue border card) */}
-      <MethodsContainerCard
-        title="Pipeline"
+      <HierarchicalMethodsContainerCard
+        title="Hierarchical Pipeline"
         methods={methods}
         renderMethod={(method, index) => (
           <FlexibleMethodCard
             method={method}
+            color={getMethodColor(method, colors)}
             onDelete={() => deleteMethod(index)}
-            renderValue={(key, value) => renderValueEditor(method, index, key, value)}
-            onColorChange={(next) => updatePipeline(index, "color", next)}
+            renderValue={(key, value) =>
+              renderValueEditor(method, index, key, value)
+            }
+            highlightKeys={["level_name"]}
             defaultOpen={false}
           />
         )}

@@ -327,7 +327,7 @@ async def export_doc_pipeline(
     if not row:
         raise HTTPException(status_code=404, detail="Doc not found or not authorized")
 
-    pipeline_names = ["conversion_pipeline", "processing_pipeline", "chunking_pipeline", "extraction_pipeline", "retrieval_pipeline"]
+    pipeline_names = ["conversion_pipeline", "chunking_pipeline", "extraction_pipeline", "retrieval_pipeline"]
 
     output_pipelines = {}
     for key in pipeline_names:
@@ -375,7 +375,7 @@ async def load_doc_pipeline(
     if not row.pipeline:
         raise HTTPException(status_code=404, detail="Pipeline not found or not authorized")
 
-    pipeline_names = ["conversion_pipeline", "processing_pipeline", "chunking_pipeline", "extraction_pipeline", "retrieval_pipeline"]
+    pipeline_names = ["conversion_pipeline", "chunking_pipeline", "extraction_pipeline", "retrieval_pipeline"]
 
     loaded_pipeline: dict = json.loads(row.pipeline)
 
@@ -468,7 +468,7 @@ async def export_doc_pipeline(
     if not row:
         raise HTTPException(status_code=404, detail="Doc not found or not authorized")
 
-    pipeline_names = ["conversion_pipeline", "processing_pipeline", "chunking_pipeline", "extraction_pipeline", "retrieval_pipeline"]
+    pipeline_names = ["conversion_pipeline", "chunking_pipeline", "extraction_pipeline", "retrieval_pipeline"]
 
     output_pipelines = {}
     for key in pipeline_names:

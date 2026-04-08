@@ -11,25 +11,27 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { X } from "lucide-react";
-import { ColorPicker } from "@/components/custom-ui/ColorPicker"; // adjust path
+import { ColorPicker } from "@/components/custom-ui/ColorPicker";
 
 type MethodSpec = Record<string, any>;
 
 export function FlexibleMethodCard({
   method,
+  color = "#ffffff",
   titleKey = "type",
-  defaultOpen = false, // kept for API compatibility, no longer used
+  defaultOpen = false,
   onDelete,
   renderValue,
-  onColorChange,
+  highlightKeys = [],
   className,
 }: {
   method: MethodSpec;
+  color?: string;
   titleKey?: string;
   defaultOpen?: boolean;
   onDelete: () => void;
   renderValue: (key: string, value: any) => React.ReactNode;
-  onColorChange: (nextColor: string) => void;
+  highlightKeys?: string[];
   className?: string;
 }) {
   const [dialogOpen, setDialogOpen] = React.useState(defaultOpen);
@@ -40,16 +42,24 @@ export function FlexibleMethodCard({
       : String(method?.[titleKey] ?? "—");
 
   const cardColor =
-    typeof method?.color === "string" && method.color.length > 0
-      ? method.color
+    typeof color === "string" && color.length > 0
+      ? color
       : "#ffffff";
+
+  const highlightedEntries = React.useMemo(
+    () =>
+      highlightKeys
+        .filter((key) => key in (method ?? {}) && key !== titleKey && key !== "color")
+        .map((key) => [key, method[key]] as [string, any]),
+    [highlightKeys, method, titleKey]
+  );
 
   const entries = React.useMemo(
     () =>
       Object.entries(method ?? {}).filter(
-        ([k]) => k !== titleKey && k !== "color"
+        ([k]) => k !== titleKey && k !== "color" && !highlightKeys.includes(k)
       ),
-    [method, titleKey]
+    [method, titleKey, highlightKeys]
   );
 
   return (
@@ -68,8 +78,6 @@ export function FlexibleMethodCard({
             </div>
 
             <div className="ml-auto flex items-center gap-2">
-              <ColorPicker color={cardColor} onChange={onColorChange} />
-
               <Button
                 variant="ghost"
                 size="icon"
@@ -84,12 +92,20 @@ export function FlexibleMethodCard({
           </div>
         </CardHeader>
 
-        {/* Optional: small hint inside the card
-        <CardContent className="px-3 pb-3 pt-0">
-          <p className="text-xs text-muted-foreground">
-            Double-click to view details
-          </p>
-        </CardContent>*/}
+        {highlightedEntries.length > 0 && (
+          <CardContent className="px-3 pb-3 pt-0">
+            <div className="space-y-1 text-sm">
+              {highlightedEntries.map(([key, value]) => (
+                <div key={key} className="flex items-center gap-2">
+                  <span className="font-medium text-muted-foreground min-w-[120px]">
+                    {key}:
+                  </span>
+                  <div className="flex-1">{renderValue(key, value)}</div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        )}
       </Card>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

@@ -1,27 +1,28 @@
-// ChunkingPageClient.tsx
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState } from "react";
 
+import { SaveRunActions } from "@/components/custom-ui/SaveRunActions";
+import {
+  addRetrievalPipeline,
+  runExport,
+} from "@/app/api/rag/docs/[doc_id]/retrieval/retrieval-action";
 
-import {SaveRunActions} from "@/components/custom-ui/SaveRunActions";
-import {addRetrievalPipeline, runExport} from "@/app/api/rag/docs/[doc_id]/retrieval/retrieval-action";
-import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
-import {FlexibleMethodCard} from "@/components/custom-ui/FlexibleMethodCard";
-import {Button} from "@/components/ui/button";
-import {BM25_QUERY_PROMPTS, EMBEDDING_QUERY_PROMPTS, REASONER_QUERY_PROMPTS} from "@/components/frontend_data/Prompts";
-import {MethodsContainerCard} from "@/components/custom-ui/Containers";
-
+import { FlexibleMethodCard } from "@/components/custom-ui/FlexibleMethodCard";
+import { Button } from "@/components/ui/button";
+import {
+  BM25_QUERY_PROMPTS,
+  EMBEDDING_QUERY_PROMPTS,
+  REASONER_QUERY_PROMPTS,
+} from "@/components/frontend_data/Prompts";
+import {
+  MethodsContainerCard,
+  HierarchicalMethodsContainerCard,
+} from "@/components/custom-ui/Containers";
 
 type MethodSpec = Record<string, any>;
-type PipelineSpec = MethodSpec[]
-
-
-
-
-
-
-
+type PipelineSpec = MethodSpec[];
+type StageColors = Record<string, string>;
 
 /* ---------- Domain options ---------- */
 
@@ -33,12 +34,19 @@ const METHOD_TYPES = [
 
 const RETRIEVER_LEVEL_EXTRA = ["rerank"];
 
-const EMBEDDING_MODELS = ["e5-mistral-7b-instruct", "multilingual-e5-large-instruct", "qwen3-embedding-4b"];
+const EMBEDDING_MODELS = [
+  "e5-mistral-7b-instruct",
+  "multilingual-e5-large-instruct",
+  "qwen3-embedding-4b",
+];
 
-const REASONER_MODELS = ["coder", "thinker", "classifier", "generator", "reasoner"];
-
-
-
+const REASONER_MODELS = [
+  "coder",
+  "thinker",
+  "classifier",
+  "generator",
+  "reasoner",
+];
 
 /* ---------- Templates ---------- */
 
@@ -52,13 +60,13 @@ const BASE_RETRIEVER_FIELDS = {
 const EMBEDDING_RETRIEVER_TEMPLATE: MethodSpec = {
   type: "EmbeddingRetriever",
   ...BASE_RETRIEVER_FIELDS,
-  embedding_model: ""
+  embedding_model: "",
 };
 
 const REASONER_RETRIEVER_TEMPLATE: MethodSpec = {
   type: "ReasonerRetriever",
   ...BASE_RETRIEVER_FIELDS,
-  reasoner_model: ""
+  reasoner_model: "",
 };
 
 const BM25_RETRIEVER_TEMPLATE: MethodSpec = {
@@ -68,17 +76,19 @@ const BM25_RETRIEVER_TEMPLATE: MethodSpec = {
   b: "0.75",
 };
 
-
 const TEMPLATE_MAP: Record<(typeof METHOD_TYPES)[number], MethodSpec> = {
   EmbeddingRetriever: EMBEDDING_RETRIEVER_TEMPLATE,
   ReasonerRetriever: REASONER_RETRIEVER_TEMPLATE,
-  BM25Retriever: BM25_RETRIEVER_TEMPLATE
+  BM25Retriever: BM25_RETRIEVER_TEMPLATE,
 };
 
-function templateFor(
-  type: (typeof METHOD_TYPES)[number]
-): MethodSpec {
+function templateFor(type: (typeof METHOD_TYPES)[number]): MethodSpec {
   return structuredClone(TEMPLATE_MAP[type]);
+}
+
+function getMethodColor(method: MethodSpec, colors: StageColors) {
+  const type = String(method?.type ?? "");
+  return colors[type] ?? "#ffffff";
 }
 
 /* ---------- Component ---------- */
@@ -86,19 +96,18 @@ function templateFor(
 export function RetrievalEditor({
   methods,
   levels,
-  onChange
+  colors,
+  onChange,
 }: {
   methods: PipelineSpec;
   levels: string[];
+  colors: StageColors;
   onChange: (next: PipelineSpec) => void;
 }) {
-
-
   const pipeline = methods;
 
-  const [selectedType, setSelectedType] = useState<(typeof METHOD_TYPES)[number]>("EmbeddingRetriever");
-
-
+  const [selectedType, setSelectedType] =
+    useState<(typeof METHOD_TYPES)[number]>("EmbeddingRetriever");
 
   /* ---------------- Helpers ---------------- */
 
@@ -117,8 +126,6 @@ export function RetrievalEditor({
     onChange([...pipeline, template]);
   }
 
-
-
   /* ---------------- Field renderer ---------------- */
 
   function renderValueEditor(
@@ -127,12 +134,10 @@ export function RetrievalEditor({
     key: string,
     value: any
   ) {
-    // type is fixed
     if (key === "type") {
       return <span>{String(value)}</span>;
     }
 
-    // level dropdown (+ rerank)
     if (key === "level") {
       return (
         <>
@@ -140,29 +145,24 @@ export function RetrievalEditor({
             list="levels"
             type="text"
             value={String(value ?? "")}
-            onChange={(e) =>
-              updatePipeline(index, key, e.target.value)
-            }
-            style={{width: "100%"}}
+            onChange={(e) => updatePipeline(index, key, e.target.value)}
+            style={{ width: "100%" }}
           />
 
           <datalist id="levels">
-            {levels.map((lvl) => (
-              <option key={lvl} value={lvl}/>
+            {[...levels, ...RETRIEVER_LEVEL_EXTRA].map((lvl) => (
+              <option key={lvl} value={lvl} />
             ))}
           </datalist>
         </>
       );
     }
 
-    // query_transformation_model → boolean
     if (key === "query_transformation_model") {
       return (
         <select
           value={value}
-          onChange={(e) =>
-            updatePipeline(index, key, e.target.value)
-          }
+          onChange={(e) => updatePipeline(index, key, e.target.value)}
         >
           <option value="">—</option>
           {REASONER_MODELS.map((m) => (
@@ -174,17 +174,11 @@ export function RetrievalEditor({
       );
     }
 
-    // EmbeddingRetriever → model
-    if (
-      method.type === "EmbeddingRetriever" &&
-      key === "embedding_model"
-    ) {
+    if (method.type === "EmbeddingRetriever" && key === "embedding_model") {
       return (
         <select
           value={value}
-          onChange={(e) =>
-            updatePipeline(index, key, e.target.value)
-          }
+          onChange={(e) => updatePipeline(index, key, e.target.value)}
         >
           <option value="">—</option>
           {EMBEDDING_MODELS.map((m) => (
@@ -196,17 +190,11 @@ export function RetrievalEditor({
       );
     }
 
-    // ReasonerRetriever → model
-    if (
-      method.type === "ReasonerRetriever" &&
-      key === "reasoner_model"
-    ) {
+    if (method.type === "ReasonerRetriever" && key === "reasoner_model") {
       return (
         <select
           value={value}
-          onChange={(e) =>
-            updatePipeline(index, key, e.target.value)
-          }
+          onChange={(e) => updatePipeline(index, key, e.target.value)}
         >
           <option value="">—</option>
           {REASONER_MODELS.map((m) => (
@@ -218,13 +206,16 @@ export function RetrievalEditor({
       );
     }
 
-    if (key === "query_transformation_prompt" && method.type === "EmbeddingRetriever") {
+    if (
+      key === "query_transformation_prompt" &&
+      method.type === "EmbeddingRetriever"
+    ) {
       return (
         <>
           <input
             list="embedding-query-prompts"
             type="text"
-            value={value}
+            value={String(value ?? "")}
             onChange={(e) => updatePipeline(index, key, e.target.value)}
             style={{ width: "100%" }}
           />
@@ -243,7 +234,7 @@ export function RetrievalEditor({
           <input
             list="bm25-query-prompts"
             type="text"
-            value={value}
+            value={String(value ?? "")}
             onChange={(e) => updatePipeline(index, key, e.target.value)}
             style={{ width: "100%" }}
           />
@@ -256,13 +247,16 @@ export function RetrievalEditor({
       );
     }
 
-    if (key === "query_transformation_prompt" && method.type === "ReasonerRetriever") {
+    if (
+      key === "query_transformation_prompt" &&
+      method.type === "ReasonerRetriever"
+    ) {
       return (
         <>
           <input
             list="reasoner-query-prompts"
             type="text"
-            value={value}
+            value={String(value ?? "")}
             onChange={(e) => updatePipeline(index, key, e.target.value)}
             style={{ width: "100%" }}
           />
@@ -275,26 +269,22 @@ export function RetrievalEditor({
       );
     }
 
-    // retrieval_amount + fallback → free text
     return (
       <input
         type="text"
-        value={String(value)}
-        onChange={(e) =>
-          updatePipeline(index, key, e.target.value)
-        }
+        value={String(value ?? "")}
+        onChange={(e) => updatePipeline(index, key, e.target.value)}
         style={{ width: "100%" }}
       />
     );
   }
 
-/* ---------------- Render ---------------- */
+  /* ---------------- Render ---------------- */
 
   return (
     <section className="h-full flex flex-col gap-3">
-      {/* Top toolbar (fixed at top) */}
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold">Chunking</h2>
+        <h2 className="text-lg font-semibold">Retrieval</h2>
 
         <div className="flex items-center gap-2">
           <select
@@ -315,16 +305,18 @@ export function RetrievalEditor({
         </div>
       </div>
 
-      {/* Methods container (blue border card) */}
-      <MethodsContainerCard
-        title="Pipeline"
+      <HierarchicalMethodsContainerCard
+        title="Hierarchical Pipeline"
         methods={methods}
         renderMethod={(method, index) => (
           <FlexibleMethodCard
             method={method}
+            color={getMethodColor(method, colors)}
             onDelete={() => deleteMethod(index)}
-            renderValue={(key, value) => renderValueEditor(method, index, key, value)}
-            onColorChange={(next) => updatePipeline(index, "color", next)}
+            renderValue={(key, value) =>
+              renderValueEditor(method, index, key, value)
+            }
+            highlightKeys={["level"]}
             defaultOpen={false}
           />
         )}
@@ -333,21 +325,20 @@ export function RetrievalEditor({
   );
 }
 
-
-
-
 /* =========================================================
-   ProcessingPageClient (minimal change: keep pipeline in state)
+   RetrievalPageClient
    ========================================================= */
 
 export default function RetrievalPageClient({
   doc_id,
   pipeline: initialPipeline,
-  levels: levels,
+  levels,
+  colors,
 }: {
   doc_id: string;
   pipeline: MethodSpec[];
   levels: string[];
+  colors: StageColors;
 }) {
   const [pipeline, setPipeline] = useState<PipelineSpec>(initialPipeline);
 
@@ -355,7 +346,6 @@ export default function RetrievalPageClient({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      {/* ---------- Main ---------- */}
       <div
         style={{
           flex: 1,
@@ -365,7 +355,13 @@ export default function RetrievalPageClient({
           minHeight: 0,
         }}
       >
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            marginBottom: 12,
+          }}
+        >
           <SaveRunActions
             addFunction={addRetrievalPipeline}
             runFunction={runExport}
@@ -376,7 +372,12 @@ export default function RetrievalPageClient({
         </div>
 
         <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
-          <RetrievalEditor methods={pipeline} levels={levels} onChange={setPipeline} />
+          <RetrievalEditor
+            methods={pipeline}
+            levels={levels}
+            colors={colors}
+            onChange={setPipeline}
+          />
         </div>
       </div>
     </div>

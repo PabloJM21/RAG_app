@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import {Button} from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -15,8 +15,8 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 
-import { fetchKeys } from "@/app/api/rag/profile/keys-action";
-import { RequestUrlButton } from "./requestUrl";
+import {fetchKeys} from "@/app/api/rag/profile/keys-action";
+import {RequestUrlButton} from "./requestUrl";
 import {DeleteKeyButton, DeletePipelineButton} from "./deleteButton";
 import {listDocPipelines} from "@/app/api/rag/docs/docs-action";
 
@@ -97,7 +97,7 @@ export default async function KeyEditorPage() {
                           <DropdownMenuItem disabled>
                             Edit (soon)
                           </DropdownMenuItem>
-                          <DeleteKeyButton key_id={key.key_id} />
+                          <DeleteKeyButton key_id={key.key_id}/>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -160,7 +160,7 @@ export default async function KeyEditorPage() {
                         </DropdownMenuTrigger>
 
                         <DropdownMenuContent align="end">
-                          <DeletePipelineButton pipeline_id={p.pipeline_id} />
+                          <DeletePipelineButton pipeline_id={p.pipeline_id}/>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -182,7 +182,7 @@ export default async function KeyEditorPage() {
         </div>
 
         <div className="rounded-xl border bg-card p-4">
-          <RequestUrlButton />
+          <RequestUrlButton/>
         </div>
       </section>
     </div>

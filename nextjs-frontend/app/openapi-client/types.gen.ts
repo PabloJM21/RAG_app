@@ -1353,6 +1353,100 @@ export type AddRetrieversResponses = {
   200: unknown;
 };
 
+export type ReadColorsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/settings/colors/";
+};
+
+export type ReadColorsResponses = {
+  /**
+   * Response Settings-Read Colors
+   * Successful Response
+   */
+  200: {
+    [key: string]: unknown;
+  };
+};
+
+export type ReadColorsResponse = ReadColorsResponses[keyof ReadColorsResponses];
+
+export type AddColorsData = {
+  /**
+   * Method Colors
+   */
+  body: {
+    [key: string]: unknown;
+  };
+  path?: never;
+  query?: never;
+  url: "/settings/colors/";
+};
+
+export type AddColorsErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type AddColorsError = AddColorsErrors[keyof AddColorsErrors];
+
+export type AddColorsResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type ReadThemesData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/settings/themes/";
+};
+
+export type ReadThemesResponses = {
+  /**
+   * Response Settings-Read Themes
+   * Successful Response
+   */
+  200: {
+    [key: string]: unknown;
+  };
+};
+
+export type ReadThemesResponse = ReadThemesResponses[keyof ReadThemesResponses];
+
+export type AddThemesData = {
+  /**
+   * Themes
+   */
+  body: {
+    [key: string]: unknown;
+  };
+  path?: never;
+  query?: never;
+  url: "/settings/themes/";
+};
+
+export type AddThemesErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type AddThemesError = AddThemesErrors[keyof AddThemesErrors];
+
+export type AddThemesResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
 export type ReadConversionPipelineData = {
   body?: never;
   path: {
@@ -1445,104 +1539,6 @@ export type RunConversionPipelineError =
   RunConversionPipelineErrors[keyof RunConversionPipelineErrors];
 
 export type RunConversionPipelineResponses = {
-  /**
-   * Successful Response
-   */
-  200: unknown;
-};
-
-export type ReadProcessingPipelineData = {
-  body?: never;
-  path: {
-    /**
-     * Doc Id
-     */
-    doc_id: string;
-  };
-  query?: never;
-  url: "/conversion/processing/{doc_id}/data";
-};
-
-export type ReadProcessingPipelineErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type ReadProcessingPipelineError =
-  ReadProcessingPipelineErrors[keyof ReadProcessingPipelineErrors];
-
-export type ReadProcessingPipelineResponses = {
-  /**
-   * Response Conversion-Read Processing Pipeline
-   * Successful Response
-   */
-  200: Array<{
-    [key: string]: unknown;
-  }>;
-};
-
-export type ReadProcessingPipelineResponse =
-  ReadProcessingPipelineResponses[keyof ReadProcessingPipelineResponses];
-
-export type AddProcessingPipelineData = {
-  /**
-   * Pipeline
-   */
-  body: Array<{
-    [key: string]: unknown;
-  }>;
-  path: {
-    /**
-     * Doc Id
-     */
-    doc_id: string;
-  };
-  query?: never;
-  url: "/conversion/processing/{doc_id}/data";
-};
-
-export type AddProcessingPipelineErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type AddProcessingPipelineError =
-  AddProcessingPipelineErrors[keyof AddProcessingPipelineErrors];
-
-export type AddProcessingPipelineResponses = {
-  /**
-   * Successful Response
-   */
-  200: unknown;
-};
-
-export type RunProcessingPipelineData = {
-  body?: never;
-  path: {
-    /**
-     * Doc Id
-     */
-    doc_id: string;
-  };
-  query?: never;
-  url: "/conversion/processing/{doc_id}/run";
-};
-
-export type RunProcessingPipelineErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type RunProcessingPipelineError =
-  RunProcessingPipelineErrors[keyof RunProcessingPipelineErrors];
-
-export type RunProcessingPipelineResponses = {
   /**
    * Successful Response
    */

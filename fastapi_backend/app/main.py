@@ -7,6 +7,7 @@ from .utils import simple_generate_unique_route_id
 from app.routes.api_keys import router as api_router
 from app.routes.docs import router as docs_router
 from app.routes.main_pipeline import router as main_pipeline_router
+from app.routes.settings import router as settings_router
 from app.routes.conversion import router as conversion_router
 from app.routes.chunking import router as chunking_router
 from app.routes.extraction import router as extraction_router
@@ -134,6 +135,7 @@ app.include_router(
 app.include_router(docs_router, prefix="/docs")
 app.include_router(docs_router, prefix="/api_keys")
 app.include_router(main_pipeline_router, prefix="/main-pipeline")
+app.include_router(settings_router, prefix="/settings")
 app.include_router(conversion_router, prefix="/conversion")
 app.include_router(chunking_router, prefix="/chunking")
 app.include_router(extraction_router, prefix="/extraction")

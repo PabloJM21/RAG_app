@@ -3,9 +3,9 @@
 
 import { useCallback, useMemo, useState } from "react";
 import {
-  addEnrichmentPipeline,
-  runEnrichment,
-} from "@/app/api/rag/docs/[doc_id]/Enrichment/Enrichment-action";
+  addExtractionPipeline,
+  runExtraction,
+} from "@/app/api/rag/docs/[doc_id]/extraction/extraction-action";
 
 import {EvaluatorSettingsCard} from "@/components/Editors/EvaluatorEditor";
 import { EnrichmentEditor } from "@/components/Editors/EnrichmentEditor";
@@ -17,15 +17,17 @@ import {SaveRunActions} from "@/components/custom-ui/SaveRunActions";
 
 type MethodSpec = Record<string, any>;
 type PipelineSpec = Record<string, MethodSpec[]>;
+type StageColors = Record<string, string>;
 
 type RoutingEditorProps = {
   pipelineKey: string;
   methods: MethodSpec[];
   levels: string[];
   onChange: (methods: MethodSpec[]) => void;
+  colors: StageColors;
 };
 
-function RoutingEditor({ pipelineKey, methods, levels, onChange }: RoutingEditorProps) {
+function RoutingEditor({ pipelineKey, methods, levels, onChange, colors }: RoutingEditorProps) {
   if (pipelineKey === "evaluator") {
     return (
       <EvaluatorSettingsCard
@@ -37,7 +39,7 @@ function RoutingEditor({ pipelineKey, methods, levels, onChange }: RoutingEditor
   }
 
   if (/^\d+$/.test(pipelineKey)) {
-    return <EnrichmentEditor methods={methods} levels={levels} onChange={onChange} />;
+    return <EnrichmentEditor methods={methods} levels={levels} onChange={onChange} colors={colors} />;
   }
 
   return null;
@@ -76,10 +78,12 @@ export default function EnrichmentPageClient({
   doc_id,
   initialPipeline,
   levels,
+  colors,
 }: {
   doc_id: string;
   initialPipeline: PipelineSpec;
   levels: string[];
+  colors: StageColors;
 }) {
   const [pipeline, setPipeline] = useState<PipelineSpec>(initialPipeline);
   const [pipelineId, setPipelineId] = useState<string>(() => initialPipelineId(initialPipeline));
@@ -150,8 +154,8 @@ export default function EnrichmentPageClient({
 
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
           <SaveRunActions
-            addFunction={addEnrichmentPipeline}
-            runFunction={runEnrichment}
+            addFunction={addExtractionPipeline}
+            runFunction={runExtraction}
             doc_id={doc_id}
             pipelineJson={pipelineJson}
             runLabel="Enrichment"
@@ -165,6 +169,7 @@ export default function EnrichmentPageClient({
             methods={currentMethods}
             levels={levels}
             onChange={handleMethodsChange}
+            colors={colors}
           />
         </div>
 

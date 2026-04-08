@@ -4,25 +4,68 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { UploadButton} from "./DocButtons";
-import {removeDoc} from "@/app/api/rag/docs/docs-action";
+import { UploadButton } from "./DocButtons";
+import { removeDoc } from "@/app/api/rag/docs/docs-action";
 
+import { ThreeRunActions } from "@/components/custom-ui/SaveRunActions";
+import { run } from "@/app/api/rag/main-pipeline/pipeline-action";
 
-import {ThreeRunActions} from "@/components/custom-ui/SaveRunActions";
-import {run} from "@/app/api/rag/main-pipeline/pipeline-action";
-
-
-import { DocActionsMenu } from "@/components/custom-ui/DocActions"; // your path
-import { exportDocPipeline, listDocPipelines, loadDocPipeline } from "@/app/api/rag/docs/docs-action";
-
-
+import { DocActionsMenu } from "@/components/custom-ui/DocActions";
+import {
+  exportDocPipeline,
+  listDocPipelines,
+  loadDocPipeline,
+} from "@/app/api/rag/docs/docs-action";
 
 type Doc = {
   doc_id: string;
   name: string;
 };
 
+function ThemedVerticalScrollbarStyles({ scopeClass }: { scopeClass: string }) {
+  return (
+    <style>{`
+      .${scopeClass} {
+        scrollbar-width: thin;
+        scrollbar-color:
+          color-mix(in srgb, var(--theme-accent-ring) 26%, var(--theme-card-border))
+          transparent;
+      }
 
+      .${scopeClass}::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      .${scopeClass}::-webkit-scrollbar-track {
+        background: transparent;
+        margin-block: 6px;
+      }
+
+      .${scopeClass}::-webkit-scrollbar-thumb {
+        background: color-mix(
+          in srgb,
+          var(--theme-card-border) 78%,
+          var(--theme-accent-ring) 22%
+        );
+        border-radius: 9999px;
+        border: 2px solid transparent;
+        background-clip: padding-box;
+      }
+
+      .${scopeClass}:hover::-webkit-scrollbar-thumb {
+        background: color-mix(
+          in srgb,
+          var(--theme-card-border) 58%,
+          var(--theme-accent-ring) 42%
+        );
+      }
+
+      .${scopeClass}::-webkit-scrollbar-corner {
+        background: transparent;
+      }
+    `}</style>
+  );
+}
 
 export default function DocsList({
   docs,
@@ -33,12 +76,19 @@ export default function DocsList({
 }) {
   const pathname = usePathname();
 
+  const scrollClass = React.useMemo(
+    () => `docs-list-scroll-${Math.random().toString(36).slice(2, 9)}`,
+    [],
+  );
+
   if (error) return <div style={{ color: "red" }}>Error: {error}</div>;
 
   const isMainActive = pathname === "/home/rag";
 
   return (
     <section>
+      <ThemedVerticalScrollbarStyles scopeClass={scrollClass} />
+
       {/* Main link + global actions */}
       <div
         style={{
@@ -62,15 +112,16 @@ export default function DocsList({
           Master
         </Link>
 
-        <ThreeRunActions
+        {/*<ThreeRunActions
           runConversion={() => run("conversion")}
           runChunking={() => run("chunking")}
           runRetrieval={() => run("retrieval")}
-        />
+        />*/}
       </div>
 
       {/* Docs list */}
       <div
+        className={scrollClass}
         style={{
           border: "1px solid #ccc",
           borderRadius: 4,
@@ -100,7 +151,6 @@ export default function DocsList({
                 borderRadius: 6,
               }}
             >
-              {/* Doc link */}
               <Link
                 href={href}
                 style={{
@@ -115,7 +165,6 @@ export default function DocsList({
                 {doc.name}
               </Link>
 
-              {/* Actions dropdown on the right */}
               <DocActionsMenu
                 doc_id={doc.doc_id}
                 doc_name={doc.name}
@@ -135,8 +184,3 @@ export default function DocsList({
     </section>
   );
 }
-
-
-
-
-

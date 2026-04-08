@@ -20,7 +20,7 @@ import pandas as pd
 
 
 # helper for removing "color" from stored pipelines
-from app.rag_services.helpers import load_pipeline
+from app.rag_services.helpers import load_pipeline, ExtractionError
 
 
 # Indexing service
@@ -89,43 +89,41 @@ async def run_chunking_pipeline(
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
-    # 1. filter: this endpoint is only triggered when a pipeline is fetched or created from the UI
-    row = await DocPipelines.get_row(where_dict={"user_id": user.id, "doc_id": doc_id}, db=db)
+
+    try:
+        # 1. filter: this endpoint is only triggered when a pipeline is fetched or created from the UI
+        row = await DocPipelines.get_row(where_dict={"user_id": user.id, "doc_id": doc_id}, db=db)
 
 
-    # ---------------
-    # Avoid chunked=1 to be chunked again. This restriction should only apply to global chunking
-    # ---------------
-    # 3. filter: output error if the pipeline's "chunked" status is not zero,
-    #if int(chunking_pipeline.chunked):
-        #return {}
-    # ------------
+        # 2. filter: output error if the pipeline is created but not saved, and there is no previous pipeline
+        if not row.chunking_pipeline:
+            raise HTTPException(status_code=404, detail="No pipeline available")
 
-    # 2. filter: output error if the pipeline is created but not saved, and there is no previous pipeline
-    if not row.chunking_pipeline:
-        raise HTTPException(status_code=404, detail="No pipeline was saved")
+        chunking_pipeline = json.loads(row.chunking_pipeline)
 
-    chunking_pipeline = json.loads(row.chunking_pipeline)
+        # Run Chunking
+        await run_chunking(chunking_pipeline, user.id, doc_id, db)
 
-    # Run Chunking
-    await run_chunking(chunking_pipeline, user.id, doc_id, db)
+        # After Chunking
 
-    # After Chunking
+        # Set chunked=1
+        row.chunked = True
 
-    # Set chunked=1
-    row.chunked = True
+        # NEXT: Set exported=0
+        row.exported = False
+        await db.commit()
 
 
-    # NEXT: Set exported=0
-    row.exported = False
+        return {
+            "status": "ok"
+        }
 
-    await db.commit()
+    except ExtractionError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
 
-    return {
-        "status": "ok"
-    }
+
 
 
 @router.get("/{doc_id}/levels", response_model=list[str])
@@ -150,7 +148,6 @@ async def read_chunking_results(
     results = await load_chunking_results(user_id=user.id, doc_id=doc_id, db=db)
 
 
-
     return results
 
 
@@ -169,11 +166,6 @@ async def add_chunking_results(
     return {
         "status": "ok"
     }
-
-
-
-
-
 
 
 

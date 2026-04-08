@@ -2,14 +2,19 @@
 
 import * as React from "react";
 
+import {
+  themedResizerLineActiveStyle,
+  themedResizerLineStyle,
+} from "@/components/custom-ui/themeStyles";
+
 type ResizableSplitProps = {
   left: React.ReactNode;
   right: React.ReactNode;
-  initialLeftWidth?: number; // px
-  minLeftWidth?: number; // px
-  minRightWidth?: number; // px
-  height?: string; // e.g. "calc(100vh - 160px)"
-  gap?: number; // px
+  initialLeftWidth?: number;
+  minLeftWidth?: number;
+  minRightWidth?: number;
+  height?: string;
+  gap?: number;
 };
 
 export function ResizableSplit({
@@ -33,7 +38,7 @@ export function ResizableSplit({
       if (!el) return next;
 
       const total = el.getBoundingClientRect().width;
-      const gutter = 8; // handle width
+      const gutter = 8;
       const maxLeft = Math.max(minLeftWidth, total - minRightWidth - gutter - gap);
 
       return Math.min(Math.max(next, minLeftWidth), maxLeft);
@@ -44,11 +49,7 @@ export function ResizableSplit({
   const onPointerDown = (e: React.PointerEvent) => {
     draggingRef.current = true;
     setDragging(true);
-
-    // capture pointer so dragging keeps working outside the handle
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-
-    // prevent text selection / accidental clicks
     e.preventDefault();
   };
 
@@ -74,7 +75,6 @@ export function ResizableSplit({
     }
   };
 
-  // nice UX: disable text selection while dragging
   React.useEffect(() => {
     if (!dragging) return;
 
@@ -109,7 +109,6 @@ export function ResizableSplit({
     >
       <div style={{ minWidth: 0 }}>{left}</div>
 
-      {/* Gutter / draggable boundary */}
       <div
         role="separator"
         aria-orientation="vertical"
@@ -121,14 +120,12 @@ export function ResizableSplit({
         style={{
           cursor: "col-resize",
           position: "relative",
-          // widen hit area while keeping it visually subtle
           width: 8,
           background: "transparent",
           userSelect: "none",
           touchAction: "none",
         }}
       >
-        {/* visible line + hover/drag highlight */}
         <div
           style={{
             position: "absolute",
@@ -137,7 +134,7 @@ export function ResizableSplit({
             left: 3,
             width: 2,
             borderRadius: 2,
-            background: dragging ? "#999" : "rgba(0,0,0,0.15)",
+            ...(dragging ? themedResizerLineActiveStyle : themedResizerLineStyle),
           }}
         />
       </div>

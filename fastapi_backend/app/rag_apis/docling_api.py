@@ -8,7 +8,7 @@ from enum import Enum
 from typing import Any, Dict, Optional
 
 from loguru import logger as AgentLogger
-
+from app.rag_services.helpers import ExtractionError
 #from dotenv import load_dotenv
 
 
@@ -106,71 +106,144 @@ class DoclingClient:
         AgentLogger.info("DoclingClient initialized", extra={"keys": len(self.keys)})
 
     async def convert(
-        self,
-        file_path: str,
-        *,
-        response_type: DoclingOutputType = DoclingOutputType.MARKDOWN,
-        extract_tables_as_images: bool = False,
-        image_resolution_scale: float = 1.0,
+            self,
+            file_path: str,
+            *,
+            response_type: DoclingOutputType = DoclingOutputType.MARKDOWN,
+            extract_tables_as_images: bool = False,
+            image_resolution_scale: float = 1.0,
     ) -> Dict[str, Any]:
         async with self.lock:
-            for attempt in range(MAX_RETRIES * len(self.keys)):
+            total_attempts = MAX_RETRIES * len(self.keys)
+
+            for attempt in range(total_attempts):
                 key = self._current_key()
+
                 try:
                     async with httpx.AsyncClient(timeout=TIMEOUT) as client:
                         resp, headers = await self._call_docling(
-                            client, key, file_path, response_type, extract_tables_as_images, image_resolution_scale
+                            client,
+                            key,
+                            file_path,
+                            response_type,
+                            extract_tables_as_images,
+                            image_resolution_scale,
                         )
 
                     # Handle rate limits
                     rate_headers = parse_rate_headers(headers)
                     scope, action, reset = decide_action(rate_headers)
+
                     if action == "sleep":
                         reset = min(reset or 60, 60)
-                        AgentLogger.warning("Rate limit reached, sleeping", extra={"scope": scope, "seconds": reset})
+                        AgentLogger.warning(
+                            "Rate limit reached, sleeping",
+                            extra={"scope": scope, "seconds": reset, "key": key[:6], "attempt": attempt + 1},
+                        )
                         await asyncio.sleep(reset)
+
                     elif action == "switch":
-                        AgentLogger.warning("Rate limit — switching key", extra={"scope": scope, "key": key[:6]})
+                        AgentLogger.warning(
+                            "Rate limit — switching key",
+                            extra={"scope": scope, "key": key[:6], "attempt": attempt + 1},
+                        )
                         self._mark_key_limited(key)
                         self._rotate_key()
                         continue
 
-                    AgentLogger.success("Docling conversion successful", extra={"key": key[:6], "file": file_path})
+                    AgentLogger.success(
+                        "Docling conversion successful",
+                        extra={"key": key[:6], "file": file_path, "attempt": attempt + 1},
+                    )
                     return resp
 
                 except httpx.HTTPStatusError as e:
                     code = e.response.status_code
+
                     if code == 429:
-                        AgentLogger.warning("Key hit rate limit", extra={"key": key[:6]})
+                        AgentLogger.warning(
+                            "Key hit rate limit",
+                            extra={"key": key[:6], "attempt": attempt + 1, "status_code": code},
+                        )
                         self._mark_key_limited(key)
                         self._rotate_key()
                         await asyncio.sleep(2 ** (attempt % 4))
                         continue
+
                     elif code >= 500:
-                        AgentLogger.error("Server error, retrying", extra={"code": code})
+                        AgentLogger.error(
+                            "Server error, retrying",
+                            extra={"code": code, "key": key[:6], "attempt": attempt + 1, "error": repr(e)},
+                        )
                         await asyncio.sleep(2 ** (attempt % 4))
                         continue
+
                     elif code == 401:
-                        AgentLogger.error("Unauthorized key", extra={"key": key[:6]})
+                        AgentLogger.error(
+                            "Unauthorized key",
+                            extra={"key": key[:6], "attempt": attempt + 1, "status_code": code},
+                        )
                         self._mark_key_limited(key)
                         self._rotate_key()
                         continue
+
                     else:
-                        AgentLogger.error("Unhandled HTTP error", extra={"code": code, "error": repr(e)})
-                        break
+                        AgentLogger.error(
+                            "Unhandled HTTP error",
+                            extra={
+                                "code": code,
+                                "key": key[:6],
+                                "attempt": attempt + 1,
+                                "error": repr(e),
+                                "response_text": e.response.text[:500] if e.response is not None else None,
+                            },
+                        )
+                        raise ExtractionError(
+                            f"Docling HTTP error {code}: {e.response.text[:500] if e.response is not None else str(e)}",
+                            status_code=code,
+                        ) from e
 
                 except httpx.RequestError as e:
-                    AgentLogger.warning("Network error, retrying", extra={"error": repr(e)})
-                    await asyncio.sleep(2 ** (attempt % 4))
-                    continue
+                    AgentLogger.warning(
+                        "Network error, retrying",
+                        extra={"key": key[:6], "attempt": attempt + 1, "error": repr(e)},
+                    )
+
+                    if attempt < total_attempts - 1:
+                        await asyncio.sleep(2 ** (attempt % 4))
+                        continue
+
+                    raise ExtractionError(
+                        f"Docling network error after all retries: {str(e)}",
+                        status_code=503,
+                    ) from e
+
+                except ExtractionError:
+                    raise
 
                 except Exception as e:
-                    AgentLogger.error("Unexpected error", extra={"error": repr(e)})
-                    await asyncio.sleep(2 ** (attempt % 4))
-                    continue
+                    AgentLogger.error(
+                        "Unexpected error",
+                        extra={"key": key[:6], "attempt": attempt + 1, "error": repr(e)},
+                    )
 
-            AgentLogger.critical("Failed after all retries", extra={"attempts": attempt})
-            raise RuntimeError("Docling conversion failed after max retries for all keys.")
+                    if attempt < total_attempts - 1:
+                        await asyncio.sleep(2 ** (attempt % 4))
+                        continue
+
+                    raise ExtractionError(
+                        f"Unexpected Docling conversion error after all retries: {str(e)}",
+                        status_code=500,
+                    ) from e
+
+            AgentLogger.critical(
+                "Failed after all retries",
+                extra={"attempts": total_attempts, "file": file_path},
+            )
+            raise ExtractionError(
+                "Docling conversion failed after max retries for all keys.",
+                status_code=503,
+            )
 
     async def _call_docling(
         self,

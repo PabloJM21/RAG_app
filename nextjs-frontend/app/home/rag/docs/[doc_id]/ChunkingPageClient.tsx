@@ -15,14 +15,16 @@ import {SaveRunActions} from "@/components/custom-ui/SaveRunActions";
 
 type MethodSpec = Record<string, any>;
 type PipelineSpec = Record<string, MethodSpec[]>;
+type StageColors = Record<string, string>;
 
 type RoutingEditorProps = {
   pipelineKey: string;
   methods: MethodSpec[];
   onChange: (methods: MethodSpec[]) => void;
+  colors: StageColors;
 };
 
-function RoutingEditor({ pipelineKey, methods, onChange }: RoutingEditorProps) {
+function RoutingEditor({ pipelineKey, methods, onChange, colors }: RoutingEditorProps) {
   if (pipelineKey === "evaluator") {
     return (
       <EvaluatorSettingsCard
@@ -34,7 +36,7 @@ function RoutingEditor({ pipelineKey, methods, onChange }: RoutingEditorProps) {
   }
 
   if (/^\d+$/.test(pipelineKey)) {
-    return <ChunkingEditor methods={methods} onChange={onChange} />;
+    return <ChunkingEditor methods={methods} onChange={onChange} colors={colors} />;
   }
 
   return null;
@@ -72,9 +74,11 @@ function initialPipelineId(pipeline: PipelineSpec): string {
 export default function ChunkingPageClient({
   doc_id,
   initialPipeline,
+  colors,
 }: {
   doc_id: string;
   initialPipeline: PipelineSpec;
+  colors: StageColors;
 }) {
   const [pipeline, setPipeline] = useState<PipelineSpec>(initialPipeline);
   const [pipelineId, setPipelineId] = useState<string>(() => initialPipelineId(initialPipeline));
@@ -157,6 +161,7 @@ export default function ChunkingPageClient({
             pipelineKey={pipelineId}
             methods={currentMethods}
             onChange={handleMethodsChange}
+            colors={colors}
           />
         </div>
 

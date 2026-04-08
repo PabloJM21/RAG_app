@@ -19,7 +19,7 @@ import os
 import pandas as pd
 
 # helper for removing "color" from stored pipelines
-from app.rag_services.helpers import load_pipeline
+from app.rag_services.helpers import load_pipeline, ExtractionError
 
 # Indexing service
 from app.rag_services.indexing_service import run_conversion, run_md_processing
@@ -86,42 +86,41 @@ async def run_conversion_pipeline(
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
-    # 1. filter: this endpoint is only triggered when a pipeline is fetched or created from the UI
-    row = await DocPipelines.get_row(where_dict={"user_id": user.id, "doc_id": doc_id}, db=db)
 
-    # ---------------
-    # Avoid converted=1 to be converted again. This restriction should only apply to global conversion
-    # ---------------
-    # 3. filter: output error if the pipeline's "converted" status is not zero,
-    #if int(row.converted):
-        #return {}
-    # ------------
+    try:
 
-    # 2. filter: output error if the pipeline is created but not saved, and there is no previous pipeline
-    if not row.conversion_pipeline:
-        raise HTTPException(status_code=404, detail="No pipeline was saved")
-
-    # Run conversion
-    conversion_pipeline = json.loads(row.conversion_pipeline)
-
-    await run_conversion(conversion_pipeline, user.id, doc_id, db)
-
-    # After conversion
-
-    # Set converted=1
-    row.converted = True
-
-    row.chunked = False
-
-    # NEXT: Set exported=0
-    row.exported = False
-
-    await db.commit()
+        # 1. filter: this endpoint is only triggered when a pipeline is fetched or created from the UI
+        row = await DocPipelines.get_row(where_dict={"user_id": user.id, "doc_id": doc_id}, db=db)
 
 
-    return {
-        "status": "ok"
-    }
+        # 2. filter: output error if the pipeline is created but not saved, and there is no previous pipeline
+        if not row.conversion_pipeline:
+            raise HTTPException(status_code=404, detail="No pipeline was saved")
+
+        # Run conversion
+        conversion_pipeline = json.loads(row.conversion_pipeline)
+
+        await run_conversion(conversion_pipeline, user.id, doc_id, db)
+
+        # After conversion
+
+        # Set converted=1
+        row.converted = True
+
+        row.chunked = False
+
+        # NEXT: Set exported=0
+        row.exported = False
+
+        await db.commit()
+
+
+        return {
+            "status": "ok"
+        }
+
+    except ExtractionError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
 

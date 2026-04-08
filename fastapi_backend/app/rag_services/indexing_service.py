@@ -49,7 +49,7 @@ from docling.document_converter import PdfFormatOption
 
 # helpers for disc paths
 
-from app.rag_services.helpers import get_doc_paths, get_log_path, get_doc_title, get_user_api_keys, log_pipeline_methods
+from app.rag_services.helpers import get_doc_paths, get_log_path, get_doc_title, get_user_api_keys, log_pipeline_methods, ExtractionError
 
 
 #logs
@@ -243,8 +243,29 @@ class CustomConverter(BaseConverter):
         )
         end = time.time()
 
-        md_text = result.get("markdown", "")
-        images = result.get("images", [])
+        if not isinstance(result, dict):
+            raise ExtractionError(
+                "Invalid Docling response format (expected object)",
+                status_code=502,
+            )
+
+        md_text = result.get("markdown")
+        images = result.get("images")
+
+        # Validate markdown
+        if not isinstance(md_text, str) or not md_text.strip():
+            raise ExtractionError(
+                "Docling response does not contain valid markdown",
+                status_code=422,
+            )
+
+        # Validate images
+        if not isinstance(images, list):
+            raise ExtractionError(
+                "Docling response does not contain valid images list",
+                status_code=422,
+            )
+
 
 
         self.logger.log_step(task="info_text", layer=1, log_text=f"Doc converted to Markdown in {round(end - start, 2)} seconds")
@@ -334,26 +355,61 @@ class DoclingConverter(BaseConverter):
         self.do_table_structure = keep_tables
         # Force CPU
 
-
     def convert_file(self, input_path: str):
+        try:
+            pipeline_options = PdfPipelineOptions()
+            pipeline_options.do_ocr = self.do_ocr
+            pipeline_options.do_table_structure = self.do_table_structure
+            pipeline_options.table_structure_options.do_cell_matching = True
 
-        pipeline_options = PdfPipelineOptions()
-        pipeline_options.do_ocr = self.do_ocr
-        pipeline_options.do_table_structure = self.do_table_structure
-        pipeline_options.table_structure_options.do_cell_matching = True
+            doc_converter = DocumentConverter(
+                format_options={
+                    InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
+                }
+            )
+        except Exception as e:
+            raise ExtractionError(
+                f"Failed to initialize document converter: {str(e)}",
+                status_code=500,
+            ) from e
 
-        doc_converter = DocumentConverter(
-            format_options={
-                InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
-            }
-        )
+        try:
+            start = time.time()
+            result = doc_converter.convert(source=input_path)
+        except Exception as e:
+            raise ExtractionError(
+                f"Document conversion failed for file '{input_path}': {str(e)}",
+                status_code=502,
+            ) from e
 
-        start = time.time()
-        dl_doc = doc_converter.convert(source=input_path).document
-        output = dl_doc.export_to_markdown()
+        try:
+            dl_doc = result.document
+        except Exception as e:
+            raise ExtractionError(
+                f"Conversion result missing document for file '{input_path}'",
+                status_code=502,
+            ) from e
+
+        try:
+            output = dl_doc.export_to_markdown()
+        except Exception as e:
+            raise ExtractionError(
+                f"Failed to export document to markdown for file '{input_path}': {str(e)}",
+                status_code=502,
+            ) from e
+
         end = time.time()
 
-        self.logger.log_step(task="header_2", log_text=f"Doc converted to Markdown in {round(end - start, 2)} seconds")
+        if not isinstance(output, str) or not output.strip():
+            raise ExtractionError(
+                f"Exported markdown is empty for file '{input_path}'",
+                status_code=422,
+            )
+
+        self.logger.log_step(
+            task="header_2",
+            log_text=f"Doc converted to Markdown in {round(end - start, 2)} seconds",
+        )
 
         return output
 
@@ -426,7 +482,7 @@ def pop_processing_args(input_dict):
 
 
 
-def run_processing(image_dict, table_dict, md_path, user_id: UUID, db: AsyncSession, logger: InfoLogger):
+async def run_processing(image_dict, table_dict, md_path, user_id: UUID, db: AsyncSession, logger: InfoLogger):
 
     #========================================================
     #==================== Filtering =========================
@@ -434,13 +490,15 @@ def run_processing(image_dict, table_dict, md_path, user_id: UUID, db: AsyncSess
 
     # ==================== Image =========================
 
+    logger.log_step(task="info_text", log_text=f"procssing tables with these instructions: {table_dict}")
+
     if image_dict["image_filter"]:
         image_filter_args = {"user_id": user_id, "db": db, "logger": logger, "model": image_dict["image_filter_model"],
                              "prompt": image_dict["image_filter_prompt"], "starting_mark": "[IMAGE_START]", "ending_mark": "[IMAGE_END]"}
 
 
         filter_instance = ItemFilter(**image_filter_args)
-        filter_instance.run_method(md_path)
+        await filter_instance.run_method(md_path)
 
     # ==================== Table =========================
 
@@ -450,7 +508,7 @@ def run_processing(image_dict, table_dict, md_path, user_id: UUID, db: AsyncSess
 
 
         filter_instance = ItemFilter(**table_filter_args)
-        filter_instance.run_method(md_path)
+        await filter_instance.run_method(md_path)
 
     # ========================================================
     # ==================== Rewriting =========================
@@ -463,8 +521,8 @@ def run_processing(image_dict, table_dict, md_path, user_id: UUID, db: AsyncSess
                              "prompt": image_dict["image_rewrite_prompt"], "starting_mark": "[IMAGE_START]",
                              "ending_mark": "[IMAGE_END]"}
 
-        filter_instance = ItemFilter(**image_rewrite_args)
-        filter_instance.run_method(md_path)
+        filter_instance = ItemEnricher(**image_rewrite_args)
+        await filter_instance.run_method(md_path)
 
 
 
@@ -474,16 +532,18 @@ def run_processing(image_dict, table_dict, md_path, user_id: UUID, db: AsyncSess
         table_rewrite_args = {"user_id": user_id, "db": db, "logger": logger, "model": table_dict["table_rewrite_model"],
                              "prompt": table_dict["table_rewrite_prompt"], "starting_mark": "[TABLE_START]", "ending_mark": "[TABLE_END]"}
 
-        filter_instance = ItemFilter(**table_rewrite_args)
-        filter_instance.run_method(md_path)
+        filter_instance = ItemEnricher(**table_rewrite_args)
+        await filter_instance.run_method(md_path)
 
 
 
     # remove image and table marks (needed if rewriters didn't run)
-    with open(md_path, "r+", encoding="utf-8") as f:
+    with open(md_path, "r", encoding="utf-8") as f:
         md_text = f.read()
         md_text = md_text.replace("[TABLE_START]", "", 1).replace("[TABLE_END]", "", 1)
         md_text = md_text.replace("[IMAGE_START]", "", 1).replace("[IMAGE_END]", "", 1)
+
+    with open(md_path, "w", encoding="utf-8") as f:
         f.write(md_text)
 
 
@@ -518,8 +578,8 @@ async def run_conversion(converter_dict: Dict[str, Any], user_id: UUID, doc_id: 
     method_end = time.time()
 
     # run processing
-    if converter_type == "Custom":
-        run_processing(image_dict, table_dict, output_path, user_id, db, session_logger)
+    if converter_type == "Custom Conversion":
+        await run_processing(image_dict, table_dict, output_path, user_id, db, session_logger)
 
 
     # Finally we label this doc as "converted"
@@ -594,27 +654,26 @@ class ItemEnricher:
     # ============================================================
 
     @staticmethod
-    def unwrap_answer(chat_output):
-        # Not a dict → just stringify
-        if not isinstance(chat_output, dict):
-            return str(chat_output)
+    def unwrap_answer(chat_output: str) -> Any:
+        if not isinstance(chat_output, str):
+            raise ExtractionError("Invalid response type (expected string)", status_code=422)
 
-        # Case 1: direct Output string
-        output = chat_output.get("Output")
+        try:
+            data = json.loads(chat_output)
+        except json.JSONDecodeError:
+            raise ExtractionError("Response is not valid JSON", status_code=422)
+
+        if not isinstance(data, dict):
+            raise ExtractionError("Response JSON is not an object", status_code=422)
+
+        output = data.get("output")
         if isinstance(output, str):
-            return output
+            return output.strip()
 
-        # Case 2: schema-style nested description
-        props = chat_output.get("properties", {})
-        if isinstance(props, dict):
-            nested = props.get("Output", {})
-            if isinstance(nested, dict):
-                description = nested.get("description")
-                if isinstance(description, str):
-                    return description
+        raise ExtractionError("No valid 'output' field found in response", status_code=422)
 
-        # Fallback
-        return str(chat_output)
+
+
 
     async def init_clients(self):
         user_key_list = await get_user_api_keys(user_id=self.user_id, base_api="https://chat-ai.academiccloud.de/v1",
@@ -646,31 +705,35 @@ class ItemEnricher:
         # Qwen3-Coder is explicitly an instruction-tuned coder model, so its usage profile lines up with OpenAIs mini line
 
         system_prompt = f"""
-                        You are an assistant that must always respond in valid JSON following this schema:
+                You are an assistant that processes text chunks.
 
-                        {{  
-                            "title": "Json",
-                            "description": "Structured Json",
-                            "type": "object",
-                            "properties": {{
-                                "Output": {{
-                                    "title": "Output",
-                                    "description": {self.prompt},
-                                    "type": "string"
-                                }}
-                            }}  
-                        }}   
+                Return ONLY valid JSON with exactly this structure:
+                {{
+                  "output": "string"
+                }}
 
-                """
+                The value of "output" must satisfy this instruction exactly:
+                {self.prompt}
+
+                Rules:
+                - Use the chunk content as the source.
+                - Do not repeat the instruction text.
+                - Do not return a schema.
+                - Do not return keys other than "output".
+                - Do not use markdown code fences.
+                - If the chunk does not contain enough meaningful information to satisfy the instruction, return:
+                  {{"output": ""}}
+                """.strip()
 
         user_prompt = f"""
-                    Please analyze following Chunk Content and generate the specified Output. 
+                Apply this instruction to the chunk below:
+                {self.prompt}
 
-                    Chunk Content:
-                    ---
-                    {chunk}
-
-                    """
+                Chunk Content:
+                ---
+                {chunk}
+                ---
+                """.strip()
 
         enriched_output = self._call_orchestrator(system_prompt, user_prompt)
 
@@ -798,15 +861,37 @@ class ItemFilter:
 
     @staticmethod
     def extract_bool(s):
+        json_error = None
+
         try:
-            x = json.loads(s.lower() if isinstance(s, str) else s)
-            if isinstance(x, bool): return x
-            if isinstance(x, dict): return next(v for v in x.values() if isinstance(v, bool))
-        except:
-            pass
+            x = json.loads(s) if isinstance(s, str) else s
+
+            if isinstance(x, bool):
+                return x
+
+            if isinstance(x, dict):
+                for v in x.values():
+                    if isinstance(v, bool):
+                        return v
+
+        except json.JSONDecodeError as e:
+            json_error = str(e)
+
+        # Regex fallback
         m = re.search(r'\btrue\b|\bfalse\b', str(s), re.I)
-        if m: return m.group(0).lower() == "true"
-        raise ValueError("No boolean found")
+        if m:
+            return m.group(0).lower() == "true"
+
+        if json_error:
+            raise ExtractionError(
+                f"No boolean found in response. JSON parsing issue: {json_error}",
+                status_code=422,
+            )
+
+        raise ExtractionError(
+            "No boolean found in response",
+            status_code=422,
+        )
 
 
 
@@ -846,31 +931,33 @@ class ItemFilter:
         """
 
         system_prompt = f"""
-                            You are an assistant that must always respond in valid JSON following this schema:
+                        You are an assistant that processes text chunks.
 
-                            {{  
-                                "title": "Json",
-                                "description": "Structured Json",
-                                "type": "object",
-                                "properties": {{
-                                    "Boolean": {{
-                                        "title": "Boolean",
-                                        "description": {self.prompt},
-                                        "type": "Boolean"
-                                    }}
-                                }}  
-                            }}   
+                        Return ONLY valid JSON with exactly this structure:
+                        {{
+                          "output": "boolean"
+                        }}
 
-                    """
+                        The value of "output" must satisfy this instruction exactly:
+                        {self.prompt}
+
+                        Rules:
+                        - Use the chunk content as the source.
+                        - Do not repeat the instruction text.
+                        - Do not return a schema.
+                        - Do not return keys other than "output".
+                        - Do not use markdown code fences.
+                        """.strip()
 
         user_prompt = f"""
-                        Analyze the content of following CHUNK and generate the specified Boolean. 
+                        Apply this instruction to the chunk below:
+                        {self.prompt}
 
-                        CHUNK:
+                        Chunk Content:
                         ---
                         {input_chunk}
-
-                        """
+                        ---
+                        """.strip()
 
         # self.logger.log_step(task="info_text", layer=1, log_text=f"Starting to filter following chunk: {input_chunk}")
 
@@ -1047,8 +1134,29 @@ class BaseChunker:
 
     def get_tokenizer_tools(self, model: str, max_tokens: int = 512):
 
-        hf_tok = AutoTokenizer.from_pretrained(model)
+        # -----------------------------
+        # Load tokenizer from HuggingFace
+        # -----------------------------
+        try:
+            hf_tok = AutoTokenizer.from_pretrained(model)
+        except Exception as e:
+            raise ExtractionError(
+                f"Failed to load tokenizer for model '{model}'. Model may not exist or is not accessible: {str(e)}",
+                status_code=404,
+            ) from e
 
+        # -----------------------------
+        # Validate tokenizer object
+        # -----------------------------
+        if hf_tok is None:
+            raise ExtractionError(
+                f"Tokenizer loading returned None for model '{model}'",
+                status_code=500,
+            )
+
+        # -----------------------------
+        # Max tokens handling
+        # -----------------------------
 
         if not max_tokens:
             max_tokens = hf_tok.model_max_length
@@ -1059,15 +1167,27 @@ class BaseChunker:
 
 
 
-        token_limit = 2000  # prevent too big embeddings given by wrong max_tokens
+        token_limit = 100000  # prevent too big embeddings given by wrong max_tokens
 
         if max_tokens > token_limit:
 
             self.logger.log_step(task="info_text", layer=1, log_text=f"Tokens too big. Setting max_tokens={token_limit}")
 
             max_tokens = token_limit
-        
-        tokenizer: BaseTokenizer = HuggingFaceTokenizer(tokenizer=hf_tok, max_tokens=max_tokens)
+
+        # -----------------------------
+        # Wrap tokenizer
+        # -----------------------------
+        try:
+            tokenizer: BaseTokenizer = HuggingFaceTokenizer(
+                tokenizer=hf_tok,
+                max_tokens=max_tokens,
+            )
+        except Exception as e:
+            raise ExtractionError(
+                f"HuggingFace tokenizer for model '{model}' is not supported or incompatible: {str(e)}",
+                status_code=422,
+            ) from e
 
 
 
@@ -1076,32 +1196,16 @@ class BaseChunker:
 
         
 
-    async def run_doc_chunking(self, input_path: str):
 
-        # loggs
-        self.logger.log_step(task="info_text", layer=1, log_text=f"Starting Doc chunking")
-        # -----
-
-
-        await Retrieval.insert_data( data_dict={"level": "document", "level_id": 1, "user_id": self.user_id,
-                                            "doc_id": self.doc_id, "title": self.doc_title}, db=self.db)
-
-        with open(input_path, "r", encoding="utf-8") as f:
-            md_text = f.read()
-
-
-        # This dict will contain all metadata for the final insert in the "Paragraphs" table
-        meta_dict = {"paragraph": md_text, "user_id": self.user_id, "doc_id": self.doc_id, "document_id": 1}
-
-        # call chunk_text method normally,
-        meta_list = await self.run_text_chunking(meta_dict)
-
-        return meta_list
 
 
 
 
     async def run_text_chunking(self, meta_dict: Dict[str, Any])-> List[Dict[str, Any]]:
+
+
+
+
 
         input_chunk = meta_dict.pop("paragraph")
         # now meta_dict holds only the parent level IDs
@@ -1146,296 +1250,6 @@ class BaseChunker:
 
 
 
-class ChunkingEnricher:
-
-    """
-    The only difference to the regular Enricher is that the enriched content updates "content" but also "original_content"
-
-    """
-
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID,
-                 where: str, model: str, prompt: str, position: str = "", caption: str = "", history: bool = False):
-
-        self.db = db
-        self.user_id = user_id
-        self.doc_id = doc_id
-        self.level = where
-        self.logger = logger
-
-
-        self.caption = caption
-        self.prompt = prompt
-        self.model = model
-        self.position = position
-
-        self.chat_orchestrator: Optional[ChatOrchestrator] = None
-        self.do_history = history
-        self.history: list[dict[str, Any]] = []
-
-
-        # these instructions aim at replacing the content of a big chunk like "embedding_chunk" by a summary of its own input_content created previously by extracting its sections titles.
-        # level can also refer to a child of output_level instead, which can also be a summary created previously, thus defining enrichment in a recursive manner, for example with numbered sections.
-
-
-
-
-    # ============================================================
-    # INTERNAL HELPERS
-    # ============================================================
-
-
-    def _get_system_prompt(self):
-
-        # "title": "Summary",
-
-
-        specific_prompt = f"""Output: {{
-                                    "title": "Output",
-                                    "description": {self.prompt},
-                                    "type": "string"
-                                    }}"""
-
-
-
-        system_prompt = f"""
-                You are an assistant that must always respond in valid JSON following this schema:
-
-                {{
-                    "title": "Json",
-                    "description": "Structured Json",
-                    "type": "object",
-                    "properties": {{
-                        {specific_prompt}
-                    }}
-                }}
-
-                """
-
-        return system_prompt
-
-
-    async def init_clients(self):
-
-        user_key_list = await get_user_api_keys(user_id=self.user_id, base_api="https://chat-ai.academiccloud.de/v1", db=self.db)
-
-        self.chat_orchestrator = ChatOrchestrator(user_key_list=user_key_list,  base_api="https://chat-ai.academiccloud.de/v1")
-
-
-    def _call_orchestrator(self, system_prompt, user_prompt):
-        if self.do_history:
-            output_dict = json.loads(self.chat_orchestrator.call_with_history(label=self.model, system_prompt=system_prompt, user_prompt=user_prompt, history=self.history))
-
-            # update history list with user and assistant input of the new call
-            self.history += [{"role": "user", "content": user_prompt}, {"role": "assistant", "content": output_dict["Output"]}]
-
-        else:
-            output_dict = json.loads(self.chat_orchestrator.call(label=self.model, system_prompt=system_prompt, user_prompt=user_prompt))
-
-        return output_dict["Output"]
-
-
-    def _enrich_chunk(self, system_prompt: str, chunk: str) -> str:
-        # Qwen3-Coder is explicitly an instruction-tuned coder model, so its usage profile lines up with OpenAIs mini line
-
-        # QWEN2.5_CODER_32B_INSTRUCT
-
-        user_prompt = f"""
-            Please analyze following Chunk Content and generate the specified Output. 
-
-            Chunk Content:
-            ---
-            {chunk}
-
-            """
-
-
-        new_content = self._call_orchestrator(system_prompt, user_prompt)
-
-
-        # Caption and Position Logic
-
-        if self.caption:
-            new_content = f"{self.caption}: \n{new_content}"
-
-        if self.position == "top":
-            output_content = f"{new_content}\n{chunk}"
-
-        elif self.position == "bottom":
-            output_content = f"{chunk}\n{new_content}"
-
-        else:
-            output_content = new_content
-
-
-        return output_content
-
-
-
-
-    async def run_method(self, chunk_array) -> None:
-        # use the content of level to generate metadata for output_level (e.g. section for section, or section for paragraph)
-        # for example generate a section summary to enrich each section or provide context for all paragraphs in that section
-
-        # loggs
-        await self.init_clients()
-
-
-        rows, columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.level}, db=self.db)
-
-
-        input_df = pd.DataFrame(rows, columns=columns).sort_values(by="level_id")  # like the retrievals table, but one for each hierarchy level
-
-        input_ids = list(set(input_df[f"level_id"]))
-
-
-
-        for input_id in input_ids:
-            #print(f"proceeding to enrich {input_id}")
-
-            # instead of extracting chunk from paragraphs table, we search for the input or output column of the retrievals table
-
-            old_content = input_df.loc[input_df["level_id"] == input_id, "content"].dropna().astype(str).iloc[0]  # one row dataframe
-
-            if not old_content:
-
-                return
-
-            system_prompt = self._get_system_prompt()
-
-            start = time.time()
-            new_content = self._enrich_chunk(system_prompt, old_content)
-            end = time.time()
-
-            await Retrieval.update_data(data_dict={"content": new_content, "original_content": new_content}, where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level_id": input_id, "level": self.level}, db=self.db)
-            #self.logger.log_step(task="table", layer=1, table_data={"old_content": old_content, "new_content": new_content, "duration": round(end - start, 2)})
-
-            # in the last iteration step we update chunk_array
-            for chunk_dict in chunk_array:
-                if chunk_dict[f"{self.level}_id"] == input_id:
-                    chunk_dict["paragraph"] = new_content
-
-        return chunk_array
-
-
-
-
-
-
-class ChunkingFilter:
-
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, where: str, model: str, prompt: str, history: bool = False):
-
-        self.db = db
-        self.user_id = user_id
-        self.doc_id = doc_id
-        self.level = where
-        self.logger = logger
-
-        self.prompt = prompt
-        self.model = model
-
-        self.chat_orchestrator: Optional[ChatOrchestrator] = None
-        self.do_history = history
-        self.history: list[dict[str, Any]] = []
-
-
-
-
-    async def init_clients(self):
-        user_key_list = await get_user_api_keys(user_id=self.user_id, base_api="https://chat-ai.academiccloud.de/v1",
-                                                db=self.db)
-
-        self.chat_orchestrator = ChatOrchestrator(user_key_list=user_key_list, base_api="https://chat-ai.academiccloud.de/v1")
-
-
-
-    def filter_image_content(self, input_chunk):
-        """
-                Rewrites image content with paragraphs describing it - if it aligns with the main topic of the file. Otherwise, it removes it.
-                Should remove descriptions of logos and layout symbols
-        """
-
-        system_prompt = f"""
-                        You are an assistant that must always respond in valid JSON following this schema:
-
-                        {{  
-                            "title": "Json",
-                            "description": "Structured Json",
-                            "type": "object",
-                            "properties": {{
-                                "Boolean": {{
-                                    "title": "Boolean",
-                                    "description": {self.prompt},
-                                    "type": "Boolean"
-                                }}
-                            }}  
-                        }}   
-
-                """
-
-        user_prompt = f"""
-                    Analyze the content of following CHUNK and generate the specified Boolean. 
-
-                    CHUNK:
-                    ---
-                    {input_chunk}
-
-                    """
-
-        output_dict = json.loads(self.chat_orchestrator.call(self.model, system_prompt, user_prompt))
-
-        return output_dict["Boolean"]
-
-
-
-    async def run_method(self, chunk_array) -> None:
-        # use the content of level to generate metadata for output_level (e.g. section for section, or section for paragraph)
-        # for example generate a section summary to enrich each section or provide context for all paragraphs in that section
-
-        # loggs
-        await self.init_clients()
-
-        rows, columns = await Retrieval.get_all(
-            where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.level}, db=self.db)
-
-
-        input_df = pd.DataFrame(rows, columns=columns).sort_values(
-            by="level_id")  # like the retrievals table, but one for each hierarchy level
-
-        input_ids = list(set(input_df[f"level_id"]))
-
-        irrelevant_ids = []
-        for input_id in input_ids:
-            # print(f"proceeding to enrich {input_id}")
-
-            # instead of extracting chunk from paragraphs table, we search for the input or output column of the retrievals table
-
-            content = input_df.loc[input_df["level_id"] == input_id, "content"].dropna().astype(str).iloc[0]  # one row dataframe
-
-            if not content:
-                print("Content is empty")
-                return
-
-
-            is_relevant = self.filter_image_content(content)
-
-            if not is_relevant:
-                self.logger.log_step(task="info_text", log_text=f"Chunk not relevant:\n {content}")
-                irrelevant_ids.append(input_id)
-                await Retrieval.delete_data(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level_id": input_id, "level": self.level}, db=self.db)
-
-
-        self.logger.log_step(task="info_text", log_text=f"Obtained irrelevant_ids:\n {irrelevant_ids}")
-        # Finally we update chunk_array
-        for i, chunk_dict in enumerate(chunk_array):
-            if chunk_dict[f"{self.level}_id"] in irrelevant_ids:
-                chunk_array.pop(i)
-            else:
-                self.logger.log_step(task="info_text", log_text=f"chunk {i} is relevant")
-
-        return chunk_array
-
-
 
 
 
@@ -1473,7 +1287,8 @@ class ParagraphChunker(BaseChunker):
             return 1 # ensures that len(paragraph) > max_tokens
 
         elif not self.model:
-            return len(paragraph)
+            # count words, if no tokenizer was specified
+            return len(paragraph.split(" "))#len(paragraph)
 
 
         # if tokenizer_model was given with no max_tokens
@@ -1528,6 +1343,8 @@ class ParagraphChunker(BaseChunker):
 
                 chunks.append(f"\n{self.separator}".join(current))
 
+                self.logger.log_step(task="info_text", log_text=f"New chunk starting with: {p}")
+
                 current = [p]
                 current_len = p_len
             else:
@@ -1567,10 +1384,12 @@ class SlidingChunker(BaseChunker):
 
     def encode_text(self, input_text):
 
+        # if no tokenizer model, use words as tokens
         if not self.model:
-            return input_text
+            output_tokens = input_text.split(" ")
+            return output_tokens
 
-        # at the first iteration
+        # if tokenizer model, init tokenizer at the first iteration
         elif not self.tokenizer:
             self.tokenizer, self.max_tokens = self.get_tokenizer_tools(self.model, self.max_tokens)
 
@@ -1622,13 +1441,37 @@ class DoclingChunker(BaseChunker):
     def convert_text(input_text: str):
         converter = DocumentConverter()
 
-        result = converter.convert_string(
-            content=input_text.replace("\r\n", "\n"),
-            format=InputFormat.MD,
-            name="input.md"
-        )
+        normalized_text = input_text.replace("\r\n", "\n")
 
-        return result.document
+        try:
+            result = converter.convert_string(
+                content=normalized_text,
+                format=InputFormat.MD,
+                name="input.md",
+            )
+        except Exception as e:
+            raise ExtractionError(
+                f"Text conversion failed: {str(e)}",
+                status_code=502,
+            ) from e
+
+        try:
+            document = result.document
+
+        except Exception as e:
+            raise ExtractionError(
+                "Converted text result is missing document",
+                status_code=502,
+            ) from e
+
+
+        if document is None:
+            raise ExtractionError(
+                "Converted text result returned no document",
+                status_code=502,
+            )
+
+        return document
 
     def chunk_text(self, input_chunk: str):
 
@@ -1647,17 +1490,21 @@ class HierarchicalDoclingChunker(DoclingChunker):
         with_title: bool, max_tokens: int, min_tokens, overlap, merge_across_blocks):
         super().__init__(db=db, logger=logger, evaluator=evaluator, user_id=user_id, doc_id=doc_id, level_name=level_name, with_title=with_title, doc_title=doc_title)
 
-        self.chunker = self.compute_chunker(max_tokens, min_tokens, overlap, merge_across_blocks)
+        try:
+            self.chunker = HierarchicalChunker(
+                max_tokens=max_tokens,
+                min_tokens=min_tokens,
+                overlap=overlap,
+                merge_across_blocks=merge_across_blocks,
+            )
+        except Exception as e:
+            raise ExtractionError(
+                f"Failed to initialize HierarchicalChunker with "
+                f"max_tokens={max_tokens}, min_tokens={min_tokens}, "
+                f"overlap={overlap}, merge_across_blocks={merge_across_blocks}: {str(e)}",
+                status_code=500,
+            ) from e
 
-    @staticmethod
-    def compute_chunker(max_tokens, min_tokens, overlap, merge_across_blocks):
-        chunker = HierarchicalChunker(
-            max_tokens=max_tokens,
-            min_tokens=min_tokens,
-            overlap=overlap,
-            merge_across_blocks=merge_across_blocks,
-        )
-        return chunker
 
 
 
@@ -1674,12 +1521,16 @@ class HybridDoclingChunker(DoclingChunker):
         super().__init__(db=db, logger=logger, evaluator=evaluator, user_id=user_id, doc_id=doc_id, level_name=level_name, with_title=with_title, doc_title=doc_title)
 
         self.tokenizer, _ = self.get_tokenizer_tools(tokenizer_model, max_tokens)
-        self.chunker = HybridChunker(tokenizer=self.tokenizer)
 
-    @staticmethod
-    def compute_chunker(tokenizer):
-        return HybridChunker(tokenizer=tokenizer)
+        try:
 
+            self.chunker = HybridChunker(tokenizer=self.tokenizer)
+
+        except Exception as e:
+            raise ExtractionError(
+                f"Failed to initialize HybridChunker with {tokenizer_model} tokenizer model",
+                status_code=500,
+            ) from e
 
 
 
@@ -1703,6 +1554,9 @@ EVALUATOR_TYPE_MAPPER = {
 
 async def run_chunking(pipelines: dict[str, list[dict[str, Any]]], user_id: UUID, doc_id: UUID, db: AsyncSession):
     _, input_path = await get_doc_paths(user_id, doc_id, db=db)
+
+
+
     log_path = await get_log_path(user_id, stage="chunking")
     session_logger = InfoLogger(log_path=log_path, stage="chunking")
     doc_title = await get_doc_title(user_id, doc_id, db=db)
@@ -1711,6 +1565,10 @@ async def run_chunking(pipelines: dict[str, list[dict[str, Any]]], user_id: UUID
     evaluator_args = {"user_id": user_id, "doc_id": doc_id, "db": db, "session_logger": session_logger}
     runner_args = {"user_id": user_id, "doc_id": doc_id, "db": db, "session_logger": session_logger,
                    "input_path": input_path, "doc_title": doc_title}
+
+    # Delete previous chunks of this doc in the "Retrievals" table
+    await Retrieval.delete_data(where_dict={"user_id": user_id, "doc_id": doc_id},
+                                db=db)
 
     await evaluation_wrapper(pipelines=pipelines, evaluator_args=evaluator_args, runner_args=runner_args,
                              session_logger=session_logger, log_path=log_path, runner_fn=run_chunking_pipeline)
@@ -1728,31 +1586,46 @@ CHUNKING_TYPE_MAPPER = {
     "Paragraph Chunker": ParagraphChunker,
     "Hybrid Chunker": HybridChunker,
     "Sliding Window Chunker": SlidingChunker,
-    "Enricher": ChunkingEnricher,
-    "Filter": ChunkingFilter,
 }
+
+
+async def get_doc_chunk(input_path, user_id, doc_id, db, doc_title):
+
+
+    await Retrieval.insert_data(data_dict={"level": "document", "level_id": 1, "user_id": user_id,
+                                           "doc_id": doc_id, "title": doc_title}, db=db)
+    try:
+        if not os.path.isfile(input_path):
+            raise ExtractionError(
+                f"Markdown file not found: {input_path}",
+                status_code=404,
+            )
+
+        with open(input_path, "r", encoding="utf-8") as f:
+            md_text = f.read()
+
+    except ExtractionError:
+        raise
+
+    except Exception as e:
+        raise ExtractionError(
+            f"Failed to read markdown file: {str(e)}",
+            status_code=500,
+        ) from e
+
+
+    # This dict will contain all metadata for the final insert in the "Paragraphs" table
+    first_array = [{"paragraph": md_text, "user_id": user_id, "doc_id": doc_id, "document_id": 1}]
+
+
+    return first_array
+
+
+
 
 async def run_chunking_pipeline(method_list: list[dict[str, Any]], user_id: UUID, doc_id: UUID, db: AsyncSession, session_logger: InfoLogger, session_evaluator: ChunkerEvaluator, input_path: str, doc_title: str):
 
-    def insert_past_levels(method_list):
-       """
-       Aimed at "Enricher" and "Filter" methods
-       """
-       first_method = method_list[0]
-       if first_method["type"] in ["Enricher", "Filter"]:
-           first_method["level_name"] = "document"
 
-       for i in range(1, len(method_list)):
-           method = method_list[i]
-           if method["type"] in ["Enricher", "Filter"]:
-               method["level_name"] = method_list[i-1]["level_name"]
-
-       # finally change level key to match the Enricher/Filter class
-       for method in method_list:
-           if method["type"] in ["Enricher", "Filter"] and "level_name" in method:
-               method["where"] = method.pop("level_name")
-
-       return method_list
 
 
 
@@ -1773,27 +1646,14 @@ async def run_chunking_pipeline(method_list: list[dict[str, Any]], user_id: UUID
         return output_chunks
 
 
-    # insert levels of previous chunker/method to each Enricher/Filter
-    method_list = insert_past_levels(method_list)
-
-    first_method = method_list.pop(0)
-    first_method.pop("color", None)
-    method_type = first_method.pop("type")
-    first_method.update({"logger": session_logger, "evaluator": session_evaluator, "user_id": user_id, "doc_id": doc_id, "db": db, "doc_title": doc_title})
-
-    #session_logger.log_step(task="info_text", log_text=f"Attempting to init first method for user: {user_id}")
-    method_instance = CHUNKING_TYPE_MAPPER[method_type](**first_method)
 
 
     # Record Pipeline Start
     pipeline_start = time.time()
 
-    # apply first chunker to the document at this path
-    doc_start = time.time()
-    old_chunk_array = await method_instance.run_doc_chunking(input_path)
-    doc_end = time.time()
-
-    session_logger.log_step(task="info_text", layer=2, log_text=f"Chunking at {first_method["level_name"]} level completed in {round(doc_end - doc_start, 2)} seconds ")
+    # Extract the text chunk of the document at this path
+    session_logger.log_step(task="info_text", layer=1, log_text=f"Starting Doc chunking")
+    old_chunk_array = await get_doc_chunk(input_path, user_id, doc_id, db, doc_title)
 
 
 
@@ -1828,10 +1688,11 @@ async def run_chunking_pipeline(method_list: list[dict[str, Any]], user_id: UUID
 
             # Instance new method
             method_instance = CHUNKING_TYPE_MAPPER[method_type](**method)
-            session_logger.log_step(task="info_text", log_text="Can we generate offspring?")
+            #session_logger.log_step(task="info_text", log_text="Can we generate offspring?")
 
             # Generate offspring based on past generation of chunks
             text_start = time.time()
+
             new_chunk_array = await generate_offspring(old_chunk_array, method_instance)
             text_end = time.time()
 
@@ -1843,7 +1704,7 @@ async def run_chunking_pipeline(method_list: list[dict[str, Any]], user_id: UUID
 
 
 
-        if i+2 > min(method_limit, len(method_list)): break
+        #if i+2 > min(method_limit, len(method_list)): break
 
         old_chunk_array = new_chunk_array
 

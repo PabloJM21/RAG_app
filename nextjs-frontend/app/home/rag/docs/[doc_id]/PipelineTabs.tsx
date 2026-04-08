@@ -12,13 +12,18 @@ import {
 
 import ChunkingPageClient from "./ChunkingPageClient";
 import EnrichmentPageClient from "./EnrichmentPageClient";
-import ChunksResultsEditor, {Results} from "./ChunksResultsEditor";
-import RetrievalPageClient from "@/app/home/rag/docs/[doc_id]/retrieval/RetrievalPageClient";
-import ConversionPageClient from "@/app/home/rag/docs/[doc_id]/conversion/ConversionPageClient";
-
+import ChunksResultsEditor, { Results } from "./ChunksResultsEditor";
+import RetrievalPageClient from "@/app/home/rag/docs/[doc_id]/RetrievalPageClient";
+import ConversionPageClient from "@/app/home/rag/docs/[doc_id]/ConversionPageClient";
 
 type MethodSpec = Record<string, any>;
 type PipelineSpec = Record<string, MethodSpec[]>;
+type StageColors = Record<string, string>;
+type ColorsSpec = {
+  Chunking?: StageColors;
+  Enriching?: StageColors;
+  Retrieval?: StageColors;
+};
 
 export default function PipelineTabs({
   doc_id,
@@ -28,6 +33,7 @@ export default function PipelineTabs({
   levels,
   results,
   initialRetrieval,
+  colors,
 }: {
   doc_id: string;
   initialConversion: MethodSpec;
@@ -36,24 +42,27 @@ export default function PipelineTabs({
   levels: string[];
   results: Results;
   initialRetrieval: MethodSpec[];
+  colors: ColorsSpec;
 }) {
+  const currentColors = {
+    Chunking: colors?.Chunking ?? {},
+    Enriching: colors?.Enriching ?? {},
+    Retrieval: colors?.Retrieval ?? {},
+  };
+
   return (
     <Tabs defaultValue="chunking" className="h-full flex flex-col">
-      {/* TAB HEADER */}
       <div className="border-b px-4 py-3">
         <TabsList>
           <TabsTrigger value="conversion">Conversion</TabsTrigger>
           <TabsTrigger value="chunking">Chunking</TabsTrigger>
           <TabsTrigger value="enrichment">Enrichment</TabsTrigger>
           <TabsTrigger value="chunks">Chunks</TabsTrigger>
-          <TabsTrigger value="chunking">Retrieval</TabsTrigger>
+          <TabsTrigger value="retrieval">Retrieval</TabsTrigger>
         </TabsList>
       </div>
 
-      {/* TAB CONTENT */}
       <div className="flex-1 overflow-hidden">
-        
-        
         <TabsContent value="conversion" className="h-full m-0">
           <section className="p-4 overflow-auto h-full">
             <ConversionPageClient
@@ -62,13 +71,13 @@ export default function PipelineTabs({
             />
           </section>
         </TabsContent>
-        
-        
+
         <TabsContent value="chunking" className="h-full m-0">
           <section className="p-4 overflow-auto h-full">
             <ChunkingPageClient
               doc_id={doc_id}
               initialPipeline={initialChunking}
+              colors={currentColors.Chunking}
             />
           </section>
         </TabsContent>
@@ -79,6 +88,7 @@ export default function PipelineTabs({
               doc_id={doc_id}
               initialPipeline={initialEnrichment}
               levels={levels}
+              colors={currentColors.Enriching}
             />
           </section>
         </TabsContent>
@@ -91,13 +101,14 @@ export default function PipelineTabs({
             />
           </section>
         </TabsContent>
-        
+
         <TabsContent value="retrieval" className="h-full m-0">
           <section className="p-4 overflow-auto h-full">
             <RetrievalPageClient
               doc_id={doc_id}
               pipeline={initialRetrieval}
               levels={levels}
+              colors={currentColors.Retrieval}
             />
           </section>
         </TabsContent>

@@ -7,6 +7,7 @@ import json
 from datetime import datetime, timedelta
 from itertools import cycle
 from app.rag_apis.model_enums import MULTIMODAL_SUBCATEGORIES
+from app.rag_services.helpers import ExtractionError
 from loguru import logger as AgentLogger
 
 # ───────────────────────────────────────────────
@@ -77,16 +78,16 @@ class MultiModalVisionClient:
         AgentLogger.info("MultiModalVisionClient initialized", extra={"available_keys": len(API_KEYS)})
 
     async def _safe_call(
-        self,
-        client: httpx.AsyncClient,
-        api_key: str,
-        model,
-        base64_img: str,
-        question: str,
-        model_queue,
-        failure_count,
-        retry_num=0,
-        base64_format: str = "png", # common format of pdf images
+            self,
+            client: httpx.AsyncClient,
+            api_key: str,
+            model,
+            base64_img: str,
+            question: str,
+            model_queue,
+            failure_count,
+            retry_num=0,
+            base64_format: str = "png",  # common format of pdf images
     ):
         url = f"{self.base_api.rstrip('/')}/chat/completions"
         headers = {
@@ -95,8 +96,6 @@ class MultiModalVisionClient:
             "Content-Type": "application/json",
         }
 
-
-        
         messages = [{
             "role": "user",
             "content": [
@@ -106,56 +105,198 @@ class MultiModalVisionClient:
         }]
 
         body = {"model": model.value, "messages": messages}
-        AgentLogger.debug("Calling vision chat API", extra={"model": model.value, "key": api_key[:6]})
+        AgentLogger.debug(
+            "Calling vision chat API",
+            extra={"model": model.value, "key": api_key[:6], "retry": retry_num},
+        )
 
         try:
             resp = await client.post(url, headers=headers, json=body)
             resp.raise_for_status()
+
             data = resp.json()
-            print("PRINTING THE WHOLE RESPONSE DATA: \n", data)
             answer = data["choices"][0]["message"]["content"]
 
             # rate-limit handling
             rate_headers = parse_rate_headers(resp.headers)
             scope, action, reset = decide_action(rate_headers)
+
             if action == "sleep":
                 reset = min(reset or 60, 60)
-                AgentLogger.warning("Rate limit reached, sleeping", extra={"scope": scope, "seconds": reset})
+                AgentLogger.warning(
+                    "Rate limit reached, sleeping",
+                    extra={"scope": scope, "seconds": reset, "model": model.value, "key": api_key[:6]},
+                )
                 await asyncio.sleep(reset)
-            elif action == "switch":
-                AgentLogger.warning("Rate limit — switching key", extra={"scope": scope})
-                next_key = next(self.key_cycle)
-                return await self._safe_call(client, next_key, model, base64_img, question, model_queue, failure_count)
 
-            AgentLogger.success("Image described successfully",
-                                extra={"model": model.value, "key": api_key[:6], "file": base64_img})
+            elif action == "switch":
+                AgentLogger.warning(
+                    "Rate limit — switching key",
+                    extra={"scope": scope, "model": model.value, "key": api_key[:6]},
+                )
+                next_key = next(self.key_cycle)
+                return await self._safe_call(
+                    client,
+                    next_key,
+                    model,
+                    base64_img,
+                    question,
+                    model_queue,
+                    failure_count,
+                    retry_num=retry_num,
+                    base64_format=base64_format,
+                )
+
+            AgentLogger.success(
+                "Image described successfully",
+                extra={"model": model.value, "key": api_key[:6]},
+            )
             return answer
 
         except httpx.HTTPStatusError as e:
             code = e.response.status_code
-            AgentLogger.error("HTTP error", extra={"code": code, "text": e.response.text[:400]})
+            response_text = e.response.text[:400] if e.response is not None else None
+
+            AgentLogger.error(
+                "Vision HTTP error",
+                extra={
+                    "code": code,
+                    "model": model.value,
+                    "key": api_key[:6],
+                    "retry": retry_num,
+                    "text": response_text,
+                },
+            )
+
             if code in (429, 401, 403):
-                next_key = next(self.key_cycle)
-                await asyncio.sleep(2 ** (retry_num % 4))
-                return await self._safe_call(client, next_key, model, base64_img, question, model_queue, failure_count)
+                try:
+                    next_key = next(self.key_cycle)
+                    await asyncio.sleep(2 ** (retry_num % 4))
+                    return await self._safe_call(
+                        client,
+                        next_key,
+                        model,
+                        base64_img,
+                        question,
+                        model_queue,
+                        failure_count,
+                        retry_num=retry_num,
+                        base64_format=base64_format,
+                    )
+                except ExtractionError:
+                    raise
+                except Exception as inner_e:
+                    raise ExtractionError(
+                        f"Failed to recover from vision API auth/rate-limit error {code}: {str(inner_e)}",
+                        status_code=429 if code == 429 else code,
+                    ) from inner_e
+
             elif code >= 500:
                 if retry_num < self.max_retries:
                     await asyncio.sleep(2 ** retry_num)
-                    return await self._safe_call(client, api_key, model, base64_img, question, model_queue, failure_count, retry_num + 1)
+                    return await self._safe_call(
+                        client,
+                        api_key,
+                        model,
+                        base64_img,
+                        question,
+                        model_queue,
+                        failure_count,
+                        retry_num + 1,
+                        base64_format=base64_format,
+                    )
                 else:
-                    AgentLogger.error("Model retry limit exceeded — switching model", extra={"model": model.value})
+                    AgentLogger.error(
+                        "Model retry limit exceeded — switching model",
+                        extra={"model": model.value, "key": api_key[:6], "code": code},
+                    )
                     if model_queue:
                         next_model = model_queue.pop(0)
-                        return await self._safe_call(client, api_key, next_model, base64_img, question, model_queue, failure_count)
-                    raise RuntimeError(f"Model {model.value} failed repeatedly.")
+                        return await self._safe_call(
+                            client,
+                            api_key,
+                            next_model,
+                            base64_img,
+                            question,
+                            model_queue,
+                            failure_count,
+                            retry_num=0,
+                            base64_format=base64_format,
+                        )
+
+                    raise ExtractionError(
+                        f"Vision model {model.value} failed repeatedly with status {code}: "
+                        f"{response_text or str(e)}",
+                        status_code=502,
+                    ) from e
+
+            raise ExtractionError(
+                f"Unhandled vision HTTP error {code}: {response_text or str(e)}",
+                status_code=code,
+            ) from e
+
+        except httpx.RequestError as e:
+            AgentLogger.warning(
+                "Network error during vision call",
+                extra={"error": repr(e), "model": model.value, "key": api_key[:6], "retry": retry_num},
+            )
+
+            if retry_num < self.max_retries:
+                await asyncio.sleep(2 ** retry_num)
+                return await self._safe_call(
+                    client,
+                    api_key,
+                    model,
+                    base64_img,
+                    question,
+                    model_queue,
+                    failure_count,
+                    retry_num + 1,
+                    base64_format=base64_format,
+                )
+
+            raise ExtractionError(
+                f"Vision network error after retries: {str(e)}",
+                status_code=503,
+            ) from e
+
+        except ExtractionError:
             raise
 
+        except (KeyError, IndexError, TypeError, ValueError) as e:
+            AgentLogger.error(
+                "Malformed vision response",
+                extra={"error": repr(e), "model": model.value, "key": api_key[:6], "retry": retry_num},
+            )
+            raise ExtractionError(
+                f"Malformed vision response for model {model.value}: {str(e)}",
+                status_code=502,
+            ) from e
+
         except Exception as e:
-            AgentLogger.error("Unexpected error", extra={"error": repr(e)})
+            AgentLogger.error(
+                "Unexpected error during vision call",
+                extra={"error": repr(e), "model": model.value, "key": api_key[:6], "retry": retry_num},
+            )
+
             if model_queue:
                 next_model = model_queue.pop(0)
-                return await self._safe_call(client, api_key, next_model, base64_img, question, model_queue, failure_count)
-            raise
+                return await self._safe_call(
+                    client,
+                    api_key,
+                    next_model,
+                    base64_img,
+                    question,
+                    model_queue,
+                    failure_count,
+                    retry_num=0,
+                    base64_format=base64_format,
+                )
+
+            raise ExtractionError(
+                f"Unexpected vision error for model {model.value}: {str(e)}",
+                status_code=500,
+            ) from e
 
     async def describe(self, base64_img: str, question: str = "What is in this image?", label: str = "multimodal"):
         """Describe an image using a multimodal model group."""

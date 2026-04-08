@@ -21,20 +21,18 @@ import {
 
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {ListPipeline} from "@/app/api/rag/docs/docs-action";
+import { ListPipeline } from "@/app/api/rag/docs/docs-action";
 
 import { useRouter } from "next/navigation";
-import {MenuSubmitButton} from "@/components/custom-ui/SaveRunActions";
-
-
+import { MenuSubmitButton } from "@/components/custom-ui/SaveRunActions";
 
 export function DocActionsMenu({
   doc_id,
   doc_name,
   removeDoc,
-  exportDocPipeline,   // (formData: FormData) => Promise<unknown>
-  listDocPipelines,    // () => Promise<ListPipeline[]>
-  loadDocPipeline,     // (formData: FormData) => Promise<unknown>
+  exportDocPipeline,
+  listDocPipelines,
+  loadDocPipeline,
 }: {
   doc_id: string;
   doc_name: string;
@@ -44,19 +42,13 @@ export function DocActionsMenu({
   listDocPipelines: (formData: FormData) => Promise<ListPipeline[]>;
   loadDocPipeline: (formData: FormData) => Promise<unknown>;
 }) {
-
   const router = useRouter();
   const [menuOpen, setMenuOpen] = React.useState(false);
-
-
 
   const [exportOpen, setExportOpen] = React.useState(false);
   const [loadOpen, setLoadOpen] = React.useState(false);
 
-  // Export: name "editor"
   const [pipelineName, setPipelineName] = React.useState("");
-
-  // Load: list pipelines using server action (no args)
   const [pipelines, setPipelines] = React.useState<ListPipeline[]>([]);
   const [listPending, setListPending] = React.useState(false);
 
@@ -70,15 +62,11 @@ export function DocActionsMenu({
     }
   };
 
-
-  // Trigger listing when opening the load dialog
-
   const listFormRef = React.useRef<HTMLFormElement | null>(null);
   const listBtnRef = React.useRef<HTMLButtonElement | null>(null);
 
   return (
     <>
-      {/* Right-side dropdown trigger */}
       <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon" aria-label={`Actions for ${doc_name}`}>
@@ -89,19 +77,17 @@ export function DocActionsMenu({
         <DropdownMenuContent
           align="end"
           className="w-52"
-          onCloseAutoFocus={(e) => e.preventDefault()}  // <- key fix
+          onCloseAutoFocus={(e) => e.preventDefault()}
         >
-
           <DropdownMenuItem
             onSelect={(e) => {
-              e.preventDefault();        // prevent Radix default close/focus behavior glitches
-              setMenuOpen(false);        // close menu first
-              setExportOpen(true);       // then open dialog
+              e.preventDefault();
+              setMenuOpen(false);
+              setExportOpen(true);
             }}
           >
             Export pipeline…
           </DropdownMenuItem>
-
 
           <DropdownMenuItem
             onSelect={(e) => {
@@ -112,7 +98,6 @@ export function DocActionsMenu({
           >
             Load pipeline…
           </DropdownMenuItem>
-
 
           <DropdownMenuSeparator />
 
@@ -136,11 +121,9 @@ export function DocActionsMenu({
               />
             </form>
           </DropdownMenuItem>
-
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* EXPORT dialog */}
       <Dialog
         open={exportOpen}
         onOpenChange={(open) => {
@@ -166,7 +149,6 @@ export function DocActionsMenu({
             <div className="grid gap-2">
               <label className="text-sm font-medium">Pipeline name</label>
 
-              {/* “small text editor” for name only */}
               <Textarea
                 name="pipelineName"
                 value={pipelineName}
@@ -192,9 +174,6 @@ export function DocActionsMenu({
         </DialogContent>
       </Dialog>
 
-      {/* LOAD dialog */}
-
-
       <Dialog open={loadOpen} onOpenChange={setLoadOpen}>
         <DialogContent
           className="sm:max-w-[520px]"
@@ -206,13 +185,9 @@ export function DocActionsMenu({
             <DialogTitle>Load pipeline</DialogTitle>
           </DialogHeader>
 
-
-
-          {/* hidden form to run listDocPipelines via useActionState */}
           <form ref={listFormRef} action={listFormAction} className="hidden">
             <button ref={listBtnRef} type="submit" />
           </form>
-
 
           <div className="space-y-3">
             <div className="text-sm text-muted-foreground">

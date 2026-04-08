@@ -112,6 +112,16 @@ import type {
   AddRetrieversData,
   AddRetrieversResponses,
   AddRetrieversErrors,
+  ReadColorsData,
+  ReadColorsResponses,
+  AddColorsData,
+  AddColorsResponses,
+  AddColorsErrors,
+  ReadThemesData,
+  ReadThemesResponses,
+  AddThemesData,
+  AddThemesResponses,
+  AddThemesErrors,
   ReadConversionPipelineData,
   ReadConversionPipelineResponses,
   ReadConversionPipelineErrors,
@@ -121,15 +131,6 @@ import type {
   RunConversionPipelineData,
   RunConversionPipelineResponses,
   RunConversionPipelineErrors,
-  ReadProcessingPipelineData,
-  ReadProcessingPipelineResponses,
-  ReadProcessingPipelineErrors,
-  AddProcessingPipelineData,
-  AddProcessingPipelineResponses,
-  AddProcessingPipelineErrors,
-  RunProcessingPipelineData,
-  RunProcessingPipelineResponses,
-  RunProcessingPipelineErrors,
   ConvertAllData,
   ConvertAllResponses,
   ReadChunkingPipelineData,
@@ -1090,6 +1091,8 @@ export const readRetrievers = <ThrowOnError extends boolean = false>(
 
 /**
  * Add Retrievers
+ * router = retrievers[0] if retrievers else {}
+ * router = retrievers[1] if retrievers else {}
  */
 export const addRetrievers = <ThrowOnError extends boolean = false>(
   options: Options<AddRetrieversData, ThrowOnError>,
@@ -1107,6 +1110,106 @@ export const addRetrievers = <ThrowOnError extends boolean = false>(
       },
     ],
     url: "/main-pipeline/retrievers/",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Read Colors
+ */
+export const readColors = <ThrowOnError extends boolean = false>(
+  options?: Options<ReadColorsData, ThrowOnError>,
+) => {
+  return (options?.client ?? client).get<
+    ReadColorsResponses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/settings/colors/",
+    ...options,
+  });
+};
+
+/**
+ * Add Colors
+ */
+export const addColors = <ThrowOnError extends boolean = false>(
+  options: Options<AddColorsData, ThrowOnError>,
+) => {
+  return (options.client ?? client).post<
+    AddColorsResponses,
+    AddColorsErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/settings/colors/",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Read Themes
+ */
+export const readThemes = <ThrowOnError extends boolean = false>(
+  options?: Options<ReadThemesData, ThrowOnError>,
+) => {
+  return (options?.client ?? client).get<
+    ReadThemesResponses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/settings/themes/",
+    ...options,
+  });
+};
+
+/**
+ * Add Themes
+ */
+export const addThemes = <ThrowOnError extends boolean = false>(
+  options: Options<AddThemesData, ThrowOnError>,
+) => {
+  return (options.client ?? client).post<
+    AddThemesResponses,
+    AddThemesErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/settings/themes/",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -1184,79 +1287,6 @@ export const runConversionPipeline = <ThrowOnError extends boolean = false>(
       },
     ],
     url: "/conversion/{doc_id}/run",
-    ...options,
-  });
-};
-
-/**
- * Read Processing Pipeline
- */
-export const readProcessingPipeline = <ThrowOnError extends boolean = false>(
-  options: Options<ReadProcessingPipelineData, ThrowOnError>,
-) => {
-  return (options.client ?? client).get<
-    ReadProcessingPipelineResponses,
-    ReadProcessingPipelineErrors,
-    ThrowOnError
-  >({
-    responseType: "json",
-    security: [
-      {
-        scheme: "bearer",
-        type: "http",
-      },
-    ],
-    url: "/conversion/processing/{doc_id}/data",
-    ...options,
-  });
-};
-
-/**
- * Add Processing Pipeline
- */
-export const addProcessingPipeline = <ThrowOnError extends boolean = false>(
-  options: Options<AddProcessingPipelineData, ThrowOnError>,
-) => {
-  return (options.client ?? client).post<
-    AddProcessingPipelineResponses,
-    AddProcessingPipelineErrors,
-    ThrowOnError
-  >({
-    responseType: "json",
-    security: [
-      {
-        scheme: "bearer",
-        type: "http",
-      },
-    ],
-    url: "/conversion/processing/{doc_id}/data",
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-  });
-};
-
-/**
- * Run Processing Pipeline
- */
-export const runProcessingPipeline = <ThrowOnError extends boolean = false>(
-  options: Options<RunProcessingPipelineData, ThrowOnError>,
-) => {
-  return (options.client ?? client).post<
-    RunProcessingPipelineResponses,
-    RunProcessingPipelineErrors,
-    ThrowOnError
-  >({
-    responseType: "json",
-    security: [
-      {
-        scheme: "bearer",
-        type: "http",
-      },
-    ],
-    url: "/conversion/processing/{doc_id}/run",
     ...options,
   });
 };

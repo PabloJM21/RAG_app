@@ -54,14 +54,14 @@ export type runPipelineData = {
     doc_id: string;
   };
   query?: never;
-  url: "/extraction/{doc_id}/data";
+  url: "/extraction/{doc_id}/run";
 };
 
 export type runPipelineResponses = {
-  200: unknown;
+  200: {
+    status: "ok";
+  };
 };
-
-
 
 
 

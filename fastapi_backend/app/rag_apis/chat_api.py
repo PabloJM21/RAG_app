@@ -6,8 +6,12 @@ from openai import OpenAI, APIError, RateLimitError, AuthenticationError, APITim
 
 from app.rag_apis.model_enums import CHAT_SUBCATEGORIES
 from loguru import logger as AgentLogger
+from app.rag_services.helpers import ExtractionError
 
 from dotenv import load_dotenv
+
+import json
+
 
 # # ============================================================
 # # Chat Models and Categorization
@@ -94,7 +98,14 @@ class ChatOrchestrator:
         AgentLogger.info("ChatOrchestrator initialized", extra={"available_keys": len(user_key_list)})
 
     def _safe_call(self, client, model, messages, model_queue, failure_count, retry_num=0):
-        """Execute one chat completion call safely with retry and rotation handling."""
+        """Execute one chat completion call safely with retry and rotation handling.
+
+        Returns:
+            str: model response content on success.
+
+        Raises:
+            ExtractionError: when all recovery attempts fail.
+        """
         AgentLogger.debug("Invoking model", extra={"model": model.value, "api_key": client.api_key[:6]})
 
         try:
@@ -105,6 +116,11 @@ class ChatOrchestrator:
                 top_p=0.1,
             )
             AgentLogger.success("Model response received", extra={"model": model.value})
+
+            if not response.choices or not response.choices[0].message:
+                AgentLogger.error("Empty or malformed response", extra={"model": model.value})
+                raise ExtractionError("Empty or malformed response", status_code=502)
+
             return response.choices[0].message.content
 
         # -----------------------------
@@ -113,14 +129,31 @@ class ChatOrchestrator:
         except AuthenticationError as e:
             AgentLogger.error("Unauthorized (401)", extra={"error": str(e), "api_key": client.api_key[:6]})
             failure_count[client.api_key] = failure_count.get(client.api_key, 0) + 1
+
             if failure_count[client.api_key] >= 3:
                 AgentLogger.warning("Switching API key after repeated 401", extra={"api_key": client.api_key[:6]})
-                next_key = next(self.key_cycle)
-                return self._safe_call(make_client(next_key, self.base_api), model, messages, model_queue, failure_count)
+                try:
+                    next_key = next(self.key_cycle)
+                    return self._safe_call(
+                        make_client(next_key, self.base_api),
+                        model,
+                        messages,
+                        model_queue,
+                        failure_count,
+                        retry_num,
+                    )
+                except ExtractionError:
+                    raise
+                except Exception as inner_e:
+                    AgentLogger.error("Failed to rotate key after auth error", extra={"error": str(inner_e)})
+                    raise ExtractionError(
+                        f"Failed to rotate key after auth error: {str(inner_e)}",
+                        status_code=401,
+                    ) from inner_e
             else:
                 AgentLogger.warning("Retrying same key once more", extra={"api_key": client.api_key[:6]})
                 time.sleep(2)
-                return self._safe_call(client, model, messages, model_queue, failure_count)
+                return self._safe_call(client, model, messages, model_queue, failure_count, retry_num)
 
         # -----------------------------
         # RATE LIMITS
@@ -128,29 +161,66 @@ class ChatOrchestrator:
         except RateLimitError as e:
             AgentLogger.warning("Rate limit hit — sleeping briefly", extra={"error": str(e)})
             time.sleep(10)
+
             if retry_num < self.max_retries:
                 return self._safe_call(client, model, messages, model_queue, failure_count, retry_num + 1)
-            next_key = next(self.key_cycle)
-            return self._safe_call(make_client(next_key, self.base_api), model, messages, model_queue, failure_count)
+
+            try:
+                next_key = next(self.key_cycle)
+                return self._safe_call(
+                    make_client(next_key, self.base_api),
+                    model,
+                    messages,
+                    model_queue,
+                    failure_count,
+                    0,
+                )
+            except ExtractionError:
+                raise
+            except Exception as inner_e:
+                AgentLogger.error("Failed after rate-limit recovery", extra={"error": str(inner_e)})
+                raise ExtractionError(
+                    f"Failed after rate-limit recovery: {str(inner_e)}",
+                    status_code=429,
+                ) from inner_e
 
         # -----------------------------
         # TIMEOUTS
         # -----------------------------
         except APITimeoutError as e:
             AgentLogger.warning("Timeout occurred", extra={"error": str(e)})
+
             if retry_num < self.max_retries:
                 time.sleep(5)
                 return self._safe_call(client, model, messages, model_queue, failure_count, retry_num + 1)
-            next_key = next(self.key_cycle)
-            AgentLogger.warning("Switching key after repeated timeout", extra={"next_key": next_key[:6]})
-            return self._safe_call(make_client(next_key, self.base_api), model, messages, model_queue, failure_count)
+
+            try:
+                next_key = next(self.key_cycle)
+                AgentLogger.warning("Switching key after repeated timeout", extra={"next_key": next_key[:6]})
+                return self._safe_call(
+                    make_client(next_key, self.base_api),
+                    model,
+                    messages,
+                    model_queue,
+                    failure_count,
+                    0,
+                )
+            except ExtractionError:
+                raise
+            except Exception as inner_e:
+                AgentLogger.error("Failed after timeout recovery", extra={"error": str(inner_e)})
+                raise ExtractionError(
+                    f"Failed after timeout recovery: {str(inner_e)}",
+                    status_code=504,
+                ) from inner_e
 
         # -----------------------------
-        # OTHER ERRORS
+        # OTHER API ERRORS
         # -----------------------------
         except APIError as e:
             status = getattr(e, "status_code", None)
             AgentLogger.error("API error", extra={"status": status, "error": str(e)})
+
             if status in (500, 502, 503, 504):
                 if retry_num < self.max_retries:
                     time.sleep(5)
@@ -158,21 +228,56 @@ class ChatOrchestrator:
                 elif model_queue:
                     next_model = model_queue.pop(0)
                     AgentLogger.warning("Switching to next model", extra={"next_model": next_model.value})
-                    return self._safe_call(client, next_model, messages, model_queue, failure_count)
+                    return self._safe_call(client, next_model, messages, model_queue, failure_count, 0)
                 else:
-                    raise
+                    AgentLogger.error("Server errors exhausted and no fallback model left")
+                    raise ExtractionError(
+                        f"Server errors exhausted and no fallback model left: {str(e)}",
+                        status_code=502,
+                    ) from e
+
             elif status == 401:
-                return self._safe_call(make_client(next(self.key_cycle), self.base_api), model, messages, model_queue, failure_count)
+                try:
+                    next_key = next(self.key_cycle)
+                    return self._safe_call(
+                        make_client(next_key, self.base_api),
+                        model,
+                        messages,
+                        model_queue,
+                        failure_count,
+                        0,
+                    )
+                except ExtractionError:
+                    raise
+                except Exception as inner_e:
+                    AgentLogger.error("Failed to recover from API 401", extra={"error": str(inner_e)})
+                    raise ExtractionError(
+                        f"Failed to recover from API 401: {str(inner_e)}",
+                        status_code=401,
+                    ) from inner_e
+
             else:
-                raise
+                AgentLogger.error("Unhandled API error status", extra={"status": status})
+                raise ExtractionError(
+                    f"Unhandled API error status {status}: {str(e)}",
+                    status_code=status or 500,
+                ) from e
+
+        except ExtractionError:
+            raise
 
         except Exception as e:
             AgentLogger.error("Unexpected error", extra={"error": str(e)})
+
             if retry_num < self.max_retries:
                 time.sleep(3)
                 return self._safe_call(client, model, messages, model_queue, failure_count, retry_num + 1)
-            raise
 
+            AgentLogger.error("Unexpected error retries exhausted")
+            raise ExtractionError(
+                f"Unexpected error retries exhausted: {str(e)}",
+                status_code=500,
+            ) from e
     # ========================================================
     # User-Facing Methods
     # ========================================================

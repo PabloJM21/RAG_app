@@ -12,7 +12,7 @@ export async function runChunking(formData: FormData) {
   const token = cookieStore.get("accessToken")?.value;
 
   if (!token) {
-    throw new Error("No access token found");
+    return { ok: false, error: "No access token found" };
   }
 
   const result = await runPipeline({
@@ -25,10 +25,21 @@ export async function runChunking(formData: FormData) {
   });
 
   if (result.error) {
-    throw result.error;
+    const err = result.error as any;
+
+    const message =
+      err?.detail ||
+      err?.message ||
+      err?.error?.detail ||
+      err?.body?.detail ||
+      "Chunking failed";
+
+    return { ok: false, error: String(message) };
   }
 
   revalidatePath(`home/rag/docs/${doc_id}`);
+
+  return { ok: true };
 }
 
 

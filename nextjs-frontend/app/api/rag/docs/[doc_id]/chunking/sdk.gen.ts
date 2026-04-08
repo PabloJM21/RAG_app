@@ -53,8 +53,11 @@ export type runPipelineData = {
   url: "/chunking/{doc_id}/run";
 };
 
+
 export type runPipelineResponses = {
-  200: unknown;
+  200: {
+    status: "ok";
+  };
 };
 
 

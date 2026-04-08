@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { Home, Users2, List } from "lucide-react";
 import Image from "next/image";
+import { Home, Users2, List } from "lucide-react";
 
 import {
   Breadcrumb,
@@ -16,95 +16,139 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { logout } from "@/app/api/login/logout-action";
 
-export default function DashboardParentLayout({
+import { logout } from "@/app/api/login/logout-action";
+import { fetchThemes } from "@/app/api/rag/settings/themes-action";
+import { THEME_PRESETS, ThemeName } from "@/components/frontend_data/themes";
+import { ThemeScope } from "@/components/custom-ui/ThemeScope";
+
+export default async function DashboardParentLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const themeSettings = await fetchThemes();
+
+  const selectedTheme: ThemeName =
+    themeSettings?.selectedTheme && themeSettings.selectedTheme in THEME_PRESETS
+      ? (themeSettings.selectedTheme as ThemeName)
+      : "neutral";
+
+  const theme = THEME_PRESETS[selectedTheme];
+
   return (
-    <div className="flex min-h-screen">
-      {/* Sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-10 w-16 flex flex-col border-r bg-background p-4">
-        <div className="flex flex-col items-center gap-8">
-          <Link href="/" className="flex items-center justify-center rounded-full">
-            <Image
-              src="/images/vinta.png"
-              alt="Vinta"
-              width={64}
-              height={64}
-              className="object-cover transition-transform duration-200 hover:scale-105"
-            />
-          </Link>
+    <ThemeScope theme={theme} className="min-h-screen">
+      <div
+        className="flex min-h-screen"
+        style={{
+          backgroundColor: "var(--theme-page-bg)",
+          color: "var(--theme-page-fg)",
+        }}
+      >
+        {/* Sidebar */}
 
-          <Link href="/dashboard" className="flex items-center gap-2 text-muted-foreground hover:text-foreground">
-            <List className="h-5 w-5" />
-          </Link>
 
-          <Link href="/customers" className="flex items-center gap-2 text-muted-foreground hover:text-foreground">
-            <Users2 className="h-5 w-5" />
-          </Link>
-        </div>
-      </aside>
+        {/* Main */}
+        <main
+          className="ml-16 w-full p-4 md:p-5"
+          style={{
+            backgroundColor: "var(--theme-page-bg)",
+          }}
+        >
+          <header className="mb-6 flex items-center justify-between">
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbLink asChild>
+                    <Link
+                      href="/home/rag"
+                      className="flex items-center gap-2"
+                      style={{ color: "var(--theme-page-muted-fg)" }}
+                    >
+                      <Home className="h-4 w-4" />
+                      <span>Home</span>
+                    </Link>
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
 
-      {/* Main */}
-      <main className="ml-16 w-full p-8 bg-muted/40">
-        {/* HEADER MOVED HERE */}
-        <header className="flex justify-between items-center mb-6">
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild>
-                  <Link href="/home/rag" className="flex items-center gap-2">
-                    <Home className="h-4 w-4" />
-                    <span>Home</span>
-                  </Link>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator>/</BreadcrumbSeparator>
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild>
-                  <Link href="/dashboard" className="flex items-center gap-2">
-                    <List className="h-4 w-4" />
-                    <span>Dashboard</span>
-                  </Link>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-300 hover:bg-gray-400">
-                <Avatar>
-                  <AvatarFallback>U</AvatarFallback>
-                </Avatar>
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" side="bottom">
-              <DropdownMenuItem>
-                <Link
-                  href="/home/profile"
-                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                <BreadcrumbSeparator
+                  style={{ color: "var(--theme-page-muted-fg)" }}
                 >
-                  Profile
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem>
+                  /
+                </BreadcrumbSeparator>
+
+
+              </BreadcrumbList>
+            </Breadcrumb>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
                 <button
-                  onClick={logout}
-                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  className="flex h-10 w-10 items-center justify-center rounded-full transition-colors"
+                  style={{
+                    backgroundColor: "var(--theme-card-header-bg)",
+                    border: "1px solid var(--theme-card-border)",
+                  }}
                 >
-                  Logout
+                  <Avatar>
+                    <AvatarFallback
+                      style={{
+                        backgroundColor: "transparent",
+                        color: "var(--theme-page-fg)",
+                      }}
+                    >
+                      U
+                    </AvatarFallback>
+                  </Avatar>
                 </button>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </header>
+              </DropdownMenuTrigger>
 
-        {children}
-      </main>
-    </div>
+              <DropdownMenuContent
+                align="end"
+                side="bottom"
+                style={{
+                  backgroundColor: "var(--theme-card-bg)",
+                  color: "var(--theme-card-fg)",
+                  border: "1px solid var(--theme-card-border)",
+                  boxShadow: "var(--theme-card-shadow)",
+                }}
+              >
+                <DropdownMenuItem asChild>
+                  <Link
+                    href="/home/profile"
+                    className="block px-4 py-2 text-sm"
+                    style={{ color: "var(--theme-card-fg)" }}
+                  >
+                    Profile
+                  </Link>
+                </DropdownMenuItem>
+
+                <DropdownMenuItem asChild>
+                  <Link
+                    href="/home/settings"
+                    className="block px-4 py-2 text-sm"
+                    style={{ color: "var(--theme-card-fg)" }}
+                  >
+                    Settings
+                  </Link>
+                </DropdownMenuItem>
+
+                <DropdownMenuItem asChild>
+                  <button
+                    onClick={logout}
+                    className="block w-full px-4 py-2 text-left text-sm"
+                    style={{ color: "var(--theme-card-fg)" }}
+                  >
+                    Logout
+                  </button>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </header>
+
+          {children}
+        </main>
+      </div>
+    </ThemeScope>
   );
 }

@@ -10,7 +10,7 @@ import {ENRICHER_PROMPTS, FILTER_PROMPTS} from "@/components/frontend_data/Promp
 
 type MethodSpec = Record<string, any>;
 type PipelineSpec = MethodSpec[]
-
+type StageColors = Record<string, string>;
 
 /* ---------- Domain options ---------- */
 
@@ -31,8 +31,8 @@ const DEFAULT_METHOD_COLOR = "#ffffff";
 const EXTRACTOR_TEMPLATE: MethodSpec = {
   color: DEFAULT_METHOD_COLOR,
   type: "Extractor",
-  from: "",
-  to: "",
+  input_level: "",
+  output_level: "",
   what: "",
   position: "",
   caption: ""
@@ -41,7 +41,7 @@ const EXTRACTOR_TEMPLATE: MethodSpec = {
 const ENRICHER_TEMPLATE: MethodSpec = {
   color: DEFAULT_METHOD_COLOR,
   type: "Enricher",
-  where: "",
+  level: "",
   model: "",
   prompt: "",
   position: "",
@@ -53,7 +53,7 @@ const ENRICHER_TEMPLATE: MethodSpec = {
 const FILTER_TEMPLATE: MethodSpec = {
   color: DEFAULT_METHOD_COLOR,
   type: "Filter",
-  where: "",
+  level: "",
   model: "",
   prompt: "",
   history: false,
@@ -62,7 +62,7 @@ const FILTER_TEMPLATE: MethodSpec = {
 const RESET_TEMPLATE: MethodSpec = {
   color: DEFAULT_METHOD_COLOR,
   type: "Reset",
-  where: ""
+  level: ""
 };
 
 
@@ -80,14 +80,21 @@ function templateFor(
   return structuredClone(TEMPLATE_MAP[type]);
 }
 
+function getMethodColor(method: MethodSpec, colors: StageColors) {
+  const type = String(method?.type ?? "");
+  return colors[type] ?? "#ffffff";
+}
+
 export function EnrichmentEditor({
   methods,
   levels,
-  onChange
+  onChange,
+  colors,
 }: {
   methods: PipelineSpec;
   levels: string[];
   onChange: (methods: MethodSpec[]) => void;
+  colors: StageColors;
 }) {
 
 
@@ -162,7 +169,7 @@ export function EnrichmentEditor({
 
     // Extractor-specific dropdowns
     if (
-      key === "from" || key === "to" || key === "where"
+      key === "input_level" || key === "output_level" || key === "level"
     ) {
       return (
         <>
@@ -369,9 +376,10 @@ export function EnrichmentEditor({
         renderMethod={(method, index) => (
           <FlexibleMethodCard
             method={method}
+            color={getMethodColor(method, colors)}
             onDelete={() => deleteMethod(index)}
             renderValue={(key, value) => renderValueEditor(method, index, key, value)}
-            onColorChange={(next) => updatePipeline(index, "color", next)}
+            highlightKeys={["input_level", "output_level", "level"]}
             defaultOpen={false}
           />
         )}

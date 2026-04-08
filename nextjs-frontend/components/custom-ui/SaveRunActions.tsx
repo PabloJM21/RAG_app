@@ -59,6 +59,7 @@ export function ThreeRunActions({
   runRetrieval: () => Promise<any>;
 }) {
   const [open, setOpen] = React.useState(false);
+  const [runError, setRunError] = React.useState<string | null>(null);
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -75,12 +76,23 @@ export function ThreeRunActions({
       <DropdownMenuContent
         align="end"
         onCloseAutoFocus={(e) => e.preventDefault()}
+        className="min-w-[220px]"
       >
+        {/* Convert */}
         <DropdownMenuItem asChild>
           <form
             action={async () => {
               setOpen(true);
-              await runConversion();
+              setRunError(null);
+
+              const res = await runConversion();
+
+              if (res?.ok === false) {
+                setRunError(res.error ?? "Conversion failed");
+                setOpen(true);
+                return;
+              }
+
               setOpen(false);
             }}
             className="w-full"
@@ -94,11 +106,21 @@ export function ThreeRunActions({
           </form>
         </DropdownMenuItem>
 
+        {/* Chunk */}
         <DropdownMenuItem asChild>
           <form
             action={async () => {
               setOpen(true);
-              await runChunking();
+              setRunError(null);
+
+              const res = await runChunking();
+
+              if (res?.ok === false) {
+                setRunError(res.error ?? "Chunking failed");
+                setOpen(true);
+                return;
+              }
+
               setOpen(false);
             }}
             className="w-full"
@@ -112,11 +134,21 @@ export function ThreeRunActions({
           </form>
         </DropdownMenuItem>
 
+        {/* Retrieval */}
         <DropdownMenuItem asChild>
           <form
             action={async () => {
               setOpen(true);
-              await runRetrieval();
+              setRunError(null);
+
+              const res = await runRetrieval();
+
+              if (res?.ok === false) {
+                setRunError(res.error ?? "Staging failed");
+                setOpen(true);
+                return;
+              }
+
               setOpen(false);
             }}
             className="w-full"
@@ -129,6 +161,13 @@ export function ThreeRunActions({
             />
           </form>
         </DropdownMenuItem>
+
+        {/* 🔴 Error display */}
+        {runError && (
+          <div className="px-2 py-1 text-sm text-red-600">
+            {runError}
+          </div>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -151,6 +190,7 @@ export function SaveRunActions({
   runLabel: string;
 }) {
   const [open, setOpen] = React.useState(false);
+  const [runError, setRunError] = React.useState<string | null>(null);
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -168,16 +208,14 @@ export function SaveRunActions({
       <DropdownMenuContent
         align="end"
         className="min-w-[220px]"
-        // prevent Radix from closing on outside focus while pending transitions happen
         onCloseAutoFocus={(e) => e.preventDefault()}
       >
-        {/* Save */}
         <DropdownMenuItem asChild>
           <form
             action={async (formData: FormData) => {
-              setOpen(true); // ensure open immediately
+              setOpen(true);
               await addFunction(formData);
-              setOpen(false); // close when done
+              setOpen(false);
             }}
             className="w-full"
             onClick={(e) => e.stopPropagation()}
@@ -193,12 +231,20 @@ export function SaveRunActions({
           </form>
         </DropdownMenuItem>
 
-        {/* Run */}
         <DropdownMenuItem asChild>
           <form
             action={async (formData: FormData) => {
               setOpen(true);
-              await runFunction(formData);
+              setRunError(null);
+
+              const res = await runFunction(formData);
+
+              if (res?.ok === false) {
+                setRunError(res.error ?? "Something went wrong");
+                setOpen(true);
+                return;
+              }
+
               setOpen(false);
             }}
             className="w-full"
@@ -213,6 +259,12 @@ export function SaveRunActions({
             />
           </form>
         </DropdownMenuItem>
+
+        {runError && (
+          <div className="px-2 py-1 text-sm text-red-600">
+            {runError}
+          </div>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

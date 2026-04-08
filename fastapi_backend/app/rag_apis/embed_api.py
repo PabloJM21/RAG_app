@@ -8,6 +8,7 @@ from itertools import cycle
 from httpx import HTTPStatusError, RequestError
 
 from app.rag_apis.model_enums import EMBEDDING_SUBCATEGORIES
+from app.rag_services.helpers import ExtractionError
 from loguru import logger as AgentLogger
 
 from dotenv import load_dotenv
@@ -15,7 +16,14 @@ from dotenv import load_dotenv
 # Config
 # -------------------------------------------------
 BASE_API = os.getenv("BASE_API", "https://chat-ai.academiccloud.de/v1")
-TIMEOUT = httpx.Timeout(60.0, connect=10.0, read=60.0, write=10.0)
+# Increase overall tolerance for slow embedding responses
+TIMEOUT = httpx.Timeout(
+    timeout=120.0,   # total timeout window
+    connect=20.0,    # allow more time to establish connection
+    read=120.0,      # allow more time for the server to send data
+    write=20.0       # allow more time to upload request body
+)
+
 
 load_dotenv()
 FIRST_API_KEY = os.getenv("API_KEY")
@@ -79,63 +87,155 @@ class EmbeddingOrchestrator:
 
     async def _safe_call(self, client, api_key, model, inputs, model_queue, failure_count, retry_num=0):
         url = f"{self.base_api.rstrip('/')}/embeddings"
-        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-        payload = {"model": model.value, "input": inputs, "encoding_format": "float"}
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model": model.value,
+            "input": inputs,
+            "encoding_format": "float",
+        }
 
-        AgentLogger.debug("Calling embedding API", extra={"model": model.value, "key": api_key[:6]})
+        AgentLogger.debug("Calling embedding API", extra={"model": model.value, "key": api_key[:6], "retry": retry_num})
+
         try:
             resp = await client.post(url, headers=headers, json=payload)
             resp.raise_for_status()
+
             data = resp.json().get("data", [])
             embeds = [d["embedding"] for d in data]
 
             # rate-limit handling
             rate_headers = parse_rate_headers(resp.headers)
             scope, action, reset = decide_action(rate_headers)
+
             if action == "sleep":
                 reset = min(reset or 60, 60)
-                AgentLogger.warning("Rate limit reached, sleeping", extra={"scope": scope, "seconds": reset})
+                AgentLogger.warning(
+                    "Rate limit reached, sleeping",
+                    extra={"scope": scope, "seconds": reset, "model": model.value, "key": api_key[:6]},
+                )
                 await asyncio.sleep(reset)
+
             elif action == "switch":
-                AgentLogger.warning("Rate limit — switching key", extra={"scope": scope})
+                AgentLogger.warning(
+                    "Rate limit — switching key",
+                    extra={"scope": scope, "model": model.value, "key": api_key[:6]},
+                )
                 next_key = next(self.key_cycle)
                 return await self._safe_call(client, next_key, model, inputs, model_queue, failure_count)
 
-            AgentLogger.success("Embedding retrieved successfully", extra={"model": model.value})
+            AgentLogger.success(
+                "Embedding retrieved successfully",
+                extra={"model": model.value, "key": api_key[:6]},
+            )
             return np.array(embeds, dtype=np.float32)
 
         except HTTPStatusError as e:
             code = e.response.status_code
+
             if code in (401, 403):
-                AgentLogger.error("Unauthorized key", extra={"key": api_key[:6]})
-                next_key = next(self.key_cycle)
-                return await self._safe_call(client, next_key, model, inputs, model_queue, failure_count)
+                AgentLogger.error(
+                    "Unauthorized key",
+                    extra={"key": api_key[:6], "model": model.value, "status_code": code, "retry": retry_num},
+                )
+                try:
+                    next_key = next(self.key_cycle)
+                    return await self._safe_call(client, next_key, model, inputs, model_queue, failure_count)
+                except ExtractionError:
+                    raise
+                except Exception as inner_e:
+                    raise ExtractionError(
+                        f"Failed to recover from unauthorized embedding key: {str(inner_e)}",
+                        status_code=401,
+                    ) from inner_e
+
             if code == 429 or code >= 500:
                 if retry_num < self.max_retries:
-                    AgentLogger.warning("Retrying embedding call", extra={"code": code, "retry": retry_num})
+                    AgentLogger.warning(
+                        "Retrying embedding call",
+                        extra={"code": code, "retry": retry_num, "model": model.value, "key": api_key[:6]},
+                    )
                     await asyncio.sleep(2 ** retry_num)
-                    return await self._safe_call(client, api_key, model, inputs, model_queue, failure_count, retry_num + 1)
+                    return await self._safe_call(
+                        client,
+                        api_key,
+                        model,
+                        inputs,
+                        model_queue,
+                        failure_count,
+                        retry_num + 1,
+                    )
                 else:
-                    AgentLogger.error("Max retries exceeded — switching model")
+                    AgentLogger.error(
+                        "Max retries exceeded — switching model",
+                        extra={"code": code, "model": model.value, "key": api_key[:6]},
+                    )
                     if model_queue:
                         next_model = model_queue.pop(0)
                         return await self._safe_call(client, api_key, next_model, inputs, model_queue, failure_count)
-                    raise RuntimeError(f"Model {model.value} failed repeatedly.")
-            raise
+
+                    raise ExtractionError(
+                        f"Embedding model {model.value} failed repeatedly with status {code}: "
+                        f"{e.response.text[:500] if e.response is not None else str(e)}",
+                        status_code=502 if code >= 500 else 429,
+                    ) from e
+
+            AgentLogger.error(
+                "Unhandled embedding HTTP error",
+                extra={
+                    "code": code,
+                    "model": model.value,
+                    "key": api_key[:6],
+                    "error": repr(e),
+                    "response_text": e.response.text[:500] if e.response is not None else None,
+                },
+            )
+            raise ExtractionError(
+                f"Unhandled embedding HTTP error {code}: "
+                f"{e.response.text[:500] if e.response is not None else str(e)}",
+                status_code=code,
+            ) from e
 
         except RequestError as e:
-            AgentLogger.warning("Network error", extra={"error": repr(e)})
+            AgentLogger.warning(
+                "Network error during embedding call",
+                extra={"error": repr(e), "model": model.value, "key": api_key[:6], "retry": retry_num},
+            )
             if retry_num < self.max_retries:
                 await asyncio.sleep(2 ** retry_num)
-                return await self._safe_call(client, api_key, model, inputs, model_queue, failure_count, retry_num + 1)
+                return await self._safe_call(
+                    client,
+                    api_key,
+                    model,
+                    inputs,
+                    model_queue,
+                    failure_count,
+                    retry_num + 1,
+                )
+
+            raise ExtractionError(
+                f"Embedding network error after retries: {str(e)}",
+                status_code=503,
+            ) from e
+
+        except ExtractionError:
             raise
 
         except Exception as e:
-            AgentLogger.error("Unexpected error", extra={"error": repr(e), "model": model.value})
+            AgentLogger.error(
+                "Unexpected error during embedding call",
+                extra={"error": repr(e), "model": model.value, "key": api_key[:6], "retry": retry_num},
+            )
             if model_queue:
                 next_model = model_queue.pop(0)
                 return await self._safe_call(client, api_key, next_model, inputs, model_queue, failure_count)
-            raise
+
+            raise ExtractionError(
+                f"Unexpected embedding error for model {model.value}: {str(e)}",
+                status_code=500,
+            ) from e
 
     async def get_embedding(self, inputs, label="embeddings"):
         """Get embeddings for given inputs (uses model queue for the specified label)."""
