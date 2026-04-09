@@ -11,6 +11,24 @@ import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SaveRunActions } from "@/components/custom-ui/SaveRunActions";
 
+import {
+  themedCardStyle,
+  themedCardInnerOverlayStyle,
+  themedHeaderStyle,
+  themedTopLineStyle,
+  themedHeaderGlowStyle,
+  themedTitleStyle,
+  themedMutedStyle,
+  themedLabelStyle,
+  themedInputStyle,
+  themedContentStyle,
+  themedSectionStyle,
+  themedSectionTitleStyle,
+  themedSectionMutedStyle,
+  themedSectionContentStyle,
+  themedValueStyle,
+} from "@/components/custom-ui/themeStyles";
+
 /* ---------- Domain options ---------- */
 
 const METHOD_TYPES = ["Custom", "Docling"] as const;
@@ -77,17 +95,19 @@ function renderConversionField({
   updateField: (key: string, value: any) => void;
 }) {
   if (key === "type") {
-    return <div className="text-sm font-medium">{String(value ?? "")}</div>;
+    return (
+      <div className="text-sm font-medium" style={themedValueStyle}>
+        {String(value ?? "")}
+      </div>
+    );
   }
 
-  if (
-    key === "image_rewrite_prompt" ||
-    key === "table_rewrite_prompt"
-  ) {
+  if (key === "image_rewrite_prompt" || key === "table_rewrite_prompt") {
     return (
       <>
         <input
-          className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+          className="h-9 w-full rounded-md border px-3 text-sm"
+          style={themedInputStyle}
           list="rewriter-prompts"
           type="text"
           value={String(value ?? "")}
@@ -102,14 +122,12 @@ function renderConversionField({
     );
   }
 
-  if (
-    key === "image_filter_prompt" ||
-    key === "table_filter_prompt"
-  ) {
+  if (key === "image_filter_prompt" || key === "table_filter_prompt") {
     return (
       <>
         <input
-          className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+          className="h-9 w-full rounded-md border px-3 text-sm"
+          style={themedInputStyle}
           list="filter-prompts"
           type="text"
           value={String(value ?? "")}
@@ -132,7 +150,8 @@ function renderConversionField({
   ) {
     return (
       <select
-        className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+        className="h-9 w-full rounded-md border px-2 text-sm"
+        style={themedInputStyle}
         value={value ?? ""}
         onChange={(e) => updateField(key, e.target.value)}
       >
@@ -149,7 +168,8 @@ function renderConversionField({
   if (typeof value === "boolean") {
     return (
       <select
-        className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+        className="h-9 w-full rounded-md border px-2 text-sm"
+        style={themedInputStyle}
         value={String(value)}
         onChange={(e) => updateField(key, e.target.value === "true")}
       >
@@ -161,7 +181,8 @@ function renderConversionField({
 
   return (
     <input
-      className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+      className="h-9 w-full rounded-md border px-3 text-sm"
+      style={themedInputStyle}
       type="text"
       value={String(value ?? "")}
       onChange={(e) => updateField(key, e.target.value)}
@@ -212,20 +233,32 @@ function SettingsSection({
   children: React.ReactNode;
 }) {
   return (
-    <details className="rounded-lg border bg-muted/20" open={defaultOpen}>
+    <details
+      className="rounded-lg border"
+      style={themedSectionStyle}
+      open={defaultOpen}
+    >
       <summary className="cursor-pointer list-none px-3 py-2">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="text-sm font-medium">{title}</div>
+            <div className="text-sm font-medium" style={themedSectionTitleStyle}>
+              {title}
+            </div>
             {description ? (
-              <div className="text-xs text-muted-foreground">{description}</div>
+              <div className="text-xs" style={themedSectionMutedStyle}>
+                {description}
+              </div>
             ) : null}
           </div>
-          <div className="text-xs text-muted-foreground">Expand</div>
+          <div className="text-xs" style={themedSectionMutedStyle}>
+            Expand
+          </div>
         </div>
       </summary>
 
-      <div className="border-t p-3 space-y-4">{children}</div>
+      <div className="border-t p-3 space-y-4" style={themedSectionContentStyle}>
+        {children}
+      </div>
     </details>
   );
 }
@@ -322,21 +355,27 @@ export function ConversionSettingsCard({
   }, [currentMethod]);
 
   return (
-    <Card className="rounded-xl border bg-card text-card-foreground shadow">
-      <CardHeader className="py-4 bg-muted/30 border-b">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+    <Card className="rounded-xl border shadow" style={themedCardStyle}>
+      <div style={themedCardInnerOverlayStyle} />
+
+      <CardHeader className="py-4 border-b" style={themedHeaderStyle}>
+        <div style={themedTopLineStyle} />
+        <div style={themedHeaderGlowStyle} />
+
+        <div className="relative z-10 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-sm font-medium" style={themedTitleStyle}>
               Conversion
             </CardTitle>
-            <div className="mt-1 text-xs text-muted-foreground">
+            <div className="mt-1 text-xs" style={themedMutedStyle}>
               Configure how content is converted and post-processed.
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <select
-              className="h-9 rounded-md border bg-background px-2 text-sm"
+              className="h-9 rounded-md border px-2 text-sm"
+              style={themedInputStyle}
               value={selectedType}
               onChange={(e) =>
                 setSelectedType(e.target.value as (typeof METHOD_TYPES)[number])
@@ -367,12 +406,15 @@ export function ConversionSettingsCard({
         </div>
       </CardHeader>
 
-      <CardContent className="p-4 space-y-4">
+      <CardContent className="p-4 space-y-4" style={themedContentStyle}>
         {hasMethod && currentMethod ? (
           <>
             {topFields.map((key) => (
               <div key={key} className="space-y-1">
-                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                <div
+                  className="text-xs font-medium uppercase tracking-wide"
+                  style={themedLabelStyle}
+                >
                   {fieldLabel(key)}
                 </div>
                 {renderConversionField({
@@ -389,7 +431,10 @@ export function ConversionSettingsCard({
             >
               {imageFields.map((key) => (
                 <div key={key} className="space-y-1">
-                  <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  <div
+                    className="text-xs font-medium uppercase tracking-wide"
+                    style={themedLabelStyle}
+                  >
                     {fieldLabel(key)}
                   </div>
                   {renderConversionField({
@@ -407,7 +452,10 @@ export function ConversionSettingsCard({
             >
               {tableFields.map((key) => (
                 <div key={key} className="space-y-1">
-                  <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  <div
+                    className="text-xs font-medium uppercase tracking-wide"
+                    style={themedLabelStyle}
+                  >
                     {fieldLabel(key)}
                   </div>
                   {renderConversionField({
@@ -420,7 +468,7 @@ export function ConversionSettingsCard({
             </SettingsSection>
           </>
         ) : (
-          <div className="text-sm text-muted-foreground">
+          <div className="text-sm" style={themedMutedStyle}>
             No method yet — add one above.
           </div>
         )}

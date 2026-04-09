@@ -1,91 +1,250 @@
-from fastapi import APIRouter, Depends, HTTPException
+# ===========JWT Tokens==========
+import uuid
+from datetime import datetime, timedelta, timezone
+from typing import Optional, Dict, Any, List, Callable, Awaitable
+import inspect
+
+import jwt
+
+from fastapi import APIRouter, Depends, HTTPException, Request, Form
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Optional, List, Dict, Any
 from uuid import UUID
-import json
 
+from app.config import settings
+from app.users import current_active_user, get_user_manager, UserManager
+from app.database import User, get_async_session
 
-from app.models import MainPipeline, DocPipelines
-
-
-from app.users import current_active_user, get_user_manager, UserManager   # adjust import paths
-from app.database import User, get_async_session            # adjust import paths
-
+from app.rag_services.helpers import load_doc_pipelines, load_pipeline, ExtractionError
+from app.models import MainPipeline
 from app.rag_services.retrieval_service import run_retrieval
-from app.mcp_tokens import create_jwt_token, decode_and_validate_mcp_token
-from fastapi import Depends, HTTPException, Request
-
-from datetime import timedelta
 
 
+# ==============================
+# OAuth Pre-Registered Clients
+# ==============================
+OAUTH_CLIENTS = {
+    "claude-code": {
+        "client_id": "claude-code",
+        "client_secret": "dev-secret",
+        "redirect_uris": ["http://localhost:*"],
+    }
+}
+
+
+# ==============================
+# JWT Tokens
+# ==============================
+MCP_TOKEN_ALGORITHM = "HS256"
+MCP_TOKEN_SECRET = getattr(settings, "MCP_SECRET_KEY", settings.ACCESS_SECRET_KEY)
+
+# Canonical MCP resource URL for local dev
+MCP_RESOURCE_AUDIENCE = "http://localhost/mcp"
+MCP_ISSUER = "http://localhost"
+
+
+class MCPTokenError(Exception):
+    pass
+
+
+def create_jwt_token(
+    *,
+    subject: str,
+    scope: str,
+    expires_delta: Optional[timedelta] = None,
+    extra_claims: Optional[Dict[str, Any]] = None,
+) -> str:
+    now = datetime.now(tz=timezone.utc)
+
+    if expires_delta is None:
+        expires_delta = timedelta(minutes=30)
+
+    payload: Dict[str, Any] = {
+        "iss": MCP_ISSUER,
+        "sub": subject,
+        "scope": scope,
+        "aud": MCP_RESOURCE_AUDIENCE,
+        "iat": now,
+        "exp": now + expires_delta,
+        "jti": str(uuid.uuid4()),
+    }
+
+    if extra_claims:
+        payload.update(extra_claims)
+
+    return jwt.encode(payload, MCP_TOKEN_SECRET, algorithm=MCP_TOKEN_ALGORITHM)
+
+
+def decode_and_validate_mcp_token(token: str) -> Dict[str, Any]:
+    try:
+        payload = jwt.decode(
+            token,
+            MCP_TOKEN_SECRET,
+            algorithms=[MCP_TOKEN_ALGORITHM],
+            audience=MCP_RESOURCE_AUDIENCE,
+            options={"require": ["exp", "sub", "scope"]},
+        )
+    except jwt.ExpiredSignatureError:
+        raise MCPTokenError("MCP token expired")
+    except jwt.InvalidTokenError:
+        raise MCPTokenError("Invalid MCP token")
+
+    if payload.get("scope") != "mcp":
+        raise MCPTokenError("Invalid token scope")
+
+    return payload
+
+
+# ==============================
+# Router
+# ==============================
+# Mount with:
+# app.include_router(mcp_router, prefix="/mcp")
 router = APIRouter(tags=["mcp"])
 
 
+# ==============================
+# OAuth Endpoints
+# ==============================
 
+@router.get("/oauth/authorize")
+async def authorize(
+    response_type: str,
+    client_id: str,
+    redirect_uri: str,
+    state: str,
+    user: User = Depends(current_active_user),
+):
+    client = OAUTH_CLIENTS.get(client_id)
+    if not client:
+        raise HTTPException(status_code=400, detail="Unknown client")
+
+    if response_type != "code":
+        raise HTTPException(status_code=400, detail="Unsupported response_type")
+
+    # Minimal redirect URI validation for pre-registered dev client
+    allowed_redirects = client.get("redirect_uris", [])
+    if redirect_uri not in allowed_redirects and "http://localhost:*" not in allowed_redirects:
+        raise HTTPException(status_code=400, detail="Invalid redirect_uri")
+
+    # Skip consent in dev mode
+    code = create_jwt_token(
+        subject=str(user.id),
+        scope="mcp",
+        expires_delta=timedelta(minutes=5),
+        extra_claims={"type": "auth_code"},
+    )
+
+    return RedirectResponse(f"{redirect_uri}?code={code}&state={state}")
+
+
+@router.post("/oauth/token")
+async def token(
+    grant_type: str = Form(...),
+    code: str = Form(...),
+    client_id: str = Form(...),
+    client_secret: Optional[str] = Form(default=None),
+):
+    if grant_type != "authorization_code":
+        raise HTTPException(status_code=400, detail="Unsupported grant")
+
+    client = OAUTH_CLIENTS.get(client_id)
+    if not client:
+        raise HTTPException(status_code=400, detail="Unknown client")
+
+    expected_secret = client.get("client_secret")
+    if expected_secret and client_secret != expected_secret:
+        raise HTTPException(status_code=401, detail="Invalid client credentials")
+
+    payload = decode_and_validate_mcp_token(code)
+
+    if payload.get("type") != "auth_code":
+        raise HTTPException(status_code=400, detail="Invalid code")
+
+    access_token = create_jwt_token(
+        subject=payload["sub"],
+        scope="mcp",
+        expires_delta=timedelta(minutes=30),
+    )
+
+    return {
+        "access_token": access_token,
+        "token_type": "Bearer",
+        "expires_in": 1800,
+    }
+
+
+# ==============================
+# Metadata Endpoints
+# ==============================
+
+@router.get("/.well-known/oauth-authorization-server")
+async def oauth_metadata():
+    return {
+        "issuer": MCP_ISSUER,
+        "authorization_endpoint": f"{MCP_ISSUER}/mcp/oauth/authorize",
+        "token_endpoint": f"{MCP_ISSUER}/mcp/oauth/token",
+        "response_types_supported": ["code"],
+        "grant_types_supported": ["authorization_code"],
+        "code_challenge_methods_supported": ["S256"],
+    }
+
+
+@router.get("/.well-known/oauth-protected-resource")
+async def resource_metadata():
+    return {
+        "resource": MCP_RESOURCE_AUDIENCE,
+        "authorization_servers": [MCP_ISSUER],
+    }
+
+
+# ==============================
+# Dev helper endpoint
+# ==============================
 
 @router.post("/issue-url")
-async def issue_mcp_url(
-        user: User = Depends(current_active_user)
-):
-
+async def issue_mcp_url(user: User = Depends(current_active_user)):
     token = create_jwt_token(
         subject=str(user.id),
         scope="mcp",
         expires_delta=timedelta(minutes=30),
     )
 
-    return {
-        "mcp_url": f"http://localhost/mcp/{token}"
-    }
+    return {"mcp_url": f"{MCP_RESOURCE_AUDIENCE}/{token}"}
 
 
-
-
-# ---------------------------------------
-# Query
-# ---------------------------------------
-
-class MCPQueryRequest(BaseModel):
-    query: str
-
-
-class MCPSource(BaseModel):
-    doc_id: UUID
-    level_id: Optional[str]
-    score: Optional[float]
-
-
-class MCPQueryResponse(BaseModel):
-    answer: str
-    sources: Optional[List[MCPSource]] = None
-
-
-MethodSpec = Dict[str, Any]
-
-class PipelineResponse(BaseModel):
-    router: MethodSpec
-    reranker: MethodSpec
-    generator: MethodSpec
-
-
+# ==============================
+# MCP Auth Dependency
+# ==============================
 
 async def current_mcp_user(
     request: Request,
     user_manager: UserManager = Depends(get_user_manager),
 ) -> User:
     auth = request.headers.get("Authorization")
-    if not auth or not auth.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing MCP token")
 
-    token = auth.removeprefix("Bearer ").strip()
 
-    payload = decode_and_validate_mcp_token(token)
+    #if not auth or not auth.startswith("Bearer "):
+        #raise HTTPException(status_code=401, detail="Missing MCP token")
+    #token = auth.removeprefix("Bearer ").strip()
 
-    # payload["sub"] is a string; fastapi-users expects UUID for your setup
+    if not auth:
+        # fallback to API key header
+        token = request.headers.get("X-API-Key")
+    else:
+        token = auth.removeprefix("Bearer ").strip()
+
+
+
+    try:
+        payload = decode_and_validate_mcp_token(token)
+    except MCPTokenError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+
     try:
         user_id = UUID(payload["sub"])
-    except (ValueError, TypeError, KeyError):
+    except Exception:
         raise HTTPException(status_code=401, detail="Invalid MCP token subject")
 
     user = await user_manager.get(user_id)
@@ -95,59 +254,159 @@ async def current_mcp_user(
     return user
 
 
+# ==============================
+# JSON-RPC Models
+# ==============================
+
+class JsonRpcRequest(BaseModel):
+    jsonrpc: str = "2.0"
+    id: Optional[int | str] = None
+    method: str
+    params: Optional[Dict[str, Any]] = None
 
 
-@router.post("/query", response_model=MCPQueryResponse)
-async def query_pipeline(
-    payload: MCPQueryRequest,
-    db: AsyncSession = Depends(get_async_session),
+def rpc_result(_id: Any, result: Any):
+    return {"jsonrpc": "2.0", "id": _id, "result": result}
+
+
+def rpc_error(_id: Any, code: int, message: str, data: Any = None):
+    err = {"code": code, "message": message}
+    if data is not None:
+        err["data"] = data
+    return {"jsonrpc": "2.0", "id": _id, "error": err}
+
+
+# ==============================
+# Tool Registry
+# ==============================
+
+ToolFn = Callable[..., Awaitable[Any]] | Callable[..., Any]
+TOOLS: Dict[str, Dict[str, Any]] = {}
+
+
+def tool(name: str, description: str = ""):
+    def deco(fn: ToolFn):
+        TOOLS[name] = {"fn": fn, "description": description}
+        return fn
+    return deco
+
+
+# ==============================
+# MCP Endpoint
+# ==============================
+
+@router.post("/")
+async def mcp_jsonrpc(
+    payload: JsonRpcRequest,
     user: User = Depends(current_mcp_user),
+    db: AsyncSession = Depends(get_async_session),
 ):
-    """
-    MCP-compatible query endpoint.
-    Executes the full RAG pipeline and returns a final answer.
-    """
+    method = payload.method
+    params = payload.params or {}
+    _id = payload.id
+
+    if payload.jsonrpc != "2.0":
+        return rpc_error(_id, -32600, "Invalid Request")
+
+    if method == "initialize":
+        return rpc_result(_id, {
+            "protocolVersion": "2025-03-26",
+            "capabilities": {"tools": {}},
+            "serverInfo": {"name": "fastapi-mcp", "version": "1.0"},
+        })
+
+    if method == "tools/list":
+        return rpc_result(_id, {
+            "tools": [
+                {"name": name, "description": meta["description"]}
+                for name, meta in TOOLS.items()
+            ]
+        })
+
+    if method == "tools/call":
+        name = params.get("name")
+        arguments = params.get("arguments") or {}
+
+        if name not in TOOLS:
+            return rpc_error(_id, -32601, "Unknown tool")
+
+        fn = TOOLS[name]["fn"]
+
+        try:
+            if inspect.iscoroutinefunction(fn):
+                result = await fn(user=user, db=db, **arguments)
+            else:
+                result = fn(user=user, db=db, **arguments)
+            return rpc_result(_id, result)
+
+        except TypeError as e:
+            return rpc_error(_id, -32602, "Invalid params", str(e))
+        except Exception as e:
+            return rpc_error(_id, -32000, "Server error", str(e))
+
+    return rpc_error(_id, -32601, "Unknown method")
 
 
-    # load main_pipeline configuration
-    row = await MainPipeline.get_row(where_dict={"user_id": user.id}, db=db)
+# ==============================
+# Tools
+# ==============================
 
-
-    retrieval_dict = json.loads(row.doc_pipelines)
-    retrieval_dict["router"] = json.loads(row.router)
-
-    output_content = await run_retrieval(query=payload.query, retrieval_dict=retrieval_dict, user_id=user.id, db=db)
-
-
-
-
-    return output_content
-
-
-
-
-# --------- TEST ------------
-
-
-
-"""
-curl -s -X POST "http://localhost/mcp/<TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "jsonrpc":"2.0",
-    "id":3,
-    "method":"tools/call",
-    "params":{
-      "name":"rag_query",
-      "arguments":{
-        "query":"What documents do I have indexed?"
-      }
+@tool("ping", "Validate MCP auth")
+async def ping_tool(user: User, db: AsyncSession = None):
+    return {
+        "ok": True,
+        "user_id": str(user.id),
+        "email": getattr(user, "email", None),
     }
-  }'
 
 
+@tool("rag_query", "Run RAG pipeline")
+async def rag_query_tool(user: User, db: AsyncSession, query: str):
+    try:
+        row = await MainPipeline.get_row(where_dict={"user_id": user.id}, db=db)
 
-{"jsonrpc":"2.0","id":3,"result":{"answer":"Hello pablo.jahnen@stud.uni-goettingen.de. You asked: What documents do I have indexed?","sources":[]}}
+        retrieval_dict = load_doc_pipelines(row.doc_pipelines)
+        retrieval_dict.update({
+            "router": load_pipeline(row.router),
+            "reranker": load_pipeline(row.reranker),
+            "generator": load_pipeline(row.generator),
+        })
 
+        output = await run_retrieval(
+            query=query,
+            retrieval_dict=retrieval_dict,
+            user_id=user.id,
+            db=db,
+        )
 
-"""
+        if output:
+            answer, sources = output
+            return {
+                "ok": True,
+                "answer": answer,
+                "sources": sources,
+            }
+
+        return {
+            "ok": True,
+            "answer": "No result",
+        }
+
+    except ExtractionError as e:
+        return {
+            "ok": False,
+            "error": {
+                "type": "ExtractionError",
+                "message": e.message,
+                "status_code": e.status_code,
+            }
+        }
+
+    except Exception as e:
+        return {
+            "ok": False,
+            "error": {
+                "type": "InternalError",
+                "message": str(e),
+            }
+        }

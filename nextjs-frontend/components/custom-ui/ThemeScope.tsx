@@ -12,6 +12,26 @@ export function ThemeScope({
   children: React.ReactNode;
   className?: string;
 }) {
+  const themeMeta = theme as ThemeSpec & {
+    name?: string;
+    id?: string;
+    key?: string;
+  };
+
+  const themeKey = (
+    themeMeta.name ??
+    themeMeta.id ??
+    themeMeta.key ??
+    ""
+  ).toLowerCase();
+
+  // Document title/link colors:
+  // - dark   => keep blue
+  // - bright => black
+  // - neutral => black
+  const docTitleColor = themeKey === "dark" ? "#0070f3" : "#000000";
+  const docTitleActiveColor = "#000000";
+
   const style = {
     "--theme-page-bg": theme.page.background,
     "--theme-page-fg": theme.page.foreground,
@@ -49,6 +69,9 @@ export function ThemeScope({
     "--theme-input-fg": theme.input.foreground,
     "--theme-input-border": theme.input.border,
     "--theme-input-focus-ring": theme.input.focusRing,
+
+    "--theme-doc-title": docTitleColor,
+    "--theme-doc-title-active": docTitleActiveColor,
   } as React.CSSProperties;
 
   return (

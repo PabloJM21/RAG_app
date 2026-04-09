@@ -106,6 +106,7 @@ export default function DocsList({
             fontWeight: 600,
             textDecoration: "none",
             background: isMainActive ? "#eee" : "transparent",
+            color: "var(--theme-doc-title-active)",
             flex: 1,
           }}
         >
@@ -155,7 +156,9 @@ export default function DocsList({
                 href={href}
                 style={{
                   textDecoration: "none",
-                  color: isActive ? "black" : "#0070f3",
+                  color: isActive
+                    ? "var(--theme-doc-title-active)"
+                    : "var(--theme-doc-title)",
                   cursor: "pointer",
                   fontWeight: isActive ? 600 : 400,
                   padding: "6px 8px",

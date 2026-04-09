@@ -8,6 +8,7 @@ export const FILTER_PROMPTS = ["A boolean that is True if the chunk's content co
 //generator_prompt
 export const GENERATOR_PROMPTS = [
   "A complete answer to this QUERY based only on the provided CHUNKS, in the same language",
+  "An extensive, deeply reasoned answer to the user QUERY using only the information contained in the CHUNKS. You must make full use of the CHUNKS: do not just scratch the surface—analyze, connect, and synthesize all relevant details."
 ];
 
 export const EMBEDDING_QUERY_PROMPTS = [

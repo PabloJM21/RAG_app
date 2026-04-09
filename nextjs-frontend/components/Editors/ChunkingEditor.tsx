@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 
 import { FlexibleMethodCard } from "@/components/custom-ui/FlexibleMethodCard";
 import {
-  MethodsContainerCard,
   HierarchicalMethodsContainerCard,
 } from "@/components/custom-ui/Containers";
 import { FILTER_PROMPTS } from "@/components/frontend_data/Prompts";

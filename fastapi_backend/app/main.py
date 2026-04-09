@@ -140,13 +140,12 @@ app.include_router(conversion_router, prefix="/conversion")
 app.include_router(chunking_router, prefix="/chunking")
 app.include_router(extraction_router, prefix="/extraction")
 app.include_router(retrieval_router, prefix="/retrieval")
+# --- MCP protocol ---
 app.include_router(mcp_router, prefix="/mcp")
 
 
 
-# --- MCP protocol ---
-from app.routes.mcp_http import router as mcp_proto_router
-app.include_router(mcp_proto_router)
+
 
 
 

@@ -166,7 +166,7 @@ export const THEME_PRESETS: Record<ThemeName, ThemeSpec> = {
       foreground: "#7c2d12",
       border: "#fdba74",
       shadow: "0 1px 3px rgba(251,146,60,0.18)",
-      headerBackground: "#fef3c7",
+      headerBackground: "#fff7e3", //, "#fff7ed"
       headerBorder: "#fb7185",
       title: "#9a3412",
       mutedText: "#c2410c",
