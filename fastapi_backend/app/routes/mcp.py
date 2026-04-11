@@ -223,19 +223,16 @@ async def current_mcp_user(
     user_manager: UserManager = Depends(get_user_manager),
 ) -> User:
     auth = request.headers.get("Authorization")
+    token = None
 
+    if auth:
+        if auth.startswith("Bearer "):
+            token = auth.removeprefix("Bearer ").strip()
+        elif auth.startswith("ApiKey "):
+            token = auth.removeprefix("ApiKey ").strip()
 
-    #if not auth or not auth.startswith("Bearer "):
-        #raise HTTPException(status_code=401, detail="Missing MCP token")
-    #token = auth.removeprefix("Bearer ").strip()
-
-    if not auth:
-        # fallback to API key header
-        token = request.headers.get("X-API-Key")
-    else:
-        token = auth.removeprefix("Bearer ").strip()
-
-
+    if not token:
+        raise HTTPException(status_code=401, detail="Missing MCP token")
 
     try:
         payload = decode_and_validate_mcp_token(token)
@@ -283,10 +280,17 @@ def rpc_error(_id: Any, code: int, message: str, data: Any = None):
 ToolFn = Callable[..., Awaitable[Any]] | Callable[..., Any]
 TOOLS: Dict[str, Dict[str, Any]] = {}
 
-
-def tool(name: str, description: str = ""):
+def tool(name: str, description: str = "", input_schema: Optional[Dict[str, Any]] = None):
     def deco(fn: ToolFn):
-        TOOLS[name] = {"fn": fn, "description": description}
+        TOOLS[name] = {
+            "fn": fn,
+            "description": description,
+            "inputSchema": input_schema or {
+                "type": "object",
+                "properties": {},
+                "required": []
+            },
+        }
         return fn
     return deco
 
@@ -318,7 +322,11 @@ async def mcp_jsonrpc(
     if method == "tools/list":
         return rpc_result(_id, {
             "tools": [
-                {"name": name, "description": meta["description"]}
+                {
+                    "name": name,
+                    "description": meta["description"],
+                    "inputSchema": meta["inputSchema"],
+                }
                 for name, meta in TOOLS.items()
             ]
         })
@@ -360,7 +368,17 @@ async def ping_tool(user: User, db: AsyncSession = None):
     }
 
 
-@tool("rag_query", "Run RAG pipeline")
+@tool(
+    "rag_query",
+    "Run RAG pipeline",
+    input_schema={
+        "type": "object",
+        "properties": {
+            "query": {"type": "string"}
+        },
+        "required": ["query"]
+    }
+)
 async def rag_query_tool(user: User, db: AsyncSession, query: str):
     try:
         row = await MainPipeline.get_row(where_dict={"user_id": user.id}, db=db)

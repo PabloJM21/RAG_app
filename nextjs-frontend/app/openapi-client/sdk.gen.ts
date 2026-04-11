@@ -176,11 +176,18 @@ import type {
   ExportPipelineErrors,
   ExportAllData,
   ExportAllResponses,
+  AuthorizeData,
+  AuthorizeResponses,
+  AuthorizeErrors,
+  TokenData,
+  TokenResponses,
+  TokenErrors,
+  OauthMetadataData,
+  OauthMetadataResponses,
+  ResourceMetadataData,
+  ResourceMetadataResponses,
   IssueMcpUrlData,
   IssueMcpUrlResponses,
-  QueryPipelineData,
-  QueryPipelineResponses,
-  QueryPipelineErrors,
   McpJsonrpcData,
   McpJsonrpcResponses,
   McpJsonrpcErrors,
@@ -1678,6 +1685,85 @@ export const exportAll = <ThrowOnError extends boolean = false>(
 };
 
 /**
+ * Authorize
+ */
+export const authorize = <ThrowOnError extends boolean = false>(
+  options: Options<AuthorizeData, ThrowOnError>,
+) => {
+  return (options.client ?? client).get<
+    AuthorizeResponses,
+    AuthorizeErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/mcp/oauth/authorize",
+    ...options,
+  });
+};
+
+/**
+ * Token
+ */
+export const token = <ThrowOnError extends boolean = false>(
+  options: Options<TokenData, ThrowOnError>,
+) => {
+  return (options.client ?? client).post<
+    TokenResponses,
+    TokenErrors,
+    ThrowOnError
+  >({
+    ...urlSearchParamsBodySerializer,
+    responseType: "json",
+    url: "/mcp/oauth/token",
+    ...options,
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Oauth Metadata
+ */
+export const oauthMetadata = <ThrowOnError extends boolean = false>(
+  options?: Options<OauthMetadataData, ThrowOnError>,
+) => {
+  return (options?.client ?? client).get<
+    OauthMetadataResponses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: "json",
+    url: "/mcp/.well-known/oauth-authorization-server",
+    ...options,
+  });
+};
+
+/**
+ * Resource Metadata
+ */
+export const resourceMetadata = <ThrowOnError extends boolean = false>(
+  options?: Options<ResourceMetadataData, ThrowOnError>,
+) => {
+  return (options?.client ?? client).get<
+    ResourceMetadataResponses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: "json",
+    url: "/mcp/.well-known/oauth-protected-resource",
+    ...options,
+  });
+};
+
+/**
  * Issue Mcp Url
  */
 export const issueMcpUrl = <ThrowOnError extends boolean = false>(
@@ -1701,33 +1787,7 @@ export const issueMcpUrl = <ThrowOnError extends boolean = false>(
 };
 
 /**
- * Query Pipeline
- * MCP-compatible query endpoint.
- * Executes the full RAG pipeline and returns a final answer.
- */
-export const queryPipeline = <ThrowOnError extends boolean = false>(
-  options: Options<QueryPipelineData, ThrowOnError>,
-) => {
-  return (options.client ?? client).post<
-    QueryPipelineResponses,
-    QueryPipelineErrors,
-    ThrowOnError
-  >({
-    responseType: "json",
-    url: "/mcp/query",
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-  });
-};
-
-/**
  * Mcp Jsonrpc
- * Minimal MCP-over-HTTP JSON-RPC endpoint:
- * - tools/list
- * - tools/call
  */
 export const mcpJsonrpc = <ThrowOnError extends boolean = false>(
   options: Options<McpJsonrpcData, ThrowOnError>,
@@ -1738,7 +1798,7 @@ export const mcpJsonrpc = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     responseType: "json",
-    url: "/mcp-proto/",
+    url: "/mcp/",
     ...options,
     headers: {
       "Content-Type": "application/json",

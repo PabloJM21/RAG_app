@@ -69,6 +69,28 @@ export type BodyDocsUploadDocFile = {
 };
 
 /**
+ * Body_mcp-token
+ */
+export type BodyMcpToken = {
+  /**
+   * Grant Type
+   */
+  grant_type: string;
+  /**
+   * Code
+   */
+  code: string;
+  /**
+   * Client Id
+   */
+  client_id: string;
+  /**
+   * Client Secret
+   */
+  client_secret?: string | null;
+};
+
+/**
  * DocCreate
  */
 export type DocCreate = {
@@ -184,48 +206,6 @@ export type LoadBody = {
    * Doc Id
    */
   doc_id: string;
-};
-
-/**
- * MCPQueryRequest
- */
-export type McpQueryRequest = {
-  /**
-   * Query
-   */
-  query: string;
-};
-
-/**
- * MCPQueryResponse
- */
-export type McpQueryResponse = {
-  /**
-   * Answer
-   */
-  answer: string;
-  /**
-   * Sources
-   */
-  sources?: Array<McpSource> | null;
-};
-
-/**
- * MCPSource
- */
-export type McpSource = {
-  /**
-   * Doc Id
-   */
-  doc_id: string;
-  /**
-   * Level Id
-   */
-  level_id: string | null;
-  /**
-   * Score
-   */
-  score: number | null;
 };
 
 /**
@@ -2026,6 +2006,97 @@ export type ExportAllResponses = {
   200: unknown;
 };
 
+export type AuthorizeData = {
+  body?: never;
+  path?: never;
+  query: {
+    /**
+     * Response Type
+     */
+    response_type: string;
+    /**
+     * Client Id
+     */
+    client_id: string;
+    /**
+     * Redirect Uri
+     */
+    redirect_uri: string;
+    /**
+     * State
+     */
+    state: string;
+  };
+  url: "/mcp/oauth/authorize";
+};
+
+export type AuthorizeErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type AuthorizeError = AuthorizeErrors[keyof AuthorizeErrors];
+
+export type AuthorizeResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type TokenData = {
+  body: BodyMcpToken;
+  path?: never;
+  query?: never;
+  url: "/mcp/oauth/token";
+};
+
+export type TokenErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type TokenError = TokenErrors[keyof TokenErrors];
+
+export type TokenResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type OauthMetadataData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/mcp/.well-known/oauth-authorization-server";
+};
+
+export type OauthMetadataResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type ResourceMetadataData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/mcp/.well-known/oauth-protected-resource";
+};
+
+export type ResourceMetadataResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
 export type IssueMcpUrlData = {
   body?: never;
   path?: never;
@@ -2040,37 +2111,11 @@ export type IssueMcpUrlResponses = {
   200: unknown;
 };
 
-export type QueryPipelineData = {
-  body: McpQueryRequest;
-  path?: never;
-  query?: never;
-  url: "/mcp/query";
-};
-
-export type QueryPipelineErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type QueryPipelineError = QueryPipelineErrors[keyof QueryPipelineErrors];
-
-export type QueryPipelineResponses = {
-  /**
-   * Successful Response
-   */
-  200: McpQueryResponse;
-};
-
-export type QueryPipelineResponse =
-  QueryPipelineResponses[keyof QueryPipelineResponses];
-
 export type McpJsonrpcData = {
   body: JsonRpcRequest;
   path?: never;
   query?: never;
-  url: "/mcp-proto/";
+  url: "/mcp/";
 };
 
 export type McpJsonrpcErrors = {
