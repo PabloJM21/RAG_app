@@ -1,8 +1,6 @@
 "use client";
 
-import Link from "next/link";
 import * as React from "react";
-import { Button } from "@/components/ui/button";
 import {
   Tabs,
   TabsList,
@@ -57,7 +55,7 @@ export default function PipelineTabs({
           <TabsTrigger value="conversion">Conversion</TabsTrigger>
           <TabsTrigger value="chunking">Chunking</TabsTrigger>
           <TabsTrigger value="enrichment">Enrichment</TabsTrigger>
-          <TabsTrigger value="chunks">Chunks</TabsTrigger>
+          <TabsTrigger value="chunks">View Chunks</TabsTrigger>
           <TabsTrigger value="retrieval">Retrieval</TabsTrigger>
         </TabsList>
       </div>
