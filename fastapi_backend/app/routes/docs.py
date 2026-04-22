@@ -167,14 +167,15 @@ class DocCreate(BaseModel):
     name: str
 
 
-@router.post("/", response_model=DocResponse)
+@router.post("/{project_id}", response_model=DocResponse)
 async def create_doc(
+    project_id: int,
     doc: DocCreate,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
 
-    db_doc = await DocPipelines.insert_data(data_dict={"name": doc.name, "user_id": user.id}, db=db) #"path": None
+    db_doc = await DocPipelines.insert_data(data_dict={"name": doc.name, "project_id": project_id, "user_id": user.id}, db=db) #"path": None
 
     await db.commit()
     await db.refresh(db_doc)
@@ -187,15 +188,16 @@ async def create_doc(
 
 
 
-@router.post("/uploads/{doc_id}")
+@router.post("/{project_id}/uploads/{doc_id}")
 async def upload_doc_file(
+    project_id: int,
     doc_id: UUID,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
 
-    row = await DocPipelines.get_row(where_dict={"doc_id": doc_id, "user_id": user.id}, db=db) #"path": None
+    row = await DocPipelines.get_row(where_dict={"project_id": project_id, "doc_id": doc_id, "user_id": user.id}, db=db) #"path": None
 
     if row is None:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -229,14 +231,15 @@ async def upload_doc_file(
 from shutil import rmtree
 
 
-@router.delete("/{doc_id}")
+@router.delete("/{project_id}/deletes/{doc_id}")
 async def delete_doc(
+    project_id: int,
     doc_id: UUID,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
     row = await DocPipelines.get_row(
-        where_dict={"doc_id": doc_id, "user_id": user.id},
+        where_dict={"project_id": project_id, "doc_id": doc_id, "user_id": user.id},
         db=db,
     )
 
@@ -245,9 +248,9 @@ async def delete_doc(
 
     # Delete entries in DB tables
 
-    await Retrieval.delete_data({"user_id": user.id, "doc_id": doc_id}, db)
-    await Paragraph.delete_data({"user_id": user.id, "doc_id": doc_id}, db)
-    await Embedding.delete_data({"user_id": user.id, "doc_id": doc_id}, db)
+    await Retrieval.delete_data({"user_id": user.id, "project_id": project_id, "doc_id": doc_id}, db)
+    await Paragraph.delete_data({"user_id": user.id, "project_id": project_id, "doc_id": doc_id}, db)
+    await Embedding.delete_data({"user_id": user.id, "project_id": project_id, "doc_id": doc_id}, db)
 
 
     # Delete filesystem artifacts
@@ -282,12 +285,13 @@ class DocResponse(BaseModel):
 
 
 
-@router.get("/", response_model=List[DocResponse])
+@router.get("/{project_id}", response_model=List[DocResponse])
 async def read_doc_list(
+    project_id: int,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
-    rows, _ = await DocPipelines.get_all(columns=["name", "doc_id"], where_dict={"user_id": user.id}, db=db) #"path": None
+    rows, _ = await DocPipelines.get_all(columns=["name", "doc_id"], where_dict={"user_id": user.id, "project_id": project_id}, db=db) #"path": None
 
     return [
         DocResponse(
@@ -302,7 +306,7 @@ async def read_doc_list(
 
 
 
-# ---------- EXPORT PIPELINES ----------
+# ========= EXPORT PIPELINES =================
 
 
 class ExportBody(BaseModel):
@@ -310,8 +314,9 @@ class ExportBody(BaseModel):
     doc_id: str
 
 
-@router.post("/pipelines/export/")
+@router.post("/{project_id}/pipelines/export/")
 async def export_doc_pipeline(
+    project_id: int,
     body: ExportBody,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
@@ -320,7 +325,7 @@ async def export_doc_pipeline(
     export_name = body.pipelineName
 
     row = await DocPipelines.get_row(
-        where_dict={"doc_id": UUID(source_id), "user_id": user.id},
+        where_dict={"project_id": project_id, "doc_id": UUID(source_id), "user_id": user.id},
         db=db,
     )
 
@@ -351,15 +356,16 @@ async def export_doc_pipeline(
 
 
 
-
-
-
 class LoadBody(BaseModel):
     pipeline_id: str
     doc_id: str
 
-@router.post("/pipelines/load/")
+
+
+
+@router.post("/{project_id}/pipelines/load/")
 async def load_doc_pipeline(
+    project_id: int,
     body: LoadBody,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
@@ -386,7 +392,7 @@ async def load_doc_pipeline(
             output_pipelines[key] = json.dumps(value_dict)
 
     await DocPipelines.update_data(
-        data_dict=output_pipelines, where_dict={"doc_id": UUID(target_id), "user_id": user.id},
+        data_dict=output_pipelines, where_dict={"project_id": project_id, "doc_id": UUID(target_id), "user_id": user.id},
         db=db,
     )
 
@@ -441,48 +447,4 @@ async def delete_doc_pipeline(
     return {"message": "Doc Pipeline deleted"}
 
 
-"""
 
-OLD
-
-class ExportBody(BaseModel):
-    source_id: str
-    target_id: str
-
-
-@router.post("/export/")
-async def export_doc_pipeline(
-    body: ExportBody,
-    db: AsyncSession = Depends(get_async_session),
-    user: User = Depends(current_active_user),
-):
-    source_id = body.source_id
-    target_id = body.target_id
-
-
-    row = await DocPipelines.get_row(
-        where_dict={"doc_id": UUID(source_id), "user_id": user.id},
-        db=db,
-    )
-
-    if not row:
-        raise HTTPException(status_code=404, detail="Doc not found or not authorized")
-
-    pipeline_names = ["conversion_pipeline", "chunking_pipeline", "extraction_pipeline", "retrieval_pipeline"]
-
-    output_pipelines = {}
-    for key in pipeline_names:
-        pipeline_string = getattr(row, key)
-        if pipeline_string:
-            output_pipelines.update({key: pipeline_string})
-
-    await DocPipelines.update_data(
-        data_dict=output_pipelines, where_dict={"doc_id": UUID(target_id), "user_id": user.id},
-        db=db,
-    )
-
-    return {"status": "ok"}
-
-
-
-"""

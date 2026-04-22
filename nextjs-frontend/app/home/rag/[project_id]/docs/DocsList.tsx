@@ -5,17 +5,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { UploadButton } from "./DocButtons";
-import { removeDoc } from "@/app/api/rag/docs/docs-action";
-
-import { ThreeRunActions } from "@/components/custom-ui/SaveRunActions";
-import { run } from "@/app/api/rag/main-pipeline/pipeline-action";
-
-import { DocActionsMenu } from "@/components/custom-ui/DocActions";
 import {
+  removeDoc,
   exportDocPipeline,
   listDocPipelines,
   loadDocPipeline,
 } from "@/app/api/rag/docs/docs-action";
+
+import { DocActionsMenu } from "@/components/custom-ui/DocActions";
 
 type Doc = {
   doc_id: string;
@@ -68,9 +65,11 @@ function ThemedVerticalScrollbarStyles({ scopeClass }: { scopeClass: string }) {
 }
 
 export default function DocsList({
+  project_id,
   docs,
   error,
 }: {
+  project_id: string;
   docs: Doc[];
   error?: string | null;
 }) {
@@ -78,18 +77,17 @@ export default function DocsList({
 
   const scrollClass = React.useMemo(
     () => `docs-list-scroll-${Math.random().toString(36).slice(2, 9)}`,
-    [],
+    []
   );
 
   if (error) return <div style={{ color: "red" }}>Error: {error}</div>;
 
-  const isMainActive = pathname === "/home/rag";
+  const isMainActive = pathname === `/home/rag/${project_id}`;
 
   return (
     <section>
       <ThemedVerticalScrollbarStyles scopeClass={scrollClass} />
 
-      {/* Main link + global actions */}
       <div
         style={{
           marginBottom: 10,
@@ -99,7 +97,7 @@ export default function DocsList({
         }}
       >
         <Link
-          href="/home/rag"
+          href={`/home/rag/${project_id}`}
           style={{
             padding: "8px 10px",
             borderRadius: 6,
@@ -112,15 +110,8 @@ export default function DocsList({
         >
           Master
         </Link>
-
-        {/*<ThreeRunActions
-          runConversion={() => run("conversion")}
-          runChunking={() => run("chunking")}
-          runRetrieval={() => run("retrieval")}
-        />*/}
       </div>
 
-      {/* Docs list */}
       <div
         className={scrollClass}
         style={{
@@ -136,7 +127,7 @@ export default function DocsList({
         )}
 
         {docs.map((doc) => {
-          const href = `/home/rag/docs/${doc.doc_id}`;
+          const href = `/home/rag/${project_id}/docs/${doc.doc_id}`;
           const isActive = pathname === href || pathname.startsWith(`${href}/`);
 
           return (
@@ -169,6 +160,7 @@ export default function DocsList({
               </Link>
 
               <DocActionsMenu
+                project_id={project_id}
                 doc_id={doc.doc_id}
                 doc_name={doc.name}
                 removeDoc={removeDoc}
@@ -182,7 +174,7 @@ export default function DocsList({
       </div>
 
       <div style={{ marginTop: 12 }}>
-        <UploadButton />
+        <UploadButton project_id={project_id} />
       </div>
     </section>
   );

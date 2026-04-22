@@ -35,13 +35,14 @@ router = APIRouter(tags=["extraction"])
 MethodSpec = Dict[str, Any]
 
 
-@router.get("/{doc_id}/data", response_model=Dict[str, List[MethodSpec]])
+@router.get("/{project_id}/docs/{doc_id}/data", response_model=List[MethodSpec])
 async def read_extraction_pipeline(
+        project_id: int,
         doc_id: UUID,
         db: AsyncSession = Depends(get_async_session),
         user: User = Depends(current_active_user),
 ):
-    row = await DocPipelines.get_row(where_dict={"user_id": user.id, "doc_id": doc_id}, db=db)
+    row = await DocPipelines.get_row(where_dict={"user_id": user.id, "project_id": project_id, "doc_id": doc_id}, db=db)
 
 
     if row.extraction_pipeline is None:
@@ -53,14 +54,15 @@ async def read_extraction_pipeline(
     return extraction_pipeline
 
 
-@router.post("/{doc_id}/data")
+@router.post("/{project_id}/docs/{doc_id}/data")
 async def add_extraction_pipeline(
+        project_id: int,
         doc_id: UUID,
-        pipeline: Dict[str, List[MethodSpec]],
+        pipeline: List[MethodSpec],
         db: AsyncSession = Depends(get_async_session),
         user: User = Depends(current_active_user),
 ):
-    row = await DocPipelines.get_row(where_dict={"user_id": user.id, "doc_id": doc_id}, db=db)
+    row = await DocPipelines.get_row(where_dict={"user_id": user.id, "project_id": project_id, "doc_id": doc_id}, db=db)
     row.extraction_pipeline = json.dumps(pipeline)
 
     await db.commit()
@@ -71,22 +73,23 @@ async def add_extraction_pipeline(
     }
 
 
-@router.post("/{doc_id}/run")
+@router.post("/{project_id}/docs/{doc_id}/run")
 async def run_extraction_pipeline(
+        project_id: int,
         doc_id: UUID,
         db: AsyncSession = Depends(get_async_session),
         user: User = Depends(current_active_user),
 ):
 
     try:
-        row = await DocPipelines.get_row(where_dict={"user_id": user.id, "doc_id": doc_id}, db=db)
+        row = await DocPipelines.get_row(where_dict={"user_id": user.id, "project_id": project_id, "doc_id": doc_id}, db=db)
 
         if not row.extraction_pipeline:
             raise HTTPException(status_code=400, detail="No pipeline available")
 
         extraction_pipeline = load_pipeline(row.extraction_pipeline)
 
-        await run_extraction(extraction_pipeline, user.id, doc_id, db)
+        await run_extraction(extraction_pipeline, user.id, project_id, doc_id, db)
 
         row.exported = False
         await db.commit()
@@ -100,48 +103,3 @@ async def run_extraction_pipeline(
 
 
 
-"""
-
-
-
-# ---------- ALL DOCs ----------
-@router.post("/run")
-async def extract_all(
-        db: AsyncSession = Depends(get_async_session),
-        user: User = Depends(current_active_user),
-):
-
-    # Avoid extracted=1 to be extracted again.
-
-    rows, columns = await DocPipelines.get_all(columns=["doc_id"], where_dict={"user_id": user.id, "extracted": 0}, db=db)
-
-    doc_ids = [row["doc_id"] for row in rows]
-
-    for doc_id in doc_ids:
-        row = await DocPipelines.get_row(where_dict={"user_id": user.id, "doc_id": doc_id}, db=db)
-
-
-        if row.extraction_pipeline:
-            # Run extraction
-
-            extraction_pipeline = json.loads(row.extraction_pipeline)
-            await run_extraction(extraction_pipeline, user.id, doc_id, db)
-
-            # After extraction
-
-            # Set extracted=1
-            row.extracted = True
-
-            # NEXT: Set exported=0
-            row.exported = False
-
-    await db.commit()
-
-
-    return {
-        "status": "ok"
-    }
-
-
-
-"""

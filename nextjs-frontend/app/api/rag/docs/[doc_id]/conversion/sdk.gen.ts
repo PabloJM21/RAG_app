@@ -6,31 +6,20 @@ import {
 
 import { client } from "@/app/api/custom-openapi-client/client.gen";
 
-
-
 export type Options<
   TData extends TDataShape = TDataShape,
   ThrowOnError extends boolean = boolean,
 > = ClientOptions<TData, ThrowOnError> & {
-  /**
-   * You can provide a client instance returned by `createClient()` instead of
-   * individual options. This might be also useful if you want to implement a
-   * custom client.
-   */
   client?: Client;
-  /**
-   * You can pass arbitrary values through the `meta` object. This can be
-   * used to access values that aren't defined as part of the SDK function.
-   */
   meta?: Record<string, unknown>;
 };
-
 
 export type ValidationError = {
   loc: Array<string | number>;
   msg: string;
   type: string;
 };
+
 export type HttpValidationError = {
   detail?: Array<ValidationError>;
 };
@@ -41,25 +30,22 @@ export type Errors = {
 
 export type PipelineSpec = Record<string, any>;
 
-
 /**
  * Run Pipeline
  */
-
 export type runPipelineData = {
   body?: never;
   path: {
+    project_id: string;
     doc_id: string;
   };
   query?: never;
-  url: "/conversion/{doc_id}/run";
+  url: "/conversion/{project_id}/docs/{doc_id}/run";
 };
 
 export type runPipelineResponses = {
   200: unknown;
 };
-
-
 
 export const runPipeline = <ThrowOnError extends boolean = false>(
   options?: Options<runPipelineData, ThrowOnError>,
@@ -76,7 +62,7 @@ export const runPipeline = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/conversion/{doc_id}/run",
+    url: "/conversion/{project_id}/docs/{doc_id}/run",
     ...options,
   });
 };
@@ -87,19 +73,16 @@ export const runPipeline = <ThrowOnError extends boolean = false>(
 export type CreatePipelineData = {
   body: PipelineSpec;
   path: {
+    project_id: string;
     doc_id: string;
   };
   query?: never;
-  url: "/conversion/{doc_id}/data";
+  url: "/conversion/{project_id}/docs/{doc_id}/data";
 };
 
 export type CreatePipelineResponses = {
   200: unknown;
 };
-
-
-
-
 
 export const createPipeline = <ThrowOnError extends boolean = false>(
   options?: Options<CreatePipelineData, ThrowOnError>,
@@ -116,36 +99,23 @@ export const createPipeline = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/conversion/{doc_id}/data",
+    url: "/conversion/{project_id}/docs/{doc_id}/data",
     ...options,
   });
 };
 
-
-
-
-
-
-
-
 /**
  * Read Pipeline
  */
-
-
 export type ReadPipelineData = {
   body?: never;
   path: {
+    project_id: string;
     doc_id: string;
   };
   query?: never;
-  url: "/conversion/{doc_id}/data";
+  url: "/conversion/{project_id}/docs/{doc_id}/data";
 };
-
-
-
-
-
 
 export type ReadPipelineResponses = {
   200: PipelineSpec;
@@ -166,9 +136,7 @@ export const readPipeline = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/conversion/{doc_id}/data",
+    url: "/conversion/{project_id}/docs/{doc_id}/data",
     ...options,
   });
 };
-
-

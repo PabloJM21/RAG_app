@@ -8,10 +8,10 @@ import { fetchConversionPipeline } from "@/app/api/rag/docs/[doc_id]/conversion/
 import { fetchRetrievalPipeline } from "@/app/api/rag/docs/[doc_id]/retrieval/retrieval-action";
 import { fetchColors } from "@/app/api/rag/settings/colors-action";
 
-import PipelineTabs from "@/app/home/rag/docs/[doc_id]/PipelineTabs";
+import PipelineTabs from "./PipelineTabs";
 
 type MethodSpec = Record<string, any>;
-type PipelineSpec = Record<string, MethodSpec[]>;
+type PipelineSpec = MethodSpec[];
 type StageColors = Record<string, string>;
 type ColorsSpec = {
   Chunking?: StageColors;
@@ -22,34 +22,35 @@ type ColorsSpec = {
 export default async function DocRootPage({
   params,
 }: {
-  params: Promise<{ doc_id: string }>;
+  params: Promise<{ project_id: string; doc_id: string }>;
 }) {
-  const { doc_id } = await params;
+  const { project_id, doc_id } = await params;
 
-  const conversionPipeline = await fetchConversionPipeline(doc_id);
+  const conversionPipeline = await fetchConversionPipeline(project_id, doc_id);
 
   const [chunkingPipeline, extractionPipeline, levels, results, colors] =
     await Promise.all([
-      fetchChunkingPipeline(doc_id),
-      fetchExtractionPipeline(doc_id),
-      fetchLevels(doc_id),
-      fetchResults(doc_id),
+      fetchChunkingPipeline(project_id, doc_id),
+      fetchExtractionPipeline(project_id, doc_id),
+      fetchLevels(project_id, doc_id),
+      fetchResults(project_id, doc_id),
       fetchColors(),
     ]);
 
-  const retrievalPipeline = await fetchRetrievalPipeline(doc_id);
+  const retrievalPipeline = await fetchRetrievalPipeline(project_id, doc_id);
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       <div className="flex-1 overflow-hidden">
         <PipelineTabs
+          project_id={project_id}
           doc_id={doc_id}
           initialConversion={(conversionPipeline ?? {}) as MethodSpec}
           initialChunking={(chunkingPipeline ?? {}) as PipelineSpec}
           initialEnrichment={(extractionPipeline ?? {}) as PipelineSpec}
           levels={(levels ?? []) as string[]}
           results={results ?? []}
-          initialRetrieval={(retrievalPipeline ?? []) as MethodSpec[]}
+          initialRetrieval={(retrievalPipeline ?? []) as PipelineSpec}
           colors={(colors ?? {}) as ColorsSpec}
         />
       </div>

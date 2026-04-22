@@ -4,6 +4,7 @@ import { removeKey } from "@/app/api/rag/profile/keys-action";
 import {removeDocPipeline} from "@/app/api/rag/docs/docs-action";
 
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import {removeProjectAction} from "@/app/api/rag/projects/projects-action";
 
 interface DeleteKeyButtonProps {
   key_id: string;
@@ -24,6 +25,29 @@ export function DeleteKeyButton({ key_id }: DeleteKeyButtonProps) {
   );
 }
 
+
+
+
+interface DeleteProjectButtonProps {
+  project_id: string;
+}
+
+export function DeleteProjectButton({
+  project_id,
+}: DeleteProjectButtonProps) {
+  const handleDelete = async () => {
+    await removeProjectAction(project_id);
+  };
+
+  return (
+    <DropdownMenuItem
+      className="text-red-500 cursor-pointer"
+      onClick={handleDelete}
+    >
+      Delete
+    </DropdownMenuItem>
+  );
+}
 
 
 

@@ -2,14 +2,13 @@
 
 import { useMemo, useState } from "react";
 import { addResults } from "@/app/api/rag/docs/[doc_id]/indexing_results/table-action";
-import { Button } from "@/components/ui/button";
+
 import {
   Card,
   CardHeader,
   CardTitle,
   CardDescription,
   CardContent,
-  CardFooter,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import {SaveResultsActions} from "@/components/custom-ui/SaveRunActions";
@@ -28,9 +27,11 @@ type LevelResult = {
 export type Results = LevelResult[];
 
 export default function ChunksResultsEditor({
+  project_id,
   doc_id,
   initialResults,
 }: {
+  project_id: string;
   doc_id: string;
   initialResults: Results;
 }) {
@@ -84,6 +85,7 @@ export default function ChunksResultsEditor({
         {/* top-right toolbar */}
         <div className="flex justify-end">
           <SaveResultsActions
+            project_id={project_id}
             addFunction={addResults}
             doc_id={doc_id}
             resultsJson={JSON.stringify(filtered)}

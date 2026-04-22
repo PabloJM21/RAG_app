@@ -27,6 +27,7 @@ import { useRouter } from "next/navigation";
 import { MenuSubmitButton } from "@/components/custom-ui/SaveRunActions";
 
 export function DocActionsMenu({
+  project_id,
   doc_id,
   doc_name,
   removeDoc,
@@ -34,6 +35,7 @@ export function DocActionsMenu({
   listDocPipelines,
   loadDocPipeline,
 }: {
+  project_id: string;
   doc_id: string;
   doc_name: string;
   removeDoc: (formData: FormData) => Promise<unknown>;
@@ -112,6 +114,7 @@ export function DocActionsMenu({
               className="w-full"
               onClick={(e) => e.stopPropagation()}
             >
+              <input type="hidden" name="project_id" value={project_id} />
               <input type="hidden" name="doc_id" value={doc_id} />
 
               <MenuSubmitButton
@@ -144,6 +147,7 @@ export function DocActionsMenu({
             }}
             className="space-y-3"
           >
+            <input type="hidden" name="project_id" value={project_id} />
             <input type="hidden" name="doc_id" value={doc_id} />
 
             <div className="grid gap-2">
@@ -214,6 +218,7 @@ export function DocActionsMenu({
                       setLoadOpen(false);
                     }}
                   >
+                    <input type="hidden" name="project_id" value={project_id} />
                     <input type="hidden" name="doc_id" value={doc_id} />
                     <input type="hidden" name="pipeline_id" value={p.pipeline_id} />
 

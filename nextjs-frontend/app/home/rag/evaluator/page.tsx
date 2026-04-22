@@ -1,77 +1,6 @@
-// ChunkingPageClient.tsx
-"use client";
+import {EvaluatorSettingsCard} from "@/app/home/rag/evaluator/EvaluatorEditor";
 
-import { useMemo, useState, useCallback } from "react";
-import { addChunkingPipeline, runChunking } from "@/app/api/rag/docs/[doc_id]/chunking/chunking-action";
-import { RunButton } from "@/components/custom-ui/RunButton";
-import { SaveButton } from "@/components/custom-ui/SaveButton";
-
-
-import { EvaluatorSettingsCard } from "@/components/Editors/EvaluatorEditor";
-import { ChunkingEditor } from "@/components/Editors/ChunkingEditor";
-import {PipelineTabsBar} from "@/components/custom-ui/PipelineTabsBar";
-import {SaveRunActions} from "@/components/custom-ui/SaveRunActions";
-
-
-type MethodSpec = Record<string, any>;
-type PipelineSpec = Record<string, MethodSpec[]>;
-type StageColors = Record<string, string>;
-
-type RoutingEditorProps = {
-  pipelineKey: string;
-  methods: MethodSpec[];
-  onChange: (methods: MethodSpec[]) => void;
-  colors: StageColors;
-};
-
-function RoutingEditor({ pipelineKey, methods, onChange, colors }: RoutingEditorProps) {
-  if (pipelineKey === "evaluator") {
-    return (
-      <EvaluatorSettingsCard
-        methods={methods}
-        onChange={onChange}
-        type="Chunking"
-      />
-    );
-  }
-
-  if (/^\d+$/.test(pipelineKey)) {
-    return <ChunkingEditor methods={methods} onChange={onChange} colors={colors} />;
-  }
-
-  return null;
-}
-
-
-function nextPipelineId(pipelines: PipelineSpec): string {
-  const numericKeys = Object.keys(pipelines).filter((k) => /^\d+$/.test(k));
-  const ids = numericKeys.map(Number);
-  const max = ids.length ? Math.max(...ids) : 0;
-  return String(max + 1);
-}
-
-// Pick a sensible default selection:
-function initialPipelineId(pipeline: PipelineSpec): string {
-  // 1. smallest numeric pipeline id
-  const numeric = Object.keys(pipeline)
-    .filter((k) => /^\d+$/.test(k))
-    .map(Number)
-    .sort((a, b) => a - b);
-  if (numeric.length > 0) {
-    return String(numeric[0]);
-  }
-  // 2. evaluator if it exists
-  if (pipeline.evaluator) {
-    return "evaluator";
-  }
-  // 3. fallback
-  return "1";
-}
-
-
-
-
-export default function ChunkingPageClient({
+export default function EvaluatorPageClient({
   doc_id,
   initialPipeline,
   colors,
@@ -157,11 +86,10 @@ export default function ChunkingPageClient({
 
 
         <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
-          <RoutingEditor
+          <EvaluatorSettingsCard
             pipelineKey={pipelineId}
             methods={currentMethods}
             onChange={handleMethodsChange}
-            colors={colors}
           />
         </div>
 

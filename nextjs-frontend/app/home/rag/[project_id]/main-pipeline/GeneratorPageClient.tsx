@@ -9,7 +9,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { SaveActions, ThreeRunActions } from "@/components/custom-ui/SaveRunActions";
+import { SaveActions, RunExportActions } from "@/components/custom-ui/SaveRunActions";
 import {
   GENERATOR_PROMPTS,
   GENERATOR_QUERY_PROMPTS,
@@ -292,8 +292,10 @@ function GeneratorSettingsCard({
 }
 
 export default function GeneratorPageClient({
+  project_id,
   pipeline: initialGenerator,
 }: {
+  project_id: string;
   pipeline: MethodSpec;
 }) {
   // keep the editable pipeline in state (array of 0..1 methods)
@@ -319,7 +321,8 @@ export default function GeneratorPageClient({
       >
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
           <div className="flex items-center gap-2">
-            <ThreeRunActions
+            <RunExportActions
+              project_id={project_id}
               runConversion={() => run("conversion")}
               runChunking={() => run("chunking")}
               runRetrieval={() => run("retrieval")}

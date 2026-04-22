@@ -8,18 +8,18 @@ import {
   uploadDocFile,
   exportPipeline,
   listPipelines,
-  loadPipeline, deletePipeline
+  loadPipeline,
+  deletePipeline,
 } from "./sdk.gen";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import {createKey, deleteKey, KeyRead, readKeyList} from "@/app/api/rag/profile/sdk.gen";
 
 export type Doc = {
   name: string;
   doc_id: string;
 };
 
-export async function fetchDocs(): Promise<Doc[]> {
+export async function fetchDocs(project_id: string): Promise<Doc[]> {
   const cookieStore = await cookies();
   const token = cookieStore.get("accessToken")?.value;
 
@@ -31,6 +31,9 @@ export async function fetchDocs(): Promise<Doc[]> {
     headers: {
       Authorization: `Bearer ${token}`,
     },
+    path: {
+      project_id,
+    },
   });
 
   if (response.error) {
@@ -40,10 +43,9 @@ export async function fetchDocs(): Promise<Doc[]> {
   return response.data;
 }
 
-
 export async function removeDoc(formData: FormData) {
-
-  const id = String(formData.get("doc_id") ?? "");
+  const project_id = String(formData.get("project_id") ?? "");
+  const doc_id = String(formData.get("doc_id") ?? "");
 
   const cookieStore = await cookies();
   const token = cookieStore.get("accessToken")?.value;
@@ -57,7 +59,8 @@ export async function removeDoc(formData: FormData) {
       Authorization: `Bearer ${token}`,
     },
     path: {
-      doc_id: id,
+      project_id,
+      doc_id,
     },
   });
 
@@ -65,14 +68,11 @@ export async function removeDoc(formData: FormData) {
     throw response.error;
   }
 
-  // Ensure the sidebar/list refreshes everywhere it is shown
-  revalidatePath("/home/rag/docs");
-  revalidatePath("/home/rag"); // optional, but helpful if main page also shows docs
+  revalidatePath(`/home/rag/${project_id}`);
+  revalidatePath(`/home/rag/${project_id}/docs/${doc_id}`);
 
-  // Always go to a safe route after deletion
-  redirect("/home/rag");
+  redirect(`/home/rag/${project_id}`);
 }
-
 
 export async function addDoc(prevState: {}, formData: FormData) {
   const cookieStore = await cookies();
@@ -82,42 +82,44 @@ export async function addDoc(prevState: {}, formData: FormData) {
     return { message: "No access token found" };
   }
 
-  // 1. Extract fields from FormData
   const name = formData.get("name");
+  const project_id = formData.get("project_id");
+
   if (!name || typeof name !== "string") {
     return { message: "Invalid name" };
   }
 
-  // 2. Call FastAPI JSON endpoint
+  if (!project_id || typeof project_id !== "string") {
+    return { message: "Invalid project_id" };
+  }
+
   const response = await createDoc({
     headers: {
       Authorization: `Bearer ${token}`,
+    },
+    path: {
+      project_id,
     },
     body: {
       name,
     },
   });
 
-  // 3. Handle API errors
   if (response.error) {
     return { message: "Error while adding Doc" };
   }
 
-  // 4. Extract doc_id correctly
   const doc_id = response.data?.doc_id;
 
   if (!doc_id) {
     return { message: "No doc_id returned" };
   }
 
-  // 5. Return doc_id to client
   return { doc_id };
 }
 
-
-
-
 export async function uploadDoc(
+  project_id: string,
   doc_id: string,
   file: File
 ) {
@@ -132,7 +134,7 @@ export async function uploadDoc(
   formData.append("file", file);
 
   const response = await uploadDocFile({
-    path: { doc_id },
+    path: { project_id, doc_id },
     body: formData,
     headers: {
       Authorization: `Bearer ${token}`,
@@ -146,27 +148,21 @@ export async function uploadDoc(
   return response.data;
 }
 
-
-
-
-
 /**
  * Export Pipeline
  */
-
-
-
-
-
 export async function exportDocPipeline(formData: FormData) {
-
+  const project_id = formData.get("project_id");
   const doc_id = formData.get("doc_id");
   const pipelineName = formData.get("pipelineName");
 
-  if (typeof doc_id !== "string" || typeof pipelineName !== "string") {
+  if (
+    typeof project_id !== "string" ||
+    typeof doc_id !== "string" ||
+    typeof pipelineName !== "string"
+  ) {
     throw new Error("Invalid form data");
   }
-
 
   const cookieStore = await cookies();
   const token = cookieStore.get("accessToken")?.value;
@@ -175,9 +171,11 @@ export async function exportDocPipeline(formData: FormData) {
     throw new Error("No access token found");
   }
 
-
   const response = await exportPipeline({
-    body: {doc_id, pipelineName},
+    path: {
+      project_id,
+    },
+    body: { doc_id, pipelineName },
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -190,30 +188,23 @@ export async function exportDocPipeline(formData: FormData) {
   return response.data;
 }
 
-
-
 /**
  * List Pipelines
  */
-
-
-
 export type ListPipeline = {
   pipeline_id: string;
   pipelineName: string;
 };
 
-
-export async function listDocPipelines(_formData?: FormData): Promise<ListPipeline[]> {
-
-
+export async function listDocPipelines(
+  _formData?: FormData
+): Promise<ListPipeline[]> {
   const cookieStore = await cookies();
   const token = cookieStore.get("accessToken")?.value;
 
   if (!token) {
     throw new Error("No access token found");
   }
-
 
   const response = await listPipelines({
     headers: {
@@ -228,24 +219,21 @@ export async function listDocPipelines(_formData?: FormData): Promise<ListPipeli
   return response.data;
 }
 
-
 /**
  * Load Pipeline
  */
-
-
-
-
-
 export async function loadDocPipeline(formData: FormData) {
-
+  const project_id = formData.get("project_id");
   const doc_id = formData.get("doc_id");
   const pipeline_id = formData.get("pipeline_id");
 
-  if (typeof doc_id !== "string" || typeof pipeline_id !== "string") {
+  if (
+    typeof project_id !== "string" ||
+    typeof doc_id !== "string" ||
+    typeof pipeline_id !== "string"
+  ) {
     throw new Error("Invalid form data");
   }
-
 
   const cookieStore = await cookies();
   const token = cookieStore.get("accessToken")?.value;
@@ -254,9 +242,11 @@ export async function loadDocPipeline(formData: FormData) {
     throw new Error("No access token found");
   }
 
-
   const response = await loadPipeline({
-    body: {doc_id, pipeline_id},
+    path: {
+      project_id,
+    },
+    body: { doc_id, pipeline_id },
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -266,9 +256,11 @@ export async function loadDocPipeline(formData: FormData) {
     throw new Error("Loading failed");
   }
 
+  revalidatePath(`/home/rag/${project_id}`);
+  revalidatePath(`/home/rag/${project_id}/docs/${doc_id}`);
+
   return response.data;
 }
-
 
 export async function removeDocPipeline(pipeline_id: string) {
   const cookieStore = await cookies();
@@ -283,47 +275,13 @@ export async function removeDocPipeline(pipeline_id: string) {
       Authorization: `Bearer ${token}`,
     },
     path: {
-      pipeline_id: pipeline_id,
+      pipeline_id,
     },
   });
 
   if (error) {
     return { message: error };
   }
+
   revalidatePath("home/profile");
 }
-
-{/*
-export async function exportDocPipeline(formData: FormData) {
-
-  const source_id = formData.get("source_id");
-  const target_id = formData.get("target_id");
-
-  if (typeof source_id !== "string" || typeof target_id !== "string") {
-    throw new Error("Invalid form data");
-  }
-
-  const cookieStore = await cookies();
-  const token = cookieStore.get("accessToken")?.value;
-
-  if (!token) {
-    throw new Error("No access token found");
-  }
-
-
-  const response = await exportPipeline({
-    body: {source_id, target_id},
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  if (response.error) {
-    throw new Error("Upload failed");
-  }
-
-  return response.data;
-}
-
-
-*/}

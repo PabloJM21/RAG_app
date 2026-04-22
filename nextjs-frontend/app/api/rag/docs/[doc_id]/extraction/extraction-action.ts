@@ -1,14 +1,16 @@
 "use server";
 
-
-import {cookies} from "next/headers";
-import {revalidatePath} from "next/cache";
-import {createPipeline, runPipeline, PipelineSpec, readPipeline} from "./sdk.gen";
-
-
-
+import { cookies } from "next/headers";
+import { revalidatePath } from "next/cache";
+import {
+  createPipeline,
+  runPipeline,
+  PipelineSpec,
+  readPipeline,
+} from "./sdk.gen";
 
 export async function runExtraction(formData: FormData) {
+  const project_id = formData.get("project_id") as string;
   const doc_id = formData.get("doc_id") as string;
 
   const cookieStore = await cookies();
@@ -22,14 +24,14 @@ export async function runExtraction(formData: FormData) {
     headers: {
       Authorization: `Bearer ${token}`,
     },
-    path:{
-      doc_id: doc_id,
+    path: {
+      project_id,
+      doc_id,
     },
   });
 
   if (result.error) {
     const err = result.error as any;
-
     const message =
       err?.detail ||
       err?.message ||
@@ -40,18 +42,12 @@ export async function runExtraction(formData: FormData) {
     return { ok: false, error: String(message) };
   }
 
-  revalidatePath(`home/rag/docs/${doc_id}`);
-
+  revalidatePath(`/home/rag/${project_id}/docs/${doc_id}`);
   return { ok: true };
 }
 
-
-
-
-
-
 export async function addExtractionPipeline(formData: FormData) {
-
+  const project_id = formData.get("project_id") as string;
   const doc_id = formData.get("doc_id") as string;
   const pipeline = JSON.parse(formData.get("pipeline") as string) as PipelineSpec;
 
@@ -66,8 +62,9 @@ export async function addExtractionPipeline(formData: FormData) {
     headers: {
       Authorization: `Bearer ${token}`,
     },
-    path:{
-      doc_id: doc_id,
+    path: {
+      project_id,
+      doc_id,
     },
     body: pipeline,
   });
@@ -76,13 +73,13 @@ export async function addExtractionPipeline(formData: FormData) {
     throw result.error;
   }
 
-  revalidatePath(`home/rag/docs/${doc_id}`);
+  revalidatePath(`/home/rag/${project_id}/docs/${doc_id}`);
 }
 
-
-
-
-export async function fetchExtractionPipeline(doc_id: string): Promise<PipelineSpec> {
+export async function fetchExtractionPipeline(
+  project_id: string,
+  doc_id: string
+): Promise<PipelineSpec> {
   const cookieStore = await cookies();
   const token = cookieStore.get("accessToken")?.value;
 
@@ -94,8 +91,9 @@ export async function fetchExtractionPipeline(doc_id: string): Promise<PipelineS
     headers: {
       Authorization: `Bearer ${token}`,
     },
-    path:{
-      doc_id: doc_id,
+    path: {
+      project_id,
+      doc_id,
     },
   });
 
@@ -105,5 +103,3 @@ export async function fetchExtractionPipeline(doc_id: string): Promise<PipelineS
 
   return result.data;
 }
-
-

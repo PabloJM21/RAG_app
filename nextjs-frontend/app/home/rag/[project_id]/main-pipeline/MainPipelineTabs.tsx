@@ -14,9 +14,11 @@ import RetrieversPageClient from "./RetrieversPageClient";
 type MethodSpec = Record<string, any>;
 
 export default function MainPipelineTabs({
+  project_id,
   initialGenerator,
   initialRetrievers,
 }: {
+  project_id: string;
   initialGenerator: MethodSpec;
   initialRetrievers: MethodSpec[];
 }) {
@@ -33,6 +35,7 @@ export default function MainPipelineTabs({
         <TabsContent value="generator" className="h-full m-0">
           <section className="p-4 overflow-auto h-full">
             <GeneratorPageClient
+              project_id={project_id}
               pipeline={initialGenerator}
             />
           </section>
@@ -41,6 +44,7 @@ export default function MainPipelineTabs({
         <TabsContent value="retrievers" className="h-full m-0">
           <section className="p-4 overflow-auto h-full">
             <RetrieversPageClient
+              project_id={project_id}
               pipeline={initialRetrievers}
             />
           </section>

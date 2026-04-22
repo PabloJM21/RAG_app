@@ -17,7 +17,7 @@ from app.users import current_active_user, get_user_manager, UserManager
 from app.database import User, get_async_session
 
 from app.rag_services.helpers import load_doc_pipelines, load_pipeline, ExtractionError
-from app.models import MainPipeline
+from app.models import MainPipeline, ProjectData
 from app.rag_services.retrieval_service import run_retrieval
 
 

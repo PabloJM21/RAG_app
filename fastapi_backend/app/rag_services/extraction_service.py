@@ -12,8 +12,6 @@ import copy
 #Orchestrators
 from app.rag_apis.chat_api import ChatOrchestrator
 
-#Internal helpers 
-from app.rag_services.evaluator_service import ChunkerEvaluator, EnricherEvaluator, evaluation_wrapper
 
 # helpers for disc paths
 from app.rag_services.helpers import get_doc_paths, get_log_path, get_doc_title, get_user_api_keys, log_pipeline_methods, ExtractionError
@@ -439,10 +437,11 @@ class Enricher:
 
 class Filter:
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, level: str, model: str, prompt: str, history: bool = False):
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, project_id: int, doc_id: UUID, level: str, model: str, prompt: str, history: bool = False):
 
         self.db = db
         self.user_id = user_id
+        self.project_id = project_id
         self.doc_id = doc_id
         self.input_level = level
         self.logger = logger
@@ -606,7 +605,7 @@ class Filter:
         # loggs
         await self.init_clients()
 
-        rows, columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.input_level}, db=self.db)
+        rows, columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "project_id": self.project_id, "doc_id": self.doc_id, "level": self.input_level}, db=self.db)
 
         input_df = pd.DataFrame(rows, columns=columns)  # like the retrievals table, but one for each hierarchy level
 
@@ -623,7 +622,7 @@ class Filter:
 
             if not is_relevant:
 
-                await Retrieval.delete_data(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level_id": input_id, "level": self.input_level}, db=self.db)
+                await Retrieval.delete_data(where_dict={"user_id": self.user_id, "project_id": self.project_id, "doc_id": self.doc_id, "level_id": input_id, "level": self.input_level}, db=self.db)
 
                 self.logger.log_step(task="info_text", layer=1, log_text=f"Removed chunk:\n {content}\n")
 
@@ -633,10 +632,11 @@ class Filter:
 class Reseter:
 
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, level: str):
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, project_id: int, doc_id: UUID, level: str):
 
         self.db = db
         self.user_id = user_id
+        self.project_id = project_id
         self.doc_id = doc_id
         self.level = level
         self.logger = logger
@@ -645,7 +645,7 @@ class Reseter:
 
         #self.logger.log_step(task="info_text", layer=2, log_text=f"Reseting chunks at {self.level} level")
 
-        where_dict = {"user_id": self.user_id, "doc_id": self.doc_id, "level": self.level}
+        where_dict = {"user_id": self.user_id, "project_id": self.project_id, "doc_id": self.doc_id, "level": self.level}
 
         # Filters
         filters = []
@@ -672,72 +672,6 @@ class Reseter:
 # ---------------------------------------------
 
 
-EVALUATOR_TYPE_MAPPER = {
-    "Chunking": ChunkerEvaluator,
-    "Enriching": EnricherEvaluator,
-}
-
-
-
-
-async def run_extraction_old(pipelines: dict[str, list[dict[str, Any]]], user_id: UUID, doc_id: UUID, db: AsyncSession):
-    log_path = await get_log_path(user_id, stage="extraction")
-    session_logger = InfoLogger(log_path=log_path, stage="extraction")
-    doc_title = await get_doc_title(user_id, doc_id, db=db)
-    session_logger.log_step(task="header_1", layer=2, log_text=f"Starting Extraction for document: {doc_title}")
-
-    # Init evaluator method
-    evaluator_array = []
-    if "evaluator" in pipelines:
-        evaluator_array = pipelines.pop("evaluator")
-
-    # Run Pipelines
-    sorted_items = sorted(list(pipelines.items()), key=lambda x: int(x[0].strip()))
-    sorted_pipelines = [x[1] for x in sorted_items if x[1]]
-    session_logger.log_step(task="info_text", log_text=f"Sorted pipelines look like this: {sorted_pipelines}")
-    evaluation_pipelines = copy.deepcopy(sorted_pipelines)
-
-    # If evaluator was instanced, run all pipelines and record their score. Finally run the highest scoring pipeline
-    if evaluator_array:
-        evaluator_method = evaluator_array[0]
-        session_logger.log_step(task="header_2", layer=2, log_text=f"Starting Evaluation of Pipelines")
-        session_logger.log_step(task="table", layer=2, log_text=f"using following Method: ", table_data=evaluator_method)
-
-        evaluator_type = evaluator_method.pop("type")
-        evaluator_method.update({"logger": session_logger, "user_id": user_id, "doc_id": doc_id, "db": db, "doc_title": doc_title})
-        evaluator_instance = EVALUATOR_TYPE_MAPPER[evaluator_type](**evaluator_method)
-        pipeline_scores = []
-        for i, pipeline in enumerate(evaluation_pipelines):
-            session_logger.log_step(task="info_text", layer=2, log_text=f"Pipeline {i + 1}")
-            log_pipeline_methods(session_logger, pipeline)
-
-
-            await run_extraction_pipeline(method_list=pipeline, user_id=user_id, doc_id=doc_id, db=db, session_logger=session_logger, session_evaluator=evaluator_instance, log_path=log_path)
-
-            pipeline_scores.append(evaluator_instance.pipeline_score)
-
-        #  Overwrite last Retrieval content with the best chunking pipeline
-        best_index = pipeline_scores.index(max(pipeline_scores))
-        best_pipeline = sorted_pipelines[best_index]
-
-        session_logger.log_step(task="header_2", log_text=f"Found best pipeline: Pipeline {best_index}")
-
-        await run_extraction_pipeline(method_list=best_pipeline, user_id=user_id, doc_id=doc_id, db=db, session_logger=session_logger, session_evaluator=evaluator_instance, log_path=log_path)
-
-
-
-    # If no evaluator is present, run the first pipeline only
-    else:
-
-        pipeline = sorted_pipelines[0]
-        session_logger.log_step(task="header_2", layer=2, log_text=f"Running Pipeline 1")
-        log_pipeline_methods(session_logger, pipeline)
-
-        await run_extraction_pipeline(method_list=pipeline, user_id=user_id, doc_id=doc_id, db=db, session_logger=session_logger, session_evaluator=None, log_path=log_path)
-
-
-    # Finally we export the logs to md
-    await export_logs(log_path)
 
 
 
@@ -750,20 +684,20 @@ EXTRACTION_TYPE_MAPPER = {
     "Reset": Reseter,
 }
 
-async def run_extraction_pipeline(method_list: list[dict[str, Any]], user_id: UUID, doc_id: UUID, db: AsyncSession, session_logger: InfoLogger, session_evaluator: EnricherEvaluator):
+async def run_extraction_pipeline(method_list: list[dict[str, Any]], user_id: UUID, project_id: int, doc_id: UUID, db: AsyncSession, session_logger: InfoLogger):
 
 
     for method in method_list:
 
         method.pop("color", None)
 
-        method.update({"logger": session_logger, "user_id": user_id, "doc_id": doc_id, "db": db})
+        method.update({"logger": session_logger, "user_id": user_id, "project_id": project_id, "doc_id": doc_id, "db": db})
 
 
         if method["type"] == "Extractor":
-            input_level = method.pop("input_level")
-            output_level = method.pop("output_level")
-            method.update({"input_level": input_level, "output_level": output_level})
+            input_level = method["input_level"]
+            output_level = method["output_level"]
+
             method_type = method.pop("type")
 
             session_logger.log_step(task="header_3", layer=2, log_text=f"Starting Extractor from {input_level} to {output_level}")
@@ -784,23 +718,22 @@ async def run_extraction_pipeline(method_list: list[dict[str, Any]], user_id: UU
 
         session_logger.log_step(task="info_text", layer=2, log_text=f"Method finished after {round(method_end-method_start, 2)} seconds")
 
-    #session_logger.log_step(task="info_text", layer=2, log_text=f"Session evaluator: {session_evaluator}")
-    # After running the pipeline we perform the evaluation
-    if session_evaluator:
-        await session_evaluator.commit_evaluation()
 
 
-async def run_extraction(pipelines: dict[str, list[dict[str, Any]]], user_id: UUID, doc_id: UUID, db: AsyncSession):
+async def run_extraction(pipeline: list[dict[str, Any]], user_id: UUID, project_id: int, doc_id: UUID, db: AsyncSession):
     log_path = await get_log_path(user_id, stage="extraction")
     session_logger = InfoLogger(log_path=log_path, stage="extraction")
-    doc_title = await get_doc_title(user_id, doc_id, db=db)
+    doc_title = await get_doc_title(user_id, project_id, doc_id, db=db)
     session_logger.log_step(task="header_1", layer=2, log_text=f"Starting Extraction for document: {doc_title}")
 
-    evaluator_args = {"user_id": user_id, "doc_id": doc_id, "db": db, "logger": session_logger}
-    runner_args = {"user_id": user_id, "doc_id": doc_id, "db": db, "session_logger": session_logger}
+    runner_args = {"user_id": user_id, "project_id": project_id, "doc_id": doc_id, "db": db, "session_logger": session_logger}
 
-    await evaluation_wrapper(pipelines=pipelines, evaluator_args=evaluator_args, runner_args=runner_args,
-                             session_logger=session_logger, log_path=log_path, runner_fn=run_extraction_pipeline)
+
+    session_logger.log_step(task="header_2", layer=2, log_text=f"Running Pipeline 1")
+    log_pipeline_methods(session_logger, pipeline)
+
+    first_pipeline_args = {**runner_args, "method_list": pipeline}
+    await run_extraction_pipeline(**first_pipeline_args)
 
 
 

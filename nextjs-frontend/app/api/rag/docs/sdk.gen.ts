@@ -7,55 +7,39 @@ import {
 } from "@/app/api/custom-openapi-client/client";
 
 import { client } from "@/app/api/custom-openapi-client/client.gen";
-import {Errors} from "@/app/api/rag/profile/sdk.gen";
+import { Errors } from "@/app/api/rag/profile/sdk.gen";
 
 export type Options<
   TData extends TDataShape = TDataShape,
   ThrowOnError extends boolean = boolean,
 > = ClientOptions<TData, ThrowOnError> & {
-  /**
-   * You can provide a client instance returned by `createClient()` instead of
-   * individual options. This might be also useful if you want to implement a
-   * custom client.
-   */
   client?: Client;
-  /**
-   * You can pass arbitrary values through the `meta` object. This can be
-   * used to access values that aren't defined as part of the SDK function.
-   */
   meta?: Record<string, unknown>;
 };
-
 
 export type ValidationError = {
   loc: Array<string | number>;
   msg: string;
   type: string;
 };
+
 export type HttpValidationError = {
   detail?: Array<ValidationError>;
 };
 
-
-
-
-
 /**
  * Create Doc
  */
-
-
-
 export type CreateDocData = {
   body: {
     name: string;
   };
-  path?: never;
+  path: {
+    project_id: string;
+  };
   query?: never;
-  url: "/docs/";
+  url: "/docs/{project_id}";
 };
-
-
 
 export type CreateDocResponses = {
   200: {
@@ -83,7 +67,7 @@ export const createDoc = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/docs/",
+    url: "/docs/{project_id}",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -92,18 +76,17 @@ export const createDoc = <ThrowOnError extends boolean = false>(
   });
 };
 
-
-
 /**
  * Upload Doc File
  */
 export type UploadDocFileData = {
   path: {
+    project_id: string;
     doc_id: string;
   };
   body: FormData;
   query?: never;
-  url: "/docs/uploads/{doc_id}";
+  url: "/docs/{project_id}/uploads/{doc_id}";
 };
 
 export type UploadDocFileResponses = {
@@ -113,7 +96,6 @@ export type UploadDocFileResponses = {
 export type UploadDocFileErrors = {
   422: HttpValidationError;
 };
-
 
 export const uploadDocFile = <ThrowOnError extends boolean = false>(
   options: Options<UploadDocFileData, ThrowOnError>
@@ -130,32 +112,26 @@ export const uploadDocFile = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/docs/uploads/{doc_id}",
+    url: "/docs/{project_id}/uploads/{doc_id}",
     ...options,
     headers: {
-      // ❗ DO NOT set Content-Type manually for FormData
       ...options.headers,
     },
   });
 };
 
-
-
-
 /**
  * Delete Doc
  */
-
-
 export type DeleteDocData = {
   body?: never;
   path: {
+    project_id: string;
     doc_id: string;
   };
   query?: never;
-  url: "/docs/{doc_id}";
+  url: "/docs/{project_id}/deletes/{doc_id}";
 };
-
 
 export type DeleteDocResponses = {
   200: unknown;
@@ -180,34 +156,26 @@ export const deleteDoc = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/docs/{doc_id}",
+    url: "/docs/{project_id}/deletes/{doc_id}",
     ...options,
   });
 };
 
-
-
-
-
-
-
-
 /**
- * Read Doc
+ * Read Doc List
  */
-
-
 export type ReadDocData = {
   body?: never;
-  path?: never;
+  path: {
+    project_id: string;
+  };
   query?: never;
-  url: "/docs/";
+  url: "/docs/{project_id}";
 };
 
 export type ReadDocErrors = {
   422: HttpValidationError;
 };
-
 
 export type ReadDocResponses = {
   200: Array<{
@@ -216,12 +184,10 @@ export type ReadDocResponses = {
   }>;
 };
 
-
-
 export const readDocList = <ThrowOnError extends boolean = false>(
-  options?: Options<ReadDocData, ThrowOnError>,
+  options: Options<ReadDocData, ThrowOnError>,
 ) => {
-  return (options?.client ?? client).get<
+  return (options.client ?? client).get<
     ReadDocResponses,
     ReadDocErrors,
     ThrowOnError
@@ -233,31 +199,26 @@ export const readDocList = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/docs/",
+    url: "/docs/{project_id}",
     ...options,
   });
 };
 
-
-
 /**
  * Export Pipeline
  */
-
-
-
 export type PipelineExportSpec = {
-  doc_id: string,
-  pipelineName: string,
-}
-
-
+  doc_id: string;
+  pipelineName: string;
+};
 
 export type PipelineExportData = {
-  path?: never;
+  path: {
+    project_id: string;
+  };
   body: PipelineExportSpec;
   query?: never;
-  url: "/docs/pipelines/export/";
+  url: "/docs/{project_id}/pipelines/export/";
 };
 
 export type PipelineExportResponses = {
@@ -267,7 +228,6 @@ export type PipelineExportResponses = {
 export type PipelineExportErrors = {
   422: HttpValidationError;
 };
-
 
 export const exportPipeline = <ThrowOnError extends boolean = false>(
   options: Options<PipelineExportData, ThrowOnError>
@@ -284,7 +244,7 @@ export const exportPipeline = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/docs/pipelines/export/",
+    url: "/docs/{project_id}/pipelines/export/",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -293,16 +253,9 @@ export const exportPipeline = <ThrowOnError extends boolean = false>(
   });
 };
 
-
-
-
-
 /**
  * List Pipelines
  */
-
-
-
 export type PipelineListData = {
   path?: never;
   body?: never;
@@ -313,8 +266,7 @@ export type PipelineListData = {
 export type DocPipelineRead = {
   pipeline_id: string;
   pipelineName: string;
-}
-
+};
 
 export type PipelineListResponses = {
   200: Array<DocPipelineRead>;
@@ -323,7 +275,6 @@ export type PipelineListResponses = {
 export type PipelineListErrors = {
   422: HttpValidationError;
 };
-
 
 export const listPipelines = <ThrowOnError extends boolean = false>(
   options: Options<PipelineListData, ThrowOnError>
@@ -349,30 +300,21 @@ export const listPipelines = <ThrowOnError extends boolean = false>(
   });
 };
 
-
-
-
-
-
-
 /**
  * Load Pipeline
  */
-
-
-
 export type PipelineLoadSpec = {
-  doc_id: string,
-  pipeline_id: string,
-}
-
-
+  doc_id: string;
+  pipeline_id: string;
+};
 
 export type PipelineLoadData = {
-  path?: never;
+  path: {
+    project_id: string;
+  };
   body: PipelineLoadSpec;
   query?: never;
-  url: "/docs/pipelines/load/";
+  url: "/docs/{project_id}/pipelines/load/";
 };
 
 export type PipelineLoadResponses = {
@@ -382,7 +324,6 @@ export type PipelineLoadResponses = {
 export type PipelineLoadErrors = {
   422: HttpValidationError;
 };
-
 
 export const loadPipeline = <ThrowOnError extends boolean = false>(
   options: Options<PipelineLoadData, ThrowOnError>
@@ -399,7 +340,7 @@ export const loadPipeline = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/docs/pipelines/load/",
+    url: "/docs/{project_id}/pipelines/load/",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -408,13 +349,9 @@ export const loadPipeline = <ThrowOnError extends boolean = false>(
   });
 };
 
-
-
 /**
  * Delete Pipeline
  */
-
-
 export type DeletePipelineData = {
   body?: never;
   path: {
@@ -423,7 +360,6 @@ export type DeletePipelineData = {
   query?: never;
   url: "/docs/pipelines/{pipeline_id}";
 };
-
 
 export type DeletePipelineResponses = {
   200: unknown;
@@ -452,68 +388,3 @@ export const deletePipeline = <ThrowOnError extends boolean = false>(
     ...options,
   });
 };
-
-
-
-
-
-
-
-/**
- * Export Pipeline old
- */
-
-
-{/*
-export type PipelineSpec = {
-  source_id: string,
-  target_id: string,
-}
-
-
-
-export type ExportPipelineData = {
-  path?: never;
-  body: PipelineSpec;
-  query?: never;
-  url: "/docs/export/";
-};
-
-export type ExportPipelineResponses = {
-  200: unknown;
-};
-
-export type ExportPipelineErrors = {
-  422: HttpValidationError;
-};
-
-
-export const exportPipeline = <ThrowOnError extends boolean = false>(
-  options: Options<ExportPipelineData, ThrowOnError>
-) => {
-  return (options.client ?? client).post<
-    ExportPipelineResponses,
-    ExportPipelineErrors,
-    ThrowOnError
-  >({
-    responseType: "json",
-    security: [
-      {
-        scheme: "bearer",
-        type: "http",
-      },
-    ],
-    url: "/docs/export/",
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-  });
-};
-
-
-
-*/}
-
-

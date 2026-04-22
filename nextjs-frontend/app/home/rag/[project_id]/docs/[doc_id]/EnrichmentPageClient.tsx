@@ -1,4 +1,14 @@
-import {useEffect, useState} from "react";
+// EnrichmentPageClient.tsx
+"use client";
+
+import { useMemo, useState } from "react";
+import {
+  addExtractionPipeline,
+  runExtraction,
+} from "@/app/api/rag/docs/[doc_id]/extraction/extraction-action";
+
+
+import {SaveRunActions} from "@/components/custom-ui/SaveRunActions";
 
 import {Button} from "@/components/ui/button";
 
@@ -93,10 +103,11 @@ export function EnrichmentEditor({
 }: {
   methods: PipelineSpec;
   levels: string[];
-  onChange: (methods: MethodSpec[]) => void;
+  onChange: (next: PipelineSpec) => void
   colors: StageColors;
 }) {
 
+  const pipeline = methods;
 
   const [selectedType, setSelectedType] =
     useState<(typeof METHOD_TYPES)[number]>(
@@ -106,17 +117,18 @@ export function EnrichmentEditor({
   /* ---------------- Helpers ---------------- */
 
   function updatePipeline(index: number, key: string, value: any) {
-    onChange(methods.map((m, i) => i === index ? {...m, [key]: value} : m));
+    const copy = [...pipeline];
+    copy[index] = { ...copy[index], [key]: value };
+    onChange(copy);
   }
 
   function deleteMethod(index: number) {
-    onChange(methods.filter((_, i) => i !== index));
+    onChange(pipeline.filter((_, i) => i !== index));
   }
 
   function addMethod() {
-    const template =
-      structuredClone(templateFor(selectedType));
-    onChange([...methods, template]);
+    const template = structuredClone(templateFor(selectedType));
+    onChange([...pipeline, template]);
   }
 
 
@@ -387,3 +399,60 @@ export function EnrichmentEditor({
     </section>
   );
 }
+
+// =========== Page Client ===============
+
+
+
+
+export default function EnrichmentPageClient({
+  project_id,
+  doc_id,
+  initialPipeline,
+  levels,
+  colors,
+}: {
+  project_id: string;
+  doc_id: string;
+  initialPipeline: PipelineSpec;
+  levels: string[];
+  colors: StageColors;
+}) {
+  const [pipeline, setPipeline] = useState<PipelineSpec>(initialPipeline);
+
+  const pipelineJson = useMemo(() => JSON.stringify(pipeline), [pipeline]);
+
+
+
+  return (
+    <div style={{display: "flex", flexDirection: "column", height: "100%"}}>
+      {/* ---------- Main ---------- */}
+      <div style={{flex: 1, position: "relative", display: "flex", flexDirection: "column", minHeight: 0 }}>
+
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+          <SaveRunActions
+            project_id={project_id}
+            addFunction={addExtractionPipeline}
+            runFunction={runExtraction}
+            doc_id={doc_id}
+            pipelineJson={pipelineJson}
+            runLabel="Enrichment"
+          />
+        </div>
+
+
+        <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+          <EnrichmentEditor
+            methods={pipeline}
+            levels={levels}
+            colors={colors}
+            onChange={setPipeline}
+          />
+        </div>
+
+      </div>
+
+    </div>
+  );
+}
+

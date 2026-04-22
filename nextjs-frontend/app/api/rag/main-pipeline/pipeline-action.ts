@@ -1,15 +1,18 @@
 "use server";
 
+import { cookies } from "next/headers";
+import { revalidatePath } from "next/cache";
+import {
+  createGenerator,
+  GeneratorSpec,
+  readGenerator,
+  createRetrievers,
+  RetrieversSpec,
+  readRetrievers,
+  runPipeline,
+} from "./sdk.gen";
 
-import {cookies} from "next/headers";
-import {revalidatePath} from "next/cache";
-import {createGenerator, GeneratorSpec, readGenerator, createRetrievers, RetrieversSpec, readRetrievers, runPipeline} from "./sdk.gen";
-
-
-
-
-export async function run(stage: string) {
-
+export async function run(project_id: string, stage: string) {
   const cookieStore = await cookies();
   const token = cookieStore.get("accessToken")?.value;
 
@@ -22,7 +25,8 @@ export async function run(stage: string) {
       Authorization: `Bearer ${token}`,
     },
     path: {
-      stage: stage,
+      project_id,
+      stage,
     },
   });
 
@@ -30,13 +34,11 @@ export async function run(stage: string) {
     throw result.error;
   }
 
-  revalidatePath(`home/rag/main-pipeline`);
+  revalidatePath(`/home/rag/${project_id}`);
 }
 
-
-
-
 export async function addGenerator(formData: FormData) {
+  const project_id = formData.get("project_id") as string;
   const pipeline = JSON.parse(
     formData.get("pipeline") as string
   ) as GeneratorSpec;
@@ -52,6 +54,9 @@ export async function addGenerator(formData: FormData) {
     headers: {
       Authorization: `Bearer ${token}`,
     },
+    path: {
+      project_id,
+    },
     body: pipeline,
   });
 
@@ -59,13 +64,10 @@ export async function addGenerator(formData: FormData) {
     throw result.error;
   }
 
-  revalidatePath("rag/main-pipeline");
+  revalidatePath(`/home/rag/${project_id}`);
 }
 
-
-
-
-export async function fetchGenerator(): Promise<GeneratorSpec> {
+export async function fetchGenerator(project_id: string): Promise<GeneratorSpec> {
   const cookieStore = await cookies();
   const token = cookieStore.get("accessToken")?.value;
 
@@ -77,6 +79,9 @@ export async function fetchGenerator(): Promise<GeneratorSpec> {
     headers: {
       Authorization: `Bearer ${token}`,
     },
+    path: {
+      project_id,
+    },
   });
 
   if (result.error) {
@@ -86,11 +91,11 @@ export async function fetchGenerator(): Promise<GeneratorSpec> {
   return result.data;
 }
 
-
-
 export async function addRetrievers(formData: FormData) {
-
-  const pipeline = JSON.parse(formData.get("pipeline") as string) as RetrieversSpec;
+  const project_id = formData.get("project_id") as string;
+  const pipeline = JSON.parse(
+    formData.get("pipeline") as string
+  ) as RetrieversSpec;
 
   const cookieStore = await cookies();
   const token = cookieStore.get("accessToken")?.value;
@@ -103,6 +108,9 @@ export async function addRetrievers(formData: FormData) {
     headers: {
       Authorization: `Bearer ${token}`,
     },
+    path: {
+      project_id,
+    },
     body: pipeline,
   });
 
@@ -110,16 +118,12 @@ export async function addRetrievers(formData: FormData) {
     throw result.error;
   }
 
-  revalidatePath(`home/rag/main-pipeline`);
+  revalidatePath(`/home/rag/${project_id}`);
 }
 
-
-
-
-export async function fetchRetrievers(): Promise<RetrieversSpec> {
+export async function fetchRetrievers(project_id: string): Promise<RetrieversSpec> {
   const cookieStore = await cookies();
   const token = cookieStore.get("accessToken")?.value;
-
 
   if (!token) {
     throw new Error("No access token found");
@@ -128,6 +132,9 @@ export async function fetchRetrievers(): Promise<RetrieversSpec> {
   const result = await readRetrievers({
     headers: {
       Authorization: `Bearer ${token}`,
+    },
+    path: {
+      project_id,
     },
   });
 

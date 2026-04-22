@@ -33,13 +33,14 @@ router = APIRouter(tags=["retrieval"])
 MethodSpec = Dict[str, Any]
 
 
-@router.get("/{doc_id}/data", response_model=List[MethodSpec])
+@router.get("/{project_id}/docs/{doc_id}/data", response_model=List[MethodSpec])
 async def read_retrieval_pipeline(
-        doc_id: UUID,
-        db: AsyncSession = Depends(get_async_session),
-        user: User = Depends(current_active_user),
+    project_id: int,
+    doc_id: UUID,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
 ):
-    row = await DocPipelines.get_row(where_dict={"user_id": user.id, "doc_id": doc_id}, db=db)
+    row = await DocPipelines.get_row(where_dict={"user_id": user.id, "project_id": project_id, "doc_id": doc_id}, db=db)
 
 
     if row.retrieval_pipeline is None:
@@ -51,14 +52,15 @@ async def read_retrieval_pipeline(
     return retrieval_pipeline
 
 
-@router.post("/{doc_id}/data")
+@router.post("/{project_id}/docs/{doc_id}/data")
 async def add_retrieval_pipeline(
-        doc_id: UUID,
-        pipeline: List[MethodSpec],
-        db: AsyncSession = Depends(get_async_session),
-        user: User = Depends(current_active_user),
+    project_id: int,
+    doc_id: UUID,
+    pipeline: List[MethodSpec],
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
 ):
-    row = await DocPipelines.get_row(where_dict={"user_id": user.id, "doc_id": doc_id}, db=db)
+    row = await DocPipelines.get_row(where_dict={"user_id": user.id, "project_id": project_id, "doc_id": doc_id}, db=db)
     row.retrieval_pipeline = json.dumps(pipeline)
 
     await db.commit()
@@ -73,21 +75,22 @@ async def add_retrieval_pipeline(
 
 
 
-@router.post("/{doc_id}/run")
+@router.post("/{project_id}/docs/{doc_id}/run")
 async def export_pipeline(
-        doc_id: UUID,
-        db: AsyncSession = Depends(get_async_session),
-        user: User = Depends(current_active_user),
+    project_id: int,
+    doc_id: UUID,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
 ):
     # 1. filter: this endpoint is only triggered when a pipeline is fetched or created from the UI
 
-    main_pipeline = await MainPipeline.get_row(where_dict={"user_id": user.id}, db=db)
+    main_pipeline = await MainPipeline.get_row(where_dict={"user_id": user.id, "project_id": project_id}, db=db)
     document_pipelines = {}
     if main_pipeline.doc_pipelines:
         document_pipelines = json.loads(main_pipeline.doc_pipelines)
 
 
-    row = await DocPipelines.get_row(where_dict={"user_id": user.id, "doc_id": doc_id}, db=db)
+    row = await DocPipelines.get_row(where_dict={"user_id": user.id, "project_id": project_id, "doc_id": doc_id}, db=db)
 
 
     # 2. filter: output error if the pipeline is created but not saved, and there is no previous pipeline
@@ -102,7 +105,7 @@ async def export_pipeline(
     # export pipeline to MainPipeline table
 
     retrieval_pipeline = json.loads(row.retrieval_pipeline)
-    pipeline_valid = await run_doc_embeddings(retrieval_pipeline=retrieval_pipeline, user_id=user.id, doc_id=doc_id, db=db)
+    pipeline_valid = await run_doc_embeddings(retrieval_pipeline=retrieval_pipeline, user_id=user.id, project_id=project_id, doc_id=doc_id, db=db)
 
     if pipeline_valid:
         # update document_pipelines with this doc's pipeline
@@ -130,12 +133,12 @@ async def export_pipeline(
 
 
 
-
 # ---------- ALL DOCs ----------
-@router.post("/run")
+@router.post("/{project_id}/run")
 async def export_all(
-        db: AsyncSession = Depends(get_async_session),
-        user: User = Depends(current_active_user),
+    project_id: int,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
 ):
     """
     1. Runs Embeddings for each doc_id where exported=0
@@ -143,18 +146,18 @@ async def export_all(
 
     """
 
-    main_pipeline = await MainPipeline.get_row(where_dict={"user_id": user.id}, db=db)
+    main_pipeline = await MainPipeline.get_row(where_dict={"user_id": user.id, "project_id": project_id}, db=db)
     document_pipelines = {}
     if main_pipeline.doc_pipelines:
         document_pipelines = json.loads(main_pipeline.doc_pipelines)
 
     # Avoid exported=1 to be exported again.
-    rows, _ = await DocPipelines.get_all(columns=["doc_id"], where_dict={"user_id": user.id, "exported": 0, "chunked": 1}, db=db)
+    rows, _ = await DocPipelines.get_all(columns=["doc_id"], where_dict={"user_id": user.id, "project_id": project_id, "exported": 0, "chunked": 1}, db=db)
 
     doc_ids = [row["doc_id"] for row in rows]
 
     for doc_id in doc_ids:
-        row = await DocPipelines.get_row(where_dict={"user_id": user.id, "doc_id": doc_id}, db=db)
+        row = await DocPipelines.get_row(where_dict={"user_id": user.id, "project_id": project_id, "doc_id": doc_id}, db=db)
 
 
         # Doesn't trigger if the pipeline is created but not saved, and there is no previous pipeline
@@ -162,7 +165,7 @@ async def export_all(
             retrieval_pipeline = json.loads(row.retrieval_pipeline)
 
             # run embeddings for EmbeddingRetrievers
-            pipeline_valid = await run_doc_embeddings(retrieval_pipeline=retrieval_pipeline, user_id=user.id, doc_id=doc_id, db=db)
+            pipeline_valid = await run_doc_embeddings(retrieval_pipeline=retrieval_pipeline, user_id=user.id, project_id=project_id, doc_id=doc_id, db=db)
 
             if pipeline_valid:
                 # update document_pipelines with each doc's pipeline

@@ -330,11 +330,13 @@ export function RetrievalEditor({
    ========================================================= */
 
 export default function RetrievalPageClient({
+  project_id,
   doc_id,
   pipeline: initialPipeline,
   levels,
   colors,
 }: {
+  project_id: string;
   doc_id: string;
   pipeline: MethodSpec[];
   levels: string[];
@@ -363,6 +365,7 @@ export default function RetrievalPageClient({
           }}
         >
           <SaveRunActions
+            project_id={project_id}
             addFunction={addRetrievalPipeline}
             runFunction={runExport}
             doc_id={doc_id}

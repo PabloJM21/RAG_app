@@ -7,7 +7,7 @@ import {
   addRetrievers, run,
 } from "@/app/api/rag/main-pipeline/pipeline-action";
 
-import { SaveActions, ThreeRunActions } from "@/components/custom-ui/SaveRunActions";
+import { SaveActions, RunExportActions } from "@/components/custom-ui/SaveRunActions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FlexibleMethodCard } from "@/components/custom-ui/FlexibleMethodCard";
@@ -374,8 +374,10 @@ export function RetrieversEditor({
 /* ---------- Page client ---------- */
 
 export default function RetrieversPageClient({
+  project_id,
   pipeline: initialRetrievers,
 }: {
+  project_id: string;
   pipeline: MethodSpec[];
 }) {
 
@@ -396,7 +398,8 @@ export default function RetrieversPageClient({
       >
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
           <div className="flex items-center gap-2">
-            <ThreeRunActions
+            <RunExportActions
+              project_id={project_id}
               runConversion={() => run("conversion")}
               runChunking={() => run("chunking")}
               runRetrieval={() => run("retrieval")}

@@ -1,6 +1,6 @@
 from fastapi_users.db import SQLAlchemyBaseUserTableUUID
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy import Column, String, Integer, Boolean, false, ForeignKey, Text, and_, func
+from sqlalchemy import Column, String, Integer, Boolean, false, ForeignKey, Text, and_, func, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 from uuid import uuid4
@@ -161,6 +161,9 @@ class Base(DeclarativeBase):
 
 class User(SQLAlchemyBaseUserTableUUID, Base):
     # main page
+    project_data = relationship("ProjectData", back_populates="user", cascade="all, delete-orphan")
+    saved_projects = relationship("SavedProjects", back_populates="user", cascade="all, delete-orphan")
+
     doc_pipelines = relationship("DocPipelines", back_populates="user", cascade="all, delete-orphan")
     main_pipeline = relationship("MainPipeline", back_populates="user", cascade="all, delete-orphan")
     exported_pipelines = relationship("ExportedPipelines", back_populates="user", cascade="all, delete-orphan")
@@ -176,12 +179,58 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     # settings
     settings = relationship("Settings", back_populates="user", cascade="all, delete-orphan")
 
-# Docs
+
+
+
+# ========== Projects =========
+
+class ProjectData(Base):
+    __tablename__ = "ProjectData"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    current_project_id = Column(Integer, nullable=False)
+    evaluator = Column(String, nullable=True)
+
+    user_id = Column(UUID(as_uuid=True), ForeignKey("user.id"), nullable=False)
+
+    user = relationship("User", back_populates="project_data")
+
+
+# Saved Projects
+
+# kind=saved: projects that are fetched automatically. They can be exported, resulting in a new project_id and
+# a duplication of all project data with this new id, which will be stored in this table with kind=exported. If the tab icon is deleted, all project data and that project_id are deleted
+
+# kind=exported: these projects are created from saved projects and must be loaded manually. They can also be deleted like in the previous case
+class SavedProjects(Base):
+    __tablename__ = "SavedProjects"
+
+    project_id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=True)
+    kind = Column(String, nullable=True) # saved / exported
+
+    user_id = Column(UUID(as_uuid=True), ForeignKey("user.id"), nullable=False)
+
+    user = relationship("User", back_populates="saved_projects")
+
+
+
+
+
+
+# ========= Pipelines ===========
+
+# Doc pipelines
 
 class DocPipelines(Base):
     __tablename__ = "DocPipelines"
+    __table_args__ = (
+        UniqueConstraint("doc_id", "project_id", name="uq_docpipelines"),
+    )
 
-    doc_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    doc_id = Column(UUID(as_uuid=True), nullable=False, default=uuid4)
+    project_id = Column(Integer, nullable=False)
+
     name = Column(String, nullable=True)
     path = Column(String, nullable=True)
 
@@ -201,19 +250,7 @@ class DocPipelines(Base):
 
     user = relationship("User", back_populates="doc_pipelines")
 
-"""
-class SavedPipelines(Base):
-    __tablename__ = "SavedPipelines"
 
-    pipeline_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-
-    pipeline_name = Column(String, nullable=True)
-    compressed_pipeline = Column(String, nullable=True)
-
-    user_id = Column(UUID(as_uuid=True), ForeignKey("user.id"), nullable=False)
-
-    user = relationship("User", back_populates="doc_pipelines")
-"""
 
 
 # Main Pipeline
@@ -222,6 +259,7 @@ class MainPipeline(Base):
     __tablename__ = "MainPipeline"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    project_id = Column(Integer, nullable=False)
     router = Column(String, nullable=True)
     doc_pipelines = Column(String, nullable=True)
     reranker = Column(String, nullable=True)
@@ -259,6 +297,9 @@ class ExportedPipelines(Base):
 
     user = relationship("User", back_populates="exported_pipelines")
 
+
+
+
 # -------RAG OPS-------
 
 
@@ -270,8 +311,9 @@ class Paragraph(Base):
     __tablename__ = "Paragraphs"
 
     paragraph_id = Column(Integer, primary_key=True)
+    doc_id = Column(UUID(as_uuid=True), nullable=False, default=uuid4)
+    project_id = Column(Integer, nullable=False)
 
-    doc_id = Column(UUID(as_uuid=True), default=uuid4)
     paragraph = Column(Text, nullable=True)
     paragraph_metadata = Column(Text, nullable=True) # example: {"section_id": 1, "embedding_chunk_id": 2}
 
@@ -436,6 +478,7 @@ class Retrieval(Base):
     __tablename__ = "Retrievals"
 
     retrieval_id = Column(Integer, primary_key=True) # retrieval_id
+    project_id = Column(Integer, nullable=False)
     doc_id = Column(UUID(as_uuid=True), default=uuid4)
     level_id = Column(Integer, nullable=True)
     level = Column(String, nullable=True)
@@ -456,6 +499,7 @@ class Embedding(Base):
     __tablename__ = "Embeddings"
 
     embedding_id = Column(Integer, primary_key=True)  # retrieval_id
+    project_id = Column(Integer, nullable=False)
     doc_id = Column(UUID(as_uuid=True), default=uuid4)
     retrieval_id = Column(Integer, nullable=True) # 1-to-1 relationship to pk
     level = Column(String, nullable=True)
@@ -484,11 +528,4 @@ class ApiKey(Base):
 
 
 
-
-"""
-__table_args__ = (
-    #UniqueConstraint("user_id", "base_api"),
-)
-
-"""
 

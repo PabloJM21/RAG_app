@@ -480,9 +480,11 @@ export function ConversionSettingsCard({
 /* ---------- Page ---------- */
 
 export default function ConversionPageClient({
+  project_id,
   doc_id,
   pipeline: initialPipeline,
 }: {
+  project_id: string;
   doc_id: string;
   pipeline: MethodSpec;
 }) {
@@ -514,6 +516,7 @@ export default function ConversionPageClient({
           }}
         >
           <SaveRunActions
+            project_id={project_id}
             addFunction={addConversionPipeline}
             runFunction={runConversion}
             doc_id={doc_id}

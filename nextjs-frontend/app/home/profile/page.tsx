@@ -17,12 +17,14 @@ import {
 
 import {fetchKeys} from "@/app/api/rag/profile/keys-action";
 import {RequestUrlButton} from "./requestUrl";
-import {DeleteKeyButton, DeletePipelineButton} from "./deleteButton";
+import {DeleteKeyButton, DeletePipelineButton, DeleteProjectButton} from "./deleteButton";
 import {listDocPipelines} from "@/app/api/rag/docs/docs-action";
+import {listExportedProjects} from "@/app/api/rag/projects/projects-action";
 
 export default async function KeyEditorPage() {
   const keys = await fetchKeys();
   const pipelines = await listDocPipelines();
+  const projects = await listExportedProjects();
 
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-10">
@@ -98,6 +100,69 @@ export default async function KeyEditorPage() {
                             Edit (soon)
                           </DropdownMenuItem>
                           <DeleteKeyButton key_id={key.key_id}/>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </section>
+
+      {/* Projects */}
+      <section className="space-y-4">
+        <div>
+          <h3 className="text-base font-semibold">Saved Projects</h3>
+          <p className="text-sm text-muted-foreground">
+            Projects can be used individually or together with an evaluator.
+          </p>
+        </div>
+
+        <div className="rounded-xl border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/40">
+                <TableHead>Project</TableHead>
+                <TableHead className="w-[80px] text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+
+            <TableBody>
+              {!projects.length ? (
+                <TableRow>
+                  <TableCell colSpan={2} className="py-10 text-center">
+                    <div className="text-sm font-medium">No projects saved</div>
+                    <div className="text-sm text-muted-foreground">
+                      Save a project to see it here.
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                projects.map((p) => (
+                  <TableRow key={p.project_id} className="hover:bg-muted/30">
+                    <TableCell className="py-3">
+                      <div className="font-medium">
+                        {p.projectName}
+                      </div>
+                    </TableCell>
+
+                    <TableCell className="py-3 text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            className="h-8 w-8 inline-flex items-center justify-center rounded-md
+                                       text-muted-foreground hover:text-foreground hover:bg-muted"
+                            aria-label="Project actions"
+                          >
+                            …
+                          </button>
+                        </DropdownMenuTrigger>
+
+                        <DropdownMenuContent align="end">
+                          <DeleteProjectButton project_id={p.project_id}/>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>

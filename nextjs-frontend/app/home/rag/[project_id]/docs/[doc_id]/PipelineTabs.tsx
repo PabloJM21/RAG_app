@@ -11,8 +11,8 @@ import {
 import ChunkingPageClient from "./ChunkingPageClient";
 import EnrichmentPageClient from "./EnrichmentPageClient";
 import ChunksResultsEditor, { Results } from "./ChunksResultsEditor";
-import RetrievalPageClient from "@/app/home/rag/docs/[doc_id]/RetrievalPageClient";
-import ConversionPageClient from "@/app/home/rag/docs/[doc_id]/ConversionPageClient";
+import RetrievalPageClient from "./RetrievalPageClient";
+import ConversionPageClient from "./ConversionPageClient";
 
 type MethodSpec = Record<string, any>;
 type PipelineSpec = Record<string, MethodSpec[]>;
@@ -24,6 +24,7 @@ type ColorsSpec = {
 };
 
 export default function PipelineTabs({
+  project_id,
   doc_id,
   initialConversion,
   initialChunking,
@@ -33,6 +34,7 @@ export default function PipelineTabs({
   initialRetrieval,
   colors,
 }: {
+  project_id: string;
   doc_id: string;
   initialConversion: MethodSpec;
   initialChunking: PipelineSpec;
@@ -64,6 +66,7 @@ export default function PipelineTabs({
         <TabsContent value="conversion" className="h-full m-0">
           <section className="p-4 overflow-auto h-full">
             <ConversionPageClient
+              project_id={project_id}
               doc_id={doc_id}
               pipeline={initialConversion}
             />
@@ -73,6 +76,7 @@ export default function PipelineTabs({
         <TabsContent value="chunking" className="h-full m-0">
           <section className="p-4 overflow-auto h-full">
             <ChunkingPageClient
+              project_id={project_id}
               doc_id={doc_id}
               initialPipeline={initialChunking}
               colors={currentColors.Chunking}
@@ -83,6 +87,7 @@ export default function PipelineTabs({
         <TabsContent value="enrichment" className="h-full m-0">
           <section className="p-4 overflow-auto h-full">
             <EnrichmentPageClient
+              project_id={project_id}
               doc_id={doc_id}
               initialPipeline={initialEnrichment}
               levels={levels}
@@ -94,6 +99,7 @@ export default function PipelineTabs({
         <TabsContent value="chunks" className="h-full m-0">
           <section className="p-4 overflow-auto h-full">
             <ChunksResultsEditor
+              project_id={project_id}
               doc_id={doc_id}
               initialResults={results}
             />
@@ -103,6 +109,7 @@ export default function PipelineTabs({
         <TabsContent value="retrieval" className="h-full m-0">
           <section className="p-4 overflow-auto h-full">
             <RetrievalPageClient
+              project_id={project_id}
               doc_id={doc_id}
               pipeline={initialRetrieval}
               levels={levels}

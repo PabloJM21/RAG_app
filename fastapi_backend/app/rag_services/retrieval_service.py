@@ -52,11 +52,10 @@ class ChatGenerator:
 
     """
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, generator_model: str, generator_prompt: str, query_transformation_model: str, query_transformation_prompt: Optional[str] = "A new version of this query in the same language, suited for chunk retrieval with LLMs", doc_id: Optional[UUID] = None):
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, generator_model: str, generator_prompt: str, query_transformation_model: str, query_transformation_prompt: Optional[str] = "A new version of this query in the same language, suited for chunk retrieval with LLMs"):
         self.db = db
         self.logger = logger
         self.user_id = user_id
-        self.doc_id = doc_id
 
         self.query_transformation_model = query_transformation_model
         self.query_transformation_prompt = query_transformation_prompt
@@ -228,12 +227,12 @@ def rows_to_columns(rows):
 
 
 
-async def get_retrieval_content(db: AsyncSession, user_id: UUID, retrieval_ids: Iterable = ()):
+async def get_retrieval_content(db: AsyncSession, user_id: UUID, project_id: int, retrieval_ids: Iterable = ()):
     """
     Return a list of content strings for the given retrieval_ids.
     """
     
-    where = {"user_id": user_id, "retrieval_id": retrieval_ids}
+    where = {"user_id": user_id, "project_id": project_id, "retrieval_id": retrieval_ids}
 
     retrieval_rows, columns = await Retrieval.get_all(
         columns=["doc_id", "retrieval_id", "content"],
@@ -246,8 +245,8 @@ async def get_retrieval_content(db: AsyncSession, user_id: UUID, retrieval_ids: 
 
 
 
-async def get_level_position(db: AsyncSession, user_id: UUID, doc_id, level: str, retrieval_id):
-    where = {"user_id": user_id, "doc_id": doc_id, "level": level}
+async def get_level_position(db: AsyncSession, user_id: UUID, project_id: int, doc_id, level: str, retrieval_id):
+    where = {"user_id": user_id, "project_id": project_id, "doc_id": doc_id, "level": level}
 
     retrieval_rows, columns = await Retrieval.get_all(
         columns=["retrieval_id"],
@@ -268,9 +267,9 @@ async def get_level_position(db: AsyncSession, user_id: UUID, doc_id, level: str
 
 
 
-async def get_chunk_metadata(db: AsyncSession, user_id: UUID, retrieval_ids: Iterable = ()):
+async def get_chunk_metadata(db: AsyncSession, user_id: UUID, project_id: int, retrieval_ids: Iterable = ()):
 
-    where = {"user_id": user_id, "retrieval_id": retrieval_ids}
+    where = {"user_id": user_id, "project_id": project_id, "retrieval_id": retrieval_ids}
 
     output_rows, _ = await Retrieval.get_all(
         columns=["doc_id", "retrieval_id", "level", "content"],
@@ -285,11 +284,11 @@ async def get_chunk_metadata(db: AsyncSession, user_id: UUID, retrieval_ids: Ite
         table_data["Level"].append(row["level"])
 
         doc_id = row["doc_id"]
-        doc_title = await get_doc_title(user_id, doc_id, db=db)
+        doc_title = await get_doc_title(user_id, project_id, doc_id, db=db)
         table_data["Document"].append(doc_title)
 
         retrieval_id, level = row["retrieval_id"], row["level"]
-        level_position = await get_level_position(db, user_id, doc_id, level, retrieval_id)
+        level_position = await get_level_position(db, user_id, project_id, doc_id, level, retrieval_id)
         table_data["Number"].append(level_position)
 
     return table_data
@@ -301,6 +300,7 @@ class BaseRetriever:
         db: AsyncSession,
         logger: InfoLogger,
         user_id: UUID,
+        project_id: int,
         level: str,
         retrieval_amount,
         query_transformation_model: str,
@@ -310,6 +310,7 @@ class BaseRetriever:
         self.db = db
         self.logger = logger
         self.user_id = user_id
+        self.project_id = project_id
         self.doc_id = doc_id
         self.level = level
         self.k = int(retrieval_amount) if retrieval_amount else 0
@@ -367,6 +368,7 @@ class BaseRetriever:
             columns=["level", "level_id"],
             where_dict={
                 "user_id": self.user_id,
+                "project_id": self.project_id,
                 "retrieval_id": filter_ids,
             },
             db=self.db,
@@ -383,6 +385,7 @@ class BaseRetriever:
             columns=[f"{self.level}_id"],
             where_dict={
                 "user_id": self.user_id,
+                "project_id": self.project_id,
                 "doc_id": self.doc_id,
                 f"{filter_level}_id": filter_level_ids,
             },
@@ -404,11 +407,11 @@ class BaseRetriever:
         if self.level == "rerank":
             # the reranker child class is running retrieval
             if retrieval_ids:
-                where = {"user_id": self.user_id, "retrieval_id": retrieval_ids}
+                where = {"user_id": self.user_id, "project_id": self.project_id, "retrieval_id": retrieval_ids}
 
             # the reranker child class is running embeddings
             elif self.doc_id:
-                where = {"user_id": self.user_id, "doc_id": self.doc_id, "level": self.level}
+                where = {"user_id": self.user_id, "project_id": self.project_id, "doc_id": self.doc_id, "level": self.level}
 
 
             # the reranker child class belongs to the reranker of the main_pipeline, or to the router (impossible), and running embeddings
@@ -425,6 +428,7 @@ class BaseRetriever:
 
                 where = {
                     "user_id": self.user_id,
+                    "project_id": self.project_id,
                     "doc_id": self.doc_id,
                     "level_id": level_ids,
                     "level": self.level,
@@ -438,6 +442,7 @@ class BaseRetriever:
             elif self.doc_id:
                 where = {
                     "user_id": self.user_id,
+                    "project_id": self.project_id,
                     "doc_id": self.doc_id,
                     "level": self.level,
                 }
@@ -454,6 +459,7 @@ class BaseRetriever:
             else:
                 where = {
                     "user_id": self.user_id,
+                    "project_id": self.project_id,
                     "level": self.level,
                 }
 
@@ -558,7 +564,7 @@ class BaseRetriever:
         self.logger.log_step(task="info_text", layer=2, log_text=f"Retrieved {len(retrieval_output_ids)} out of {len(retrieval_dict["retrieval_id"])} Chunks")
 
 
-        output_dict = await get_retrieval_content(self.db, self.user_id, retrieval_output_ids)
+        output_dict = await get_retrieval_content(self.db, self.user_id, self.project_id, retrieval_output_ids)
 
         #output_dict = {"retrieval_id": retrieval_output_ids, "content": retrieval_content["content"]}
 
@@ -593,9 +599,9 @@ class ReasonerRetriever(BaseRetriever):
     To create an instance of the class, provide the level at which the retrieval will take place
     """
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, level: str, retrieval_amount: int, reasoner_model: str, query_transformation_model: str, query_transformation_prompt: Optional[str] = "A new version of this query in the same language, suited for chunk retrieval with LLMs", doc_id: Optional[UUID] = None):
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, project_id: int, level: str, retrieval_amount: int, reasoner_model: str, query_transformation_model: str, query_transformation_prompt: Optional[str] = "A new version of this query in the same language, suited for chunk retrieval with LLMs", doc_id: Optional[UUID] = None):
 
-        super().__init__(db=db, logger=logger, user_id=user_id, doc_id=doc_id, level=level, retrieval_amount=retrieval_amount, query_transformation_model=query_transformation_model, query_transformation_prompt=query_transformation_prompt)
+        super().__init__(db=db, logger=logger, user_id=user_id, project_id=project_id, doc_id=doc_id, level=level, retrieval_amount=retrieval_amount, query_transformation_model=query_transformation_model, query_transformation_prompt=query_transformation_prompt)
 
 
         self.reasoner_model = reasoner_model
@@ -740,9 +746,9 @@ class EmbeddingRetriever(BaseRetriever):
     Provides two methods: generate_embeddings, similarity_search
     """
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, level: str, retrieval_amount: int, embedding_model: str, query_transformation_model: str, query_transformation_prompt: Optional[str] = "A new version of this query in the same language, suited for chunk retrieval with LLMs", doc_id: Optional[UUID] = None):
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, project_id: int, level: str, retrieval_amount: int, embedding_model: str, query_transformation_model: str, query_transformation_prompt: Optional[str] = "A new version of this query in the same language, suited for chunk retrieval with LLMs", doc_id: Optional[UUID] = None):
 
-        super().__init__(db=db, logger=logger, user_id=user_id, doc_id=doc_id, level=level, retrieval_amount=retrieval_amount, query_transformation_model=query_transformation_model, query_transformation_prompt=query_transformation_prompt)  # modern Python 3 style, no super(EmbeddingRetriever, self)
+        super().__init__(db=db, logger=logger, user_id=user_id, project_id=project_id, doc_id=doc_id, level=level, retrieval_amount=retrieval_amount, query_transformation_model=query_transformation_model, query_transformation_prompt=query_transformation_prompt)  # modern Python 3 style, no super(EmbeddingRetriever, self)
 
 
         # self.client = OpenAI()
@@ -777,7 +783,7 @@ class EmbeddingRetriever(BaseRetriever):
         # filter_ids are always empty, since embeddings are generated before retrieval
 
         # Delete previous embeddings of this doc and level in the "Embeddings" table
-        await Embedding.delete_data(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.level}, db=self.db)
+        await Embedding.delete_data(where_dict={"user_id": self.user_id, "project_id": self.project_id, "doc_id": self.doc_id, "level": self.level}, db=self.db)
 
         # initialize embedding orchestrator
         await self.init_embedding_client()
@@ -791,7 +797,7 @@ class EmbeddingRetriever(BaseRetriever):
 
         # Additional Deleting of possible matches of the retrieval_ids with other documents
         for retrieval_id in retrieval_dict["retrieval_id"]:
-            await Embedding.delete_data(where_dict={"user_id": self.user_id, "retrieval_id": retrieval_id}, db=self.db)
+            await Embedding.delete_data(where_dict={"user_id": self.user_id, "project_id": self.project_id, "retrieval_id": retrieval_id}, db=self.db)
 
 
 
@@ -802,7 +808,7 @@ class EmbeddingRetriever(BaseRetriever):
 
             embeddings = [np.array(e, dtype=np.float32).tobytes() for e in embeddings]
 
-            output_list = [{"user_id": self.user_id, "retrieval_id": input_dict["retrieval_id"][i], "embedding": embeddings[i]} for i in range(len(embeddings))]
+            output_list = [{"user_id": self.user_id, "project_id": self.project_id, "retrieval_id": input_dict["retrieval_id"][i], "embedding": embeddings[i]} for i in range(len(embeddings))]
 
             return output_list
 
@@ -830,7 +836,7 @@ class EmbeddingRetriever(BaseRetriever):
 
         retrieval_ids = retrieval_dict["retrieval_id"]
 
-        embedding_rows, columns = await Embedding.get_all(columns=["embedding_id", "retrieval_id", "embedding"], where_dict={"user_id": self.user_id, "retrieval_id": retrieval_ids}, db=self.db)
+        embedding_rows, columns = await Embedding.get_all(columns=["embedding_id", "retrieval_id", "embedding"], where_dict={"user_id": self.user_id, "project_id": self.project_id, "retrieval_id": retrieval_ids}, db=self.db)
 
         embedding_columns = rows_to_columns(embedding_rows)
 
@@ -904,9 +910,9 @@ from collections import Counter, defaultdict
 
 class BM25Retriever(BaseRetriever):
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, level: str, retrieval_amount: int, query_transformation_model: str, query_transformation_prompt: str, doc_id: UUID, k1: str, b: str):
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, project_id: int, level: str, retrieval_amount: int, query_transformation_model: str, query_transformation_prompt: str, doc_id: UUID, k1: str, b: str):
 
-        super().__init__(db=db, logger=logger, user_id=user_id, doc_id=doc_id, level=level, retrieval_amount=retrieval_amount, query_transformation_model=query_transformation_model, query_transformation_prompt=query_transformation_prompt)
+        super().__init__(db=db, logger=logger, user_id=user_id, doc_id=doc_id, project_id=project_id, level=level, retrieval_amount=retrieval_amount, query_transformation_model=query_transformation_model, query_transformation_prompt=query_transformation_prompt)
 
         self.k1 = self._safe_float(k1, "k1")
         self.b = self._safe_float(b, "b")
@@ -1045,7 +1051,7 @@ def generator_not_empty(input_method: Dict[str, Any]):
 
 
 
-async def run_retrieval(query: str, retrieval_dict: Dict[str, Any], user_id: UUID, db: AsyncSession):
+async def run_retrieval(query: str, retrieval_dict: Dict[str, Any], user_id: UUID, project_id: int, db: AsyncSession):
 
 
     log_path = await get_log_path(user_id, stage="retrieval")
@@ -1078,7 +1084,7 @@ async def run_retrieval(query: str, retrieval_dict: Dict[str, Any], user_id: UUI
         session_logger.log_step(task="table", layer=2, log_text=f"Method description ", table_data=router_method)
 
         router_type = router_method.pop("type")
-        router_method.update({"logger": session_logger, "user_id": user_id, "db": db})
+        router_method.update({"logger": session_logger, "user_id": user_id, "project_id": project_id, "db": db})
         router_instance = TYPE_MAPPER[router_type](**router_method)
 
 
@@ -1098,7 +1104,7 @@ async def run_retrieval(query: str, retrieval_dict: Dict[str, Any], user_id: UUI
         doc_ids = list(set(router_dict["doc_id"]))
         doc_title_dict = {}
         for doc_id in doc_ids:
-            doc_title_dict[doc_id] = await get_doc_title(user_id, doc_id, db=db)
+            doc_title_dict[doc_id] = await get_doc_title(user_id, project_id, doc_id, db=db)
 
         table_data = {"Chunk": [], "Document": []}
         for doc_id, chunk in zip(router_dict["doc_id"], router_dict["content"]):
@@ -1136,7 +1142,7 @@ async def run_retrieval(query: str, retrieval_dict: Dict[str, Any], user_id: UUI
 
                 # run pipeline
                 filter_ids = await run_document_pipeline(query=query, input_ids=input_ids, input_pipeline=doc_pipeline,
-                                                         logger=session_logger, user_id=user_id, doc_id=doc_id, db=db)
+                                                         logger=session_logger, user_id=user_id, project_id=project_id, doc_id=doc_id, db=db)
                 # update output_ids
                 if filter_ids:
                     output_ids += filter_ids
@@ -1166,13 +1172,13 @@ async def run_retrieval(query: str, retrieval_dict: Dict[str, Any], user_id: UUI
         for doc_id, doc_pipeline in retrieval_dict.items():
 
             # log start of document retrieval
-            doc_title = await get_doc_title(user_id, doc_id, db=db)
+            doc_title = await get_doc_title(user_id, project_id, doc_id, db=db)
 
             session_logger.log_step(task="header_2", layer=2, log_text=f"Starting Document Pipeline for Document: {doc_title}")
             log_pipeline_methods(logger=session_logger, input_pipeline=doc_pipeline)
 
             filter_ids = await run_document_pipeline(query=query, input_ids=[], input_pipeline=doc_pipeline,
-                                                         logger=session_logger, user_id=user_id, doc_id=doc_id, db=db)
+                                                         logger=session_logger, user_id=user_id, project_id=project_id, doc_id=doc_id, db=db)
 
             if filter_ids:
                 output_ids += filter_ids
@@ -1196,7 +1202,7 @@ async def run_retrieval(query: str, retrieval_dict: Dict[str, Any], user_id: UUI
 
 
         reranker_type = reranker_method.pop("type")
-        reranker_method.update({"logger": session_logger, "user_id": user_id, "db": db, "level": "rerank"})
+        reranker_method.update({"logger": session_logger, "user_id": user_id, "project_id": project_id, "db": db, "level": "rerank"})
         reranker_instance = TYPE_MAPPER[reranker_type](**reranker_method)
         reranker_dict = await reranker_instance.run_retrieval(query=query, filter_ids=output_ids)
 
@@ -1215,14 +1221,14 @@ async def run_retrieval(query: str, retrieval_dict: Dict[str, Any], user_id: UUI
     session_logger.log_step(task="table", layer=2, log_text=f"Method description: ", table_data=generator_method)
 
 
-    metadata= await get_chunk_metadata(db, user_id, output_ids)
+    metadata= await get_chunk_metadata(db, user_id, project_id, output_ids)
 
 
     #session_logger.log_step(task="table", layer=2, log_text="Following chunks will be used: ", table_data={"Sources": chunk_list})
 
     # pass chunks and query to generator
     generator_type = generator_method.pop("type")
-    generator_method.update({"logger": session_logger, "user_id": user_id, "db": db})
+    generator_method.update({"logger": session_logger, "user_id": user_id, "project_id": project_id, "db": db})
     generator_instance = TYPE_MAPPER[generator_type](**generator_method)
 
     session_logger.log_step(task="info_text", layer=1, log_text=f"Starting generator call")
@@ -1248,7 +1254,7 @@ async def run_retrieval(query: str, retrieval_dict: Dict[str, Any], user_id: UUI
 
 
 
-async def run_document_pipeline(query, input_ids, input_pipeline, logger, user_id, doc_id, db):
+async def run_document_pipeline(query, input_ids, input_pipeline, logger, user_id, project_id, doc_id, db):
 
     logger.log_step(task="info_text", layer=1, log_text=f"Starting Document Pipeline")
     if input_pipeline:
@@ -1263,7 +1269,7 @@ async def run_document_pipeline(query, input_ids, input_pipeline, logger, user_i
             logger.log_step(task="table", layer=1, log_text=f"Method description: ", table_data=method)
 
 
-            method.update({"logger": logger, "user_id": user_id, "doc_id": doc_id, "db": db})
+            method.update({"logger": logger, "user_id": user_id, "project_id": project_id, "doc_id": doc_id, "db": db})
             method_instance = TYPE_MAPPER[method_type](**method)
 
 
@@ -1281,21 +1287,12 @@ async def run_document_pipeline(query, input_ids, input_pipeline, logger, user_i
 
             # logg chunks
 
-
-
-
-
-
-
-
-            #logger.log_step(task="info_text", layer=1, log_text=f"Output size: {len(pipeline_output_ids)} Chunks")
-
     #if no pipeline was exported for this doc, just filter the input ids
     else:
 
         retrieval_rows, _ = await Retrieval.get_all(
             columns=["retrieval_id"],
-            where_dict={"user_id": user_id, "retrieval_id": input_ids, "doc_id": doc_id},
+            where_dict={"user_id": user_id, "project_id": project_id, "retrieval_id": input_ids, "doc_id": doc_id},
             db=db,
         )
         pipeline_output_ids = [row["retrieval_id"] for row in retrieval_rows]
@@ -1317,12 +1314,12 @@ EMBEDDING_TYPE_MAPPER = {
     "EmbeddingRetriever": EmbeddingRetriever,
 }
 
-async def run_embeddings(method_list: list[dict[str, Any]], user_id: UUID, doc_id: UUID, db: AsyncSession):
+async def run_embeddings(method_list: list[dict[str, Any]], user_id: UUID, project_id: int, doc_id: UUID, db: AsyncSession):
     log_path = await get_log_path(user_id, stage="retrieval")
     session_logger = InfoLogger(log_path=log_path, stage="retrieval")
 
     # logg
-    doc_title = await get_doc_title(user_id, doc_id, db=db)
+    doc_title = await get_doc_title(user_id, project_id, doc_id, db=db)
     session_logger.log_step(task="header_1", layer=2, log_text=f"Generating Embeddings for document: {doc_title}")
     log_pipeline_methods(session_logger, method_list)
 
@@ -1330,7 +1327,7 @@ async def run_embeddings(method_list: list[dict[str, Any]], user_id: UUID, doc_i
 
 
         method_type = method.pop("type")
-        method.update({"logger": session_logger, "user_id": user_id, "doc_id": doc_id, "db": db})
+        method.update({"logger": session_logger, "user_id": user_id, "project_id": project_id, "doc_id": doc_id, "db": db})
 
 
         method_instance = EMBEDDING_TYPE_MAPPER[method_type](**method)
@@ -1347,7 +1344,7 @@ async def run_embeddings(method_list: list[dict[str, Any]], user_id: UUID, doc_i
 
 
 
-async def run_doc_embeddings(retrieval_pipeline, user_id, doc_id, db: AsyncSession):
+async def run_doc_embeddings(retrieval_pipeline, user_id, project_id, doc_id, db: AsyncSession):
 
     if not pipeline_not_empty(retrieval_pipeline):
         return False
@@ -1361,236 +1358,9 @@ async def run_doc_embeddings(retrieval_pipeline, user_id, doc_id, db: AsyncSessi
     ]
 
     if embedding_methods:
-        await run_embeddings(embedding_methods, user_id, doc_id, db)
+        await run_embeddings(embedding_methods, user_id, project_id, doc_id, db)
 
     return True
 
 
-
-
-
-
-
-
-
-
-# ============================================================
-# New approach
-# ============================================================
-
-
-"""
-async def run_document_pipeline(input_ids, method_list, logger, user_id, doc_id, db):
-
-    logger.log_step(task="info_text", layer=1, log_text=f"Logging document_pipeline")
-
-    query = method_list.pop("query")[0]
-
-    if method_list:
-        pipeline_output_ids = input_ids
-        for method in method_list:
-            logger.log_step(task="table", layer=1, log_text=f"Starting with method: ", table_data=method)
-
-            method_type = method.pop("type")
-            method.update({"logger": logger, "user_id": user_id, "doc_id": doc_id, "db": db})
-            method_instance = TYPE_MAPPER[method_type](**method)
-
-            pipeline_output_dict = await method_instance.run_retrieval(query=query, filter_ids=pipeline_output_ids)
-            pipeline_output_ids = pipeline_output_dict["retrieval_id"]
-
-            logger.log_step(task="info_text", layer=1, log_text=f"Retrieved {len(pipeline_output_ids)} Chunks")
-
-    #if no pipeline was exported for this doc, just filter the input ids
-    else:
-
-        retrieval_rows, _ = await Retrieval.get_all(
-            columns=["retrieval_id"],
-            where_dict={"user_id": user_id, "retrieval_id": input_ids, "doc_id": doc_id},
-            db=db,
-        )
-        pipeline_output_ids = [row["retrieval_id"] for row in retrieval_rows]
-
-
-
-    return pipeline_output_ids
-
-
-
-
-async def run_retrieval(query: str, pipelines: dict[str, Any], user_id: UUID, doc_id: UUID, db: AsyncSession):
-    log_path = await get_log_path(user_id, stage="retrieval")
-    session_logger = InfoLogger(log_path=log_path, stage="retrieval")
-    doc_title = await get_doc_title(user_id, doc_id, db=db)
-    session_logger.log_step(task="header_1", layer=2, log_text=f"Starting Retrieval for document: {doc_title}")
-
-    evaluator_args = {"user_id": user_id, "doc_id": doc_id, "db": db, "logger": session_logger}
-    runner_args = {"user_id": user_id, "doc_id": doc_id, "db": db, "session_logger": session_logger}
-
-    pipelines.update({"query": query})
-
-    await evaluation_wrapper(pipelines=pipelines, evaluator_args=evaluator_args, runner_args=runner_args,
-                             session_logger=session_logger, log_path=log_path, runner_fn=run_document_pipeline)
-
-    # init main pipeline methods
-    router_method = pipelines.pop("router")
-    reranker_method = pipelines.pop("reranker")
-    generator_method = pipelines.pop("generator")
-
-    # Logg Retrieval Start
-    session_logger.log_step(task="header_1", layer=2, log_text="Starting Retrieval")
-
-    # --- RERANKING -----
-
-    # with router
-    if router_method:
-        # log
-
-        session_logger.log_step(task="header_2", layer=2, log_text=f"Starting Routing Pipeline")
-        session_logger.log_step(task="table", layer=2, log_text=f"This Pipeline consists of following method: ",
-                                table_data=router_method)
-
-        router_type = router_method.pop("type")
-        router_method.update({"logger": session_logger, "user_id": user_id, "db": db})
-        router_instance = TYPE_MAPPER[router_type](**router_method)
-
-        router_dict = await router_instance.run_retrieval(query=query)
-
-        session_logger.log_step(task="info_text", layer=2, log_text=f"Finishing Routing Pipeline")
-
-        input_ids = router_dict["retrieval_id"]
-
-        # Get doc_ids of the retrieved chunks and their doc titles for logging
-        doc_ids = list(set(router_dict["doc_id"]))
-        doc_title_dict = {}
-        for doc_id in doc_ids:
-            doc_title_dict[doc_id] = await get_doc_title(user_id, doc_id, db=db)
-
-        # if any document pipeline, compute filter_ids for further retrieval
-
-
-        if any_pipeline:
-            # order doesn't matter
-            output_ids = []
-            for doc_id in doc_ids:
-
-                # log start of document retrieval
-                session_logger.log_step(task="header_2", layer=2,
-                                        log_text=f"Processing Document: {doc_title_dict[doc_id]}")
-
-                # get pipeline if it was exported for this doc_id, otherwise []
-                doc_pipeline = retrieval_dict[doc_id] if doc_id in retrieval_dict else []
-
-                if doc_pipeline:
-                    session_logger.log_step(task="info_text", layer=2, log_text=f"Found Document Pipeline")
-                    session_logger.log_step(task="header_2", layer=2, log_text=f"Starting Document Pipeline")
-                    log_pipeline_methods(logger=session_logger, input_pipeline=doc_pipeline)
-
-                else:
-                    session_logger.log_step(task="info_text", layer=2, log_text=f"Document Pipeline not found")
-
-                # run pipeline
-                filter_ids = await run_document_pipeline(query=query, input_ids=input_ids, input_pipeline=doc_pipeline,
-                                                         logger=session_logger, user_id=user_id, doc_id=doc_id, db=db)
-                # update output_ids
-                output_ids += filter_ids
-
-                if doc_pipeline:
-                    session_logger.log_step(task="info_text", layer=2, log_text=f"Finishing Document Pipeline")
-
-                session_logger.log_step(task="info_text", layer=2, log_text=f"Finishing processing Document")
-
-
-        # if not document retriever, use ids provided by router
-        else:
-            output_ids = input_ids
-            session_logger.log_step(task="header_2", layer=2, log_text=f"Processing Documents")
-            title_text = ", ".join(doc_title_dict.values())
-            session_logger.log_step(task="info_text", layer=2, log_text=f"These documents are: {title_text}")
-            session_logger.log_step(task="info_text", layer=2,
-                                    log_text=f"\nNo Document Pipelines found for any Document")
-            session_logger.log_step(task="info_text", layer=2, log_text=f"Finishing processing Document")
-
-
-
-
-    # w/o router
-    elif retrieval_dict:
-        output_ids = []
-        # run all exported pipelines with no input IDs
-        for doc_id, doc_pipeline in retrieval_dict.items():
-            # log start of document retrieval
-            doc_title = await get_doc_title(user_id, doc_id, db=db)
-
-            session_logger.log_step(task="header_2", layer=2,
-                                    log_text=f"Starting Document Pipeline for Document: {doc_title}")
-            log_pipeline_methods(logger=session_logger, input_pipeline=doc_pipeline)
-
-            filter_ids = await run_document_pipeline(query=query, input_ids=[], input_pipeline=doc_pipeline,
-                                                     logger=session_logger, user_id=user_id, doc_id=doc_id, db=db)
-
-            output_ids += filter_ids
-
-            session_logger.log_step(task="info_text", layer=2, log_text=f"Finishing Document Pipeline")
-
-
-
-
-    # if there is no router and no document pipelines
-    else:
-        output_ids = []
-
-    # --- RERANKING -----
-
-    if reranker_method:
-        session_logger.log_step(task="header_2", layer=2, log_text=f"Starting Reranker Pipeline")
-        session_logger.log_step(task="table", layer=2, log_text=f"This Pipeline consists of following method: ",
-                                table_data=reranker_method)
-
-        reranker_type = reranker_method.pop("type")
-        reranker_method.update({"logger": session_logger, "user_id": user_id, "db": db, "level": "rerank"})
-        reranker_instance = TYPE_MAPPER[reranker_type](**reranker_method)
-        reranker_dict = await reranker_instance.run_retrieval(query=query, filter_ids=output_ids)
-        output_ids = reranker_dict["retrieval_id"]
-
-    # --- GENERATION -----
-
-    session_logger.log_step(task="header_2", layer=2, log_text=f"Starting Generation Pipeline")
-    session_logger.log_step(task="table", layer=2, log_text=f"This Pipeline consists of following method: ",
-                            table_data=generator_method)
-
-    output_content = await get_retrieval_content(user_id=user_id, retrieval_ids=output_ids, db=db)
-    chunk_list = output_content["content"]
-
-    # pass chunks and query to generator
-    generator_type = generator_method.pop("type")
-    generator_method.update({"logger": session_logger, "user_id": user_id, "db": db})
-    generator_instance = TYPE_MAPPER[generator_type](**generator_method)
-    output_answer = await generator_instance.run_generation(query=query, input_chunks=chunk_list)
-
-    # Finally we export the logs to md
-    await export_logs(log_path)
-
-    return output_answer, chunk_list
-
-
-
-
-
-async def run_doc_embeddings(retrieval_pipeline: dict[str, list[dict[str, Any]]], user_id, doc_id, db: AsyncSession):
-    retrieval_pipeline.pop("evaluator", None)
-    sorted_items = sorted(list(retrieval_pipeline.items()), key=lambda x: int(x[0].strip()))
-    sorted_pipelines = [x[1] for x in sorted_items if x[1]]
-    pipeline = sorted_pipelines[0]
-
-    # We run embeddings if needed
-    embedding_methods = [
-        copy.deepcopy(method)
-        for method in pipeline
-        if method["type"] == "EmbeddingRetriever"
-    ]
-
-    if embedding_methods:
-        await run_embeddings(embedding_methods, user_id, doc_id, db)
-
-"""
 

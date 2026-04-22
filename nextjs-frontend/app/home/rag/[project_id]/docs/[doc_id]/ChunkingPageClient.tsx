@@ -1,4 +1,12 @@
-import { useState } from "react";
+// ChunkingPageClient.tsx
+"use client";
+
+import { useMemo, useState} from "react";
+import { addChunkingPipeline, runChunking } from "@/app/api/rag/docs/[doc_id]/chunking/chunking-action";
+
+import {SaveRunActions} from "@/components/custom-ui/SaveRunActions";
+
+
 import { Button } from "@/components/ui/button";
 
 import { FlexibleMethodCard } from "@/components/custom-ui/FlexibleMethodCard";
@@ -8,6 +16,7 @@ import {
 import { FILTER_PROMPTS } from "@/components/frontend_data/Prompts";
 
 type MethodSpec = Record<string, any>;
+type PipelineSpec = MethodSpec[];
 type StageColors = Record<string, string>;
 
 const METHOD_TYPES = [
@@ -92,24 +101,30 @@ export function ChunkingEditor({
   onChange,
   colors,
 }: {
-  methods: MethodSpec[];
-  onChange: (methods: MethodSpec[]) => void;
+  methods: PipelineSpec;
+  onChange: (next: PipelineSpec) => void
   colors: StageColors;
 }) {
+
+  const pipeline = methods;
+
+
   const [selectedType, setSelectedType] =
     useState<(typeof METHOD_TYPES)[number]>("Paragraph Chunker");
 
   function updatePipeline(index: number, key: string, value: any) {
-    onChange(methods.map((m, i) => (i === index ? { ...m, [key]: value } : m)));
+    const copy = [...pipeline];
+    copy[index] = { ...copy[index], [key]: value };
+    onChange(copy);
   }
 
   function deleteMethod(index: number) {
-    onChange(methods.filter((_, i) => i !== index));
+    onChange(pipeline.filter((_, i) => i !== index));
   }
 
   function addMethod() {
     const template = structuredClone(templateFor(selectedType));
-    onChange([...methods, template]);
+    onChange([...pipeline, template]);
   }
 
   function renderValueEditor(
@@ -271,5 +286,52 @@ export function ChunkingEditor({
         )}
       />
     </section>
+  );
+}
+
+
+
+
+
+
+export default function ChunkingPageClient({
+  project_id,
+  doc_id,
+  initialPipeline,
+  colors,
+}: {
+  project_id: string;
+  doc_id: string;
+  initialPipeline: PipelineSpec;
+  colors: StageColors;
+}) {
+  const [pipeline, setPipeline] = useState<PipelineSpec>(initialPipeline);
+
+  const pipelineJson = useMemo(() => JSON.stringify(pipeline), [pipeline]);
+
+
+  return (
+    <div style={{display: "flex", flexDirection: "column", height: "100%"}}>
+      {/* ---------- Main ---------- */}
+      <div style={{flex: 1, position: "relative", display: "flex", flexDirection: "column", minHeight: 0 }}>
+
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+          <SaveRunActions
+            project_id={project_id}
+            addFunction={addChunkingPipeline}
+            runFunction={runChunking}
+            doc_id={doc_id}
+            pipelineJson={pipelineJson}
+            runLabel="Chunking"
+          />
+        </div>
+
+
+        <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+
+          <ChunkingEditor methods={currentMethods} onChange={setPipeline} colors={colors} />;
+        </div>
+      </div>
+    </div>
   );
 }
