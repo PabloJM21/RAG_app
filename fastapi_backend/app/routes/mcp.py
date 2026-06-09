@@ -16,8 +16,8 @@ from app.config import settings
 from app.users import current_active_user, get_user_manager, UserManager
 from app.database import User, get_async_session
 
-from app.rag_services.helpers import load_doc_pipelines, load_pipeline, ExtractionError
-from app.models import MainPipeline, ProjectData
+from app.rag_services.helpers import ExtractionError
+
 from app.rag_services.retrieval_service import run_retrieval
 
 
@@ -380,22 +380,12 @@ async def ping_tool(user: User, db: AsyncSession = None):
     }
 )
 async def rag_query_tool(user: User, db: AsyncSession, query: str):
+
+
     try:
-        row = await MainPipeline.get_row(where_dict={"user_id": user.id}, db=db)
 
-        retrieval_dict = load_doc_pipelines(row.doc_pipelines)
-        retrieval_dict.update({
-            "router": load_pipeline(row.router),
-            "reranker": load_pipeline(row.reranker),
-            "generator": load_pipeline(row.generator),
-        })
+        output = await run_retrieval(db, user.id, query)
 
-        output = await run_retrieval(
-            query=query,
-            retrieval_dict=retrieval_dict,
-            user_id=user.id,
-            db=db,
-        )
 
         if output:
             answer, sources = output

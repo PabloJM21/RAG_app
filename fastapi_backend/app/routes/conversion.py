@@ -42,7 +42,7 @@ MethodSpec = Dict[str, Any]
 
 @router.get("/{project_id}/docs/{doc_id}/data", response_model=MethodSpec)
 async def read_conversion_pipeline(
-    project_id: int,
+    project_id: UUID,
     doc_id: UUID,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
@@ -63,7 +63,7 @@ async def read_conversion_pipeline(
 
 @router.post("/{project_id}/docs/{doc_id}/data")
 async def add_conversion_pipeline(
-    project_id: int,
+    project_id: UUID,
     doc_id: UUID,
     pipeline: MethodSpec,
     db: AsyncSession = Depends(get_async_session),
@@ -84,7 +84,7 @@ async def add_conversion_pipeline(
 
 @router.post("/{project_id}/docs/{doc_id}/run")
 async def run_conversion_pipeline(
-    project_id: int,
+    project_id: UUID,
     doc_id: UUID,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
@@ -131,7 +131,7 @@ async def run_conversion_pipeline(
 # ---------- ALL DOCs ----------
 @router.post("/{project_id}/run")
 async def convert_all(
-    project_id: int,
+    project_id: UUID,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):

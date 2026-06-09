@@ -1,16 +1,12 @@
 import RagShell from "./RagShell";
-import {listSavedProjects} from "@/app/api/rag/projects/projects-action";
+import { listSavedProjects } from "@/app/api/rag/projects/projects-action";
 
 export default async function RagLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const initialproject_ids = await listSavedProjects();
+  const projects = await listSavedProjects();
 
-  return (
-    <RagShell initialproject_ids={initialproject_ids}>
-      {children}
-    </RagShell>
-  );
+  return <RagShell initialProjects={projects}>{children}</RagShell>;
 }

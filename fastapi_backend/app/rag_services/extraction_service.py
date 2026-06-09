@@ -37,11 +37,12 @@ class Extractor:
     TEXT
     """
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID, input_level: str, output_level: str, caption: str, what: str, position: str):
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, project_id: UUID, doc_id: UUID, input_level: str, output_level: str, caption: str, what: str, position: str):
         # the caption - what introduces the content - is the equivalent of the instructions for the Enricher (for example generate a summary as "context" for children levels)
 
         self.db = db
         self.user_id = user_id
+        self.project_id = project_id
 
         self.input_level = input_level
 
@@ -101,11 +102,12 @@ class Extractor:
 
         # loggs
 
-        paragraphs_rows, paragraphs_columns = await Paragraph.get_all_paragraphs(columns=[f"{self.input_level}_id", f"{self.output_level}_id"], where_dict={"user_id": self.user_id, "doc_id": self.doc_id}, db=self.db)
+        paragraphs_rows, paragraphs_columns = await Paragraph.get_all_paragraphs(columns=[f"{self.input_level}_id", f"{self.output_level}_id"], where_dict={"user_id": self.user_id, "project_id": self.project_id, "doc_id": self.doc_id}, db=self.db)
         paragraphs_df = pd.DataFrame(paragraphs_rows, columns=paragraphs_columns)
 
+        self.logger.log_step(task="info_text", log_text=f"[EXTRACTION_DEBUG]: paragraph rows: {paragraphs_rows}")
 
-        input_rows, input_columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.input_level}, db=self.db)
+        input_rows, input_columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "project_id": self.project_id, "doc_id": self.doc_id, "level": self.input_level}, db=self.db)
         input_rows = [dict(row) for row in input_rows]
 
         input_df = pd.DataFrame(input_rows, columns=input_columns)  # like the retrievals table, but one for each hierarchy level
@@ -128,10 +130,10 @@ class Extractor:
         update_data = []
         insert_data = []
 
-        output_rows, _ = await Retrieval.get_all(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.output_level}, db=self.db)
+        output_rows, _ = await Retrieval.get_all(where_dict={"user_id": self.user_id, "project_id": self.project_id, "doc_id": self.doc_id, "level": self.output_level}, db=self.db)
         output_rows = [dict(row) for row in output_rows] #detach from ORM object
 
-        await Retrieval.delete_data(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.output_level}, db=self.db)
+        await Retrieval.delete_data(where_dict={"user_id": self.user_id, "project_id": self.project_id, "doc_id": self.doc_id, "level": self.output_level}, db=self.db)
 
         if self.position == "replace":
             for row in output_rows:
@@ -144,6 +146,10 @@ class Extractor:
                 content = str(self.get_row_title(input_rows, input_id))
             else:
                 content = str(self.get_row_content(input_rows, input_id))
+
+
+            if not content:
+                continue
 
             if self.caption:
                 new_content = f"{self.caption}: {content}\n"
@@ -158,6 +164,8 @@ class Extractor:
 
             output_ids = sorted(set(raw_output_ids))
 
+            self.logger.log_step(task="info_text", log_text=f"[EXTRACTION_DEBUG]: new content: {new_content}")
+            self.logger.log_step(task="info_text", log_text=f"[EXTRACTION_DEBUG]: output_ids: {output_ids}")
 
             for output_id in output_ids:
 
@@ -184,18 +192,24 @@ class Extractor:
 
                     update_data.append({"Input": old_content, "Output": updated_content})
 
+                    self.logger.log_step(task="info_text", log_text=f"[EXTRACTION_DEBUG]: updated content inserted: {updated_content}")
 
 
                 else:
 
                     self.insert_row_content(output_rows, output_id, new_content)
 
+                    self.logger.log_step(task="info_text", log_text=f"[EXTRACTION_DEBUG]: new content inserted: {new_content}")
+                    self.logger.log_step(task="info_text", log_text=f"[EXTRACTION_DEBUG]: output_rows after insert: {output_rows}")
+
                     insert_data.append({"Output": new_content})
+
 
 
         # After Completion
         for output_row in output_rows:
             await Retrieval.insert_data(data_dict=output_row, db=self.db)
+            self.logger.log_step(task="info_text", log_text=f"[EXTRACTION_DEBUG]: output_row: {output_row}")
 
         await self.db.commit()
 
@@ -231,11 +245,12 @@ class Enricher:
 
     """
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, doc_id: UUID,
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, project_id: UUID, doc_id: UUID,
                  level: str, model: str, prompt: str, position: str = "", caption: str = "", history: bool = False):
 
         self.db = db
         self.user_id = user_id
+        self.project_id = project_id
         self.doc_id = doc_id
         self.input_level = level
         self.logger = logger
@@ -396,7 +411,7 @@ class Enricher:
         await self.init_clients()
 
 
-        rows, columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.input_level}, db=self.db)
+        rows, columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "project_id": self.project_id, "doc_id": self.doc_id, "level": self.input_level}, db=self.db)
 
 
 
@@ -415,14 +430,14 @@ class Enricher:
 
             if not old_content:
 
-                return
+                continue
 
 
             start = time.time()
             new_content = self._enrich_chunk(old_content)
             end = time.time()
 
-            await Retrieval.update_data(data_dict={"content": new_content}, where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level_id": input_id, "level": self.input_level}, db=self.db)
+            await Retrieval.update_data(data_dict={"content": new_content}, where_dict={"user_id": self.user_id, "project_id": self.project_id, "doc_id": self.doc_id, "level_id": input_id, "level": self.input_level}, db=self.db)
 
 
 
@@ -437,7 +452,7 @@ class Enricher:
 
 class Filter:
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, project_id: int, doc_id: UUID, level: str, model: str, prompt: str, history: bool = False):
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, project_id: UUID, doc_id: UUID, level: str, model: str, prompt: str, history: bool = False):
 
         self.db = db
         self.user_id = user_id
@@ -632,7 +647,7 @@ class Filter:
 class Reseter:
 
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, project_id: int, doc_id: UUID, level: str):
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, project_id: UUID, doc_id: UUID, level: str):
 
         self.db = db
         self.user_id = user_id
@@ -684,7 +699,7 @@ EXTRACTION_TYPE_MAPPER = {
     "Reset": Reseter,
 }
 
-async def run_extraction_pipeline(method_list: list[dict[str, Any]], user_id: UUID, project_id: int, doc_id: UUID, db: AsyncSession, session_logger: InfoLogger):
+async def run_extraction_pipeline(method_list: list[dict[str, Any]], user_id: UUID, project_id: UUID, doc_id: UUID, db: AsyncSession, session_logger: InfoLogger):
 
 
     for method in method_list:
@@ -720,7 +735,7 @@ async def run_extraction_pipeline(method_list: list[dict[str, Any]], user_id: UU
 
 
 
-async def run_extraction(pipeline: list[dict[str, Any]], user_id: UUID, project_id: int, doc_id: UUID, db: AsyncSession):
+async def run_extraction(pipeline: list[dict[str, Any]], user_id: UUID, project_id: UUID, doc_id: UUID, db: AsyncSession):
     log_path = await get_log_path(user_id, stage="extraction")
     session_logger = InfoLogger(log_path=log_path, stage="extraction")
     doc_title = await get_doc_title(user_id, project_id, doc_id, db=db)

@@ -3,84 +3,98 @@
 import * as React from "react";
 import { usePathname } from "next/navigation";
 import { ProjectTabsBar } from "@/components/custom-ui/PipelineTabsBar";
-import {addProjectAction, removeProjectAction} from "@/app/api/rag/projects/projects-action";
+import {
+  addProjectAction,
+  removeProjectAction,
+} from "@/app/api/rag/projects/projects-action";
 
+type Project = {
+  project_id: string;
+  name: string;
+};
 
-function nextproject_id(project_ids: number[]): string {
-  const max = project_ids.length ? Math.max(...project_ids) : 0;
-  return String(max + 1);
-}
-
-function activeproject_idFromPath(pathname: string): string {
+function activeProjectIdFromPath(pathname: string): string {
   if (pathname === "/home/rag/evaluator") return "evaluator";
 
-  const match = pathname.match(/^\/home\/rag\/(\d+)(?:\/|$)/);
+  const match = pathname.match(/^\/home\/rag\/([^/]+)(?:\/|$)/);
   if (match) return match[1];
 
   return "";
 }
 
 export default function RagShell({
-  initialproject_ids,
+  initialProjects,
   children,
 }: {
-  initialproject_ids: number[];
+  initialProjects: Project[];
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
 
-  const [project_ids, setproject_ids] = React.useState<number[]>(() =>
-    [...initialproject_ids].sort((a, b) => a - b)
+  const [projects, setProjects] = React.useState<Project[]>(initialProjects);
+
+  const [activeProjectId, setActiveProjectId] = React.useState(() =>
+    activeProjectIdFromPath(pathname)
   );
 
-  const currentproject_id = React.useMemo(
-    () => activeproject_idFromPath(pathname),
-    [pathname]
-  );
+  React.useEffect(() => {
+    setActiveProjectId(activeProjectIdFromPath(pathname));
+  }, [pathname]);
 
   const addProject = React.useCallback(async () => {
-    const newId = nextproject_id(project_ids);
 
-    setproject_ids((prev) => [...prev, Number(newId)].sort((a, b) => a - b));
+    const result = await addProjectAction();
 
-    const result = await addProjectAction(newId);
-
-    if (result?.message) {
-      setproject_ids((prev) => prev.filter((x) => String(x) !== newId));
+    if (result?.message || !result?.project_id) {
       return;
     }
 
-    window.location.href = `/home/rag/${newId}`;
-  }, [project_ids]);
+    const newProject: Project = {
+      project_id: result.project_id,
+      name: result.name,
+    };
+
+    setProjects((prev) => [...prev, newProject]);
+    setActiveProjectId(newProject.project_id);
+
+    window.location.href = `/home/rag/${newProject.project_id}`;
+  }, []);
 
   const deleteProject = React.useCallback(
-    async (id: string) => {
-      const numericId = Number(id);
-      const remaining = project_ids.filter((x) => x !== numericId);
+    async (project_id: string) => {
+      const projectToDelete = projects.find(
+        (project) => project.project_id === project_id
+      );
+
+      if (!projectToDelete) return;
+
+      const remaining = projects.filter(
+        (project) => project.project_id !== project_id
+      );
 
       let nextHref = pathname;
 
-      if (currentproject_id === id) {
+      if (activeProjectId === project_id) {
         nextHref =
           remaining.length > 0
-            ? `/home/rag/${Math.min(...remaining)}`
+            ? `/home/rag/${remaining[0].project_id}`
             : "/home/rag/evaluator";
       }
 
-      setproject_ids(remaining);
+      setProjects(remaining);
 
-      const result = await removeProjectAction(id);
+      const result = await removeProjectAction(project_id);
 
       if (result?.message) {
-        setproject_ids((prev) => [...prev, numericId].sort((a, b) => a - b));
+        setProjects((prev) => [...prev, projectToDelete]);
         return;
       }
 
-      if (currentproject_id === id) {
+      if (activeProjectId === project_id) {
         window.location.href = nextHref;
       }
     },
-    [project_ids, currentproject_id, pathname]
+    [projects, activeProjectId, pathname]
   );
 
   return (
@@ -92,16 +106,21 @@ export default function RagShell({
         display: "flex",
         flexDirection: "column",
         gap: 4,
+        height: "100vh", // 👈 important
       }}
     >
+      {/* main content grows */}
+      <div style={{ flex: 1, overflow: "auto" }}>
+        {children}
+      </div>
+
+      {/* pinned to bottom */}
       <ProjectTabsBar
-        project_ids={project_ids}
-        currentproject_id={currentproject_id}
+        projects={projects}
+        currentProjectId={activeProjectId}
         addProject={addProject}
         deleteProject={deleteProject}
       />
-
-      {children}
     </div>
   );
 }

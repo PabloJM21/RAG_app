@@ -1,5 +1,5 @@
 import Link from "next/link";
-import {Button} from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -15,16 +15,28 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 
-import {fetchKeys} from "@/app/api/rag/profile/keys-action";
-import {RequestUrlButton} from "./requestUrl";
-import {DeleteKeyButton, DeletePipelineButton, DeleteProjectButton} from "./deleteButton";
-import {listDocPipelines} from "@/app/api/rag/docs/docs-action";
-import {listExportedProjects} from "@/app/api/rag/projects/projects-action";
+import { fetchKeys } from "@/app/api/rag/profile/keys-action";
+import { fetchGenerator } from "@/app/api/rag/main-pipeline/pipeline-action";
+
+import { RequestUrlButton } from "./requestUrl";
+import {
+  DeleteKeyButton,
+  DeletePipelineButton,
+  DeleteProjectButton,
+} from "./deleteButton";
+
+import { listDocPipelines } from "@/app/api/rag/docs/docs-action";
+import { listExportedProjects } from "@/app/api/rag/projects/projects-action";
+
+import GeneratorPageClient from "./GeneratorPageClient";
 
 export default async function KeyEditorPage() {
-  const keys = await fetchKeys();
-  const pipelines = await listDocPipelines();
-  const projects = await listExportedProjects();
+  const [keys, pipelines, projects, generator] = await Promise.all([
+    fetchKeys(),
+    listDocPipelines(),
+    listExportedProjects(),
+    fetchGenerator(),
+  ]);
 
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-10">
@@ -35,6 +47,20 @@ export default async function KeyEditorPage() {
           Manage provider API keys and connection settings.
         </p>
       </header>
+
+      {/* Generator */}
+      <section className="space-y-4">
+        <div>
+          <h3 className="text-base font-semibold">Default Generator</h3>
+          <p className="text-sm text-muted-foreground">
+            Configure the generator used across the application.
+          </p>
+        </div>
+
+        <GeneratorPageClient
+          pipeline={(generator ?? {}) as Record<string, any>}
+        />
+      </section>
 
       {/* API Keys */}
       <section className="space-y-4">
@@ -67,7 +93,9 @@ export default async function KeyEditorPage() {
               {!keys.length ? (
                 <TableRow>
                   <TableCell colSpan={3} className="py-10 text-center">
-                    <div className="text-sm font-medium">No keys configured</div>
+                    <div className="text-sm font-medium">
+                      No keys configured
+                    </div>
                     <div className="text-sm text-muted-foreground">
                       Add a key to start using providers.
                     </div>
@@ -75,7 +103,10 @@ export default async function KeyEditorPage() {
                 </TableRow>
               ) : (
                 keys.map((key) => (
-                  <TableRow key={key.key_id} className="hover:bg-muted/30">
+                  <TableRow
+                    key={key.key_id}
+                    className="hover:bg-muted/30"
+                  >
                     <TableCell className="py-3 font-medium">
                       {key.base_key}
                     </TableCell>
@@ -89,8 +120,10 @@ export default async function KeyEditorPage() {
                     <TableCell className="py-3 text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <button className="h-8 w-8 inline-flex items-center justify-center rounded-md
-                                             text-muted-foreground hover:text-foreground hover:bg-muted">
+                          <button
+                            className="h-8 w-8 inline-flex items-center justify-center rounded-md
+                                       text-muted-foreground hover:text-foreground hover:bg-muted"
+                          >
                             …
                           </button>
                         </DropdownMenuTrigger>
@@ -99,7 +132,7 @@ export default async function KeyEditorPage() {
                           <DropdownMenuItem disabled>
                             Edit (soon)
                           </DropdownMenuItem>
-                          <DeleteKeyButton key_id={key.key_id}/>
+                          <DeleteKeyButton key_id={key.key_id} />
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -125,7 +158,9 @@ export default async function KeyEditorPage() {
             <TableHeader>
               <TableRow className="bg-muted/40">
                 <TableHead>Project</TableHead>
-                <TableHead className="w-[80px] text-right">Actions</TableHead>
+                <TableHead className="w-[80px] text-right">
+                  Actions
+                </TableHead>
               </TableRow>
             </TableHeader>
 
@@ -133,7 +168,9 @@ export default async function KeyEditorPage() {
               {!projects.length ? (
                 <TableRow>
                   <TableCell colSpan={2} className="py-10 text-center">
-                    <div className="text-sm font-medium">No projects saved</div>
+                    <div className="text-sm font-medium">
+                      No projects saved
+                    </div>
                     <div className="text-sm text-muted-foreground">
                       Save a project to see it here.
                     </div>
@@ -141,11 +178,12 @@ export default async function KeyEditorPage() {
                 </TableRow>
               ) : (
                 projects.map((p) => (
-                  <TableRow key={p.project_id} className="hover:bg-muted/30">
+                  <TableRow
+                    key={p.project_id}
+                    className="hover:bg-muted/30"
+                  >
                     <TableCell className="py-3">
-                      <div className="font-medium">
-                        {p.projectName}
-                      </div>
+                      <div className="font-medium">{p.name}</div>
                     </TableCell>
 
                     <TableCell className="py-3 text-right">
@@ -162,7 +200,9 @@ export default async function KeyEditorPage() {
                         </DropdownMenuTrigger>
 
                         <DropdownMenuContent align="end">
-                          <DeleteProjectButton project_id={p.project_id}/>
+                          <DeleteProjectButton
+                            project_id={p.project_id}
+                          />
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -188,7 +228,9 @@ export default async function KeyEditorPage() {
             <TableHeader>
               <TableRow className="bg-muted/40">
                 <TableHead>Pipeline</TableHead>
-                <TableHead className="w-[80px] text-right">Actions</TableHead>
+                <TableHead className="w-[80px] text-right">
+                  Actions
+                </TableHead>
               </TableRow>
             </TableHeader>
 
@@ -196,7 +238,9 @@ export default async function KeyEditorPage() {
               {!pipelines.length ? (
                 <TableRow>
                   <TableCell colSpan={2} className="py-10 text-center">
-                    <div className="text-sm font-medium">No pipelines saved</div>
+                    <div className="text-sm font-medium">
+                      No pipelines saved
+                    </div>
                     <div className="text-sm text-muted-foreground">
                       Export a pipeline to save it here.
                     </div>
@@ -204,7 +248,10 @@ export default async function KeyEditorPage() {
                 </TableRow>
               ) : (
                 pipelines.map((p) => (
-                  <TableRow key={p.pipeline_id} className="hover:bg-muted/30">
+                  <TableRow
+                    key={p.pipeline_id}
+                    className="hover:bg-muted/30"
+                  >
                     <TableCell className="py-3">
                       <div className="font-medium">
                         {p.pipelineName}
@@ -225,7 +272,9 @@ export default async function KeyEditorPage() {
                         </DropdownMenuTrigger>
 
                         <DropdownMenuContent align="end">
-                          <DeletePipelineButton pipeline_id={p.pipeline_id}/>
+                          <DeletePipelineButton
+                            pipeline_id={p.pipeline_id}
+                          />
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -247,10 +296,9 @@ export default async function KeyEditorPage() {
         </div>
 
         <div className="rounded-xl border bg-card p-4">
-          <RequestUrlButton/>
+          <RequestUrlButton />
         </div>
       </section>
     </div>
   );
 }
-

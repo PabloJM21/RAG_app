@@ -1,5 +1,5 @@
-import { getproject_ids } from "../data";
-import {ProjectTabsBar} from "@/components/custom-ui/PipelineTabsBar";
+import DocsPage from "./docs/page";
+import { ResizableSplit } from "@/components/custom-ui/ResizableSplit";
 
 export default async function RagProjectLayout({
   children,
@@ -9,26 +9,45 @@ export default async function RagProjectLayout({
   params: Promise<{ project_id: string }>;
 }) {
   const { project_id } = await params;
-  const project_ids = await getproject_ids();
 
   return (
-    <div
-      style={{
-        background: "var(--theme-panel-bg)",
-        borderRadius: 12,
-        padding: 4,
-        display: "flex",
-        flexDirection: "column",
-        gap: 4,
-      }}
-    >
-      <ProjectTabsBar
-        project_ids={project_ids}
-        currentproject_id={project_id}
-        basePath="/home/rag"
-      />
-
-      {children}
-    </div>
+    <ResizableSplit
+      height="calc(100vh - 160px)"
+      initialLeftWidth={300}
+      minLeftWidth={240}
+      minRightWidth={420}
+      left={
+        <aside
+          style={{
+            border: "1px solid var(--theme-card-border)",
+            padding: 12,
+            overflow: "auto",
+            background: "var(--theme-inner-panel-bg)",
+            color: "var(--theme-page-fg)",
+            borderRadius: 12,
+            height: "100%",
+            boxShadow: "var(--theme-card-shadow)",
+          }}
+        >
+          <DocsPage project_id={project_id} />
+        </aside>
+      }
+      right={
+        <div
+          style={{
+            overflow: "auto",
+            background: "var(--theme-inner-panel-bg)",
+            color: "var(--theme-page-fg)",
+            border: "1px solid var(--theme-card-border)",
+            borderRadius: 12,
+            padding: 16,
+            height: "100%",
+            boxShadow: "var(--theme-card-shadow)",
+          }}
+        >
+          {children}
+        </div>
+      }
+    />
   );
 }

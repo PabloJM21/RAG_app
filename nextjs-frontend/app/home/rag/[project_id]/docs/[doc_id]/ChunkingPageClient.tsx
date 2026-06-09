@@ -329,7 +329,7 @@ export default function ChunkingPageClient({
 
         <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
 
-          <ChunkingEditor methods={currentMethods} onChange={setPipeline} colors={colors} />;
+          <ChunkingEditor methods={pipeline} onChange={setPipeline} colors={colors} />;
         </div>
       </div>
     </div>

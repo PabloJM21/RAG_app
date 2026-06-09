@@ -73,11 +73,9 @@ export const runPipeline = <ThrowOnError extends boolean = false>(
  */
 export type CreateGeneratorData = {
   body: GeneratorSpec;
-  path: {
-    project_id: string;
-  };
+  path?: never;
   query?: never;
-  url: "/main-pipeline/{project_id}/generator/";
+  url: "/main-pipeline/generator/";
 };
 
 export type CreateGeneratorResponses = {
@@ -99,7 +97,7 @@ export const createGenerator = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/main-pipeline/{project_id}/generator/",
+    url: "/main-pipeline/generator/",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -110,11 +108,9 @@ export const createGenerator = <ThrowOnError extends boolean = false>(
 
 export type ReadGeneratorData = {
   body?: never;
-  path: {
-    project_id: string;
-  };
+  path?: never;
   query?: never;
-  url: "/main-pipeline/{project_id}/generator/";
+  url: "/main-pipeline/generator/";
 };
 
 export type ReadGeneratorResponses = {
@@ -136,7 +132,7 @@ export const readGenerator = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/main-pipeline/{project_id}/generator/",
+    url: "/main-pipeline/generator/",
     ...options,
   });
 };

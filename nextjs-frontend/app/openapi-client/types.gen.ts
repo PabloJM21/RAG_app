@@ -129,20 +129,6 @@ export type ErrorModel = {
 };
 
 /**
- * ExportBody
- */
-export type ExportBody = {
-  /**
-   * Pipelinename
-   */
-  pipelineName: string;
-  /**
-   * Doc Id
-   */
-  doc_id: string;
-};
-
-/**
  * HTTPValidationError
  */
 export type HttpValidationError = {
@@ -209,6 +195,20 @@ export type LoadBody = {
 };
 
 /**
+ * LoadProjectBody
+ */
+export type LoadProjectBody = {
+  /**
+   * Source Id
+   */
+  source_id: string;
+  /**
+   * Target Id
+   */
+  target_id: string;
+};
+
+/**
  * PipelineResponse
  */
 export type PipelineResponse = {
@@ -220,6 +220,20 @@ export type PipelineResponse = {
    * Pipeline Id
    */
   pipeline_id: string;
+};
+
+/**
+ * ProjectResponse
+ */
+export type ProjectResponse = {
+  /**
+   * Name
+   */
+  name: string;
+  /**
+   * Project Id
+   */
+  project_id: string;
 };
 
 /**
@@ -316,6 +330,34 @@ export type ValidationError = {
    * Error Type
    */
   type: string;
+};
+
+/**
+ * ExportBody
+ */
+export type AppRoutesDocsExportBody = {
+  /**
+   * Pipelinename
+   */
+  pipelineName: string;
+  /**
+   * Doc Id
+   */
+  doc_id: string;
+};
+
+/**
+ * ExportBody
+ */
+export type AppRoutesProjectsExportBody = {
+  /**
+   * Name
+   */
+  name: string;
+  /**
+   * Project Id
+   */
+  project_id: string;
 };
 
 /**
@@ -729,6 +771,206 @@ export type UsersPatchUserResponses = {
 export type UsersPatchUserResponse =
   UsersPatchUserResponses[keyof UsersPatchUserResponses];
 
+export type ExportProjectData = {
+  body: AppRoutesProjectsExportBody;
+  path?: never;
+  query?: never;
+  url: "/projects/export/";
+};
+
+export type ExportProjectErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ExportProjectError = ExportProjectErrors[keyof ExportProjectErrors];
+
+export type ExportProjectResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type LoadProjectData = {
+  body: LoadProjectBody;
+  path?: never;
+  query?: never;
+  url: "/projects/load/";
+};
+
+export type LoadProjectErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type LoadProjectError = LoadProjectErrors[keyof LoadProjectErrors];
+
+export type LoadProjectResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type ListSavedProjectsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/projects/list/saved/";
+};
+
+export type ListSavedProjectsResponses = {
+  /**
+   * Response Projects-List Saved Projects
+   * Successful Response
+   */
+  200: Array<ProjectResponse>;
+};
+
+export type ListSavedProjectsResponse =
+  ListSavedProjectsResponses[keyof ListSavedProjectsResponses];
+
+export type ListExportedProjectsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/projects/list/exported/";
+};
+
+export type ListExportedProjectsResponses = {
+  /**
+   * Response Projects-List Exported Projects
+   * Successful Response
+   */
+  200: Array<ProjectResponse>;
+};
+
+export type ListExportedProjectsResponse =
+  ListExportedProjectsResponses[keyof ListExportedProjectsResponses];
+
+export type CreateProjectData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/projects/";
+};
+
+export type CreateProjectResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type SetProjectData = {
+  body?: never;
+  path: {
+    /**
+     * Project Id
+     */
+    project_id: string;
+  };
+  query?: never;
+  url: "/projects/set/{project_id}";
+};
+
+export type SetProjectErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type SetProjectError = SetProjectErrors[keyof SetProjectErrors];
+
+export type SetProjectResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type DeleteProjectData = {
+  body?: never;
+  path: {
+    /**
+     * Project Id
+     */
+    project_id: string;
+  };
+  query?: never;
+  url: "/projects/{project_id}";
+};
+
+export type DeleteProjectErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type DeleteProjectError = DeleteProjectErrors[keyof DeleteProjectErrors];
+
+export type DeleteProjectResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type ReadEvaluatorData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/projects/evaluator/";
+};
+
+export type ReadEvaluatorResponses = {
+  /**
+   * Response Projects-Read Evaluator
+   * Successful Response
+   */
+  200: {
+    [key: string]: unknown;
+  };
+};
+
+export type ReadEvaluatorResponse =
+  ReadEvaluatorResponses[keyof ReadEvaluatorResponses];
+
+export type AddEvaluatorData = {
+  /**
+   * Evaluator
+   */
+  body: {
+    [key: string]: unknown;
+  };
+  path?: never;
+  query?: never;
+  url: "/projects/evaluator/";
+};
+
+export type AddEvaluatorErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type AddEvaluatorError = AddEvaluatorErrors[keyof AddEvaluatorErrors];
+
+export type AddEvaluatorResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
 export type ReadApiKeyData = {
   body?: never;
   path?: never;
@@ -790,10 +1032,24 @@ export type DeleteApiKeyResponses = {
 
 export type ReadDocListData = {
   body?: never;
-  path?: never;
+  path: {
+    /**
+     * Project Id
+     */
+    project_id: string;
+  };
   query?: never;
-  url: "/docs/";
+  url: "/docs/{project_id}";
 };
+
+export type ReadDocListErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ReadDocListError = ReadDocListErrors[keyof ReadDocListErrors];
 
 export type ReadDocListResponses = {
   /**
@@ -808,9 +1064,14 @@ export type ReadDocListResponse =
 
 export type CreateDocData = {
   body: DocCreate;
-  path?: never;
+  path: {
+    /**
+     * Project Id
+     */
+    project_id: string;
+  };
   query?: never;
-  url: "/docs/";
+  url: "/docs/{project_id}";
 };
 
 export type CreateDocErrors = {
@@ -835,12 +1096,16 @@ export type UploadDocFileData = {
   body: BodyDocsUploadDocFile;
   path: {
     /**
+     * Project Id
+     */
+    project_id: string;
+    /**
      * Doc Id
      */
     doc_id: string;
   };
   query?: never;
-  url: "/docs/uploads/{doc_id}";
+  url: "/docs/{project_id}/uploads/{doc_id}";
 };
 
 export type UploadDocFileErrors = {
@@ -863,12 +1128,16 @@ export type DeleteDocData = {
   body?: never;
   path: {
     /**
+     * Project Id
+     */
+    project_id: string;
+    /**
      * Doc Id
      */
     doc_id: string;
   };
   query?: never;
-  url: "/docs/{doc_id}";
+  url: "/docs/{project_id}/deletes/{doc_id}";
 };
 
 export type DeleteDocErrors = {
@@ -888,10 +1157,15 @@ export type DeleteDocResponses = {
 };
 
 export type ExportDocPipelineData = {
-  body: ExportBody;
-  path?: never;
+  body: AppRoutesDocsExportBody;
+  path: {
+    /**
+     * Project Id
+     */
+    project_id: string;
+  };
   query?: never;
-  url: "/docs/pipelines/export/";
+  url: "/docs/{project_id}/pipelines/export/";
 };
 
 export type ExportDocPipelineErrors = {
@@ -913,9 +1187,14 @@ export type ExportDocPipelineResponses = {
 
 export type LoadDocPipelineData = {
   body: LoadBody;
-  path?: never;
+  path: {
+    /**
+     * Project Id
+     */
+    project_id: string;
+  };
   query?: never;
-  url: "/docs/pipelines/load/";
+  url: "/docs/{project_id}/pipelines/load/";
 };
 
 export type LoadDocPipelineErrors = {
@@ -1044,10 +1323,24 @@ export type DeleteApiKey2Responses = {
 
 export type ReadDocList2Data = {
   body?: never;
-  path?: never;
+  path: {
+    /**
+     * Project Id
+     */
+    project_id: string;
+  };
   query?: never;
-  url: "/api_keys/";
+  url: "/api_keys/{project_id}";
 };
+
+export type ReadDocList2Errors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ReadDocList2Error = ReadDocList2Errors[keyof ReadDocList2Errors];
 
 export type ReadDocList2Responses = {
   /**
@@ -1062,9 +1355,14 @@ export type ReadDocList2Response =
 
 export type CreateDoc2Data = {
   body: DocCreate;
-  path?: never;
+  path: {
+    /**
+     * Project Id
+     */
+    project_id: string;
+  };
   query?: never;
-  url: "/api_keys/";
+  url: "/api_keys/{project_id}";
 };
 
 export type CreateDoc2Errors = {
@@ -1089,12 +1387,16 @@ export type UploadDocFile2Data = {
   body: BodyDocsUploadDocFile;
   path: {
     /**
+     * Project Id
+     */
+    project_id: string;
+    /**
      * Doc Id
      */
     doc_id: string;
   };
   query?: never;
-  url: "/api_keys/uploads/{doc_id}";
+  url: "/api_keys/{project_id}/uploads/{doc_id}";
 };
 
 export type UploadDocFile2Errors = {
@@ -1118,12 +1420,16 @@ export type DeleteDoc2Data = {
   body?: never;
   path: {
     /**
+     * Project Id
+     */
+    project_id: string;
+    /**
      * Doc Id
      */
     doc_id: string;
   };
   query?: never;
-  url: "/api_keys/{doc_id}";
+  url: "/api_keys/{project_id}/deletes/{doc_id}";
 };
 
 export type DeleteDoc2Errors = {
@@ -1143,10 +1449,15 @@ export type DeleteDoc2Responses = {
 };
 
 export type ExportDocPipeline2Data = {
-  body: ExportBody;
-  path?: never;
+  body: AppRoutesDocsExportBody;
+  path: {
+    /**
+     * Project Id
+     */
+    project_id: string;
+  };
   query?: never;
-  url: "/api_keys/pipelines/export/";
+  url: "/api_keys/{project_id}/pipelines/export/";
 };
 
 export type ExportDocPipeline2Errors = {
@@ -1168,9 +1479,14 @@ export type ExportDocPipeline2Responses = {
 
 export type LoadDocPipeline2Data = {
   body: LoadBody;
-  path?: never;
+  path: {
+    /**
+     * Project Id
+     */
+    project_id: string;
+  };
   query?: never;
-  url: "/api_keys/pipelines/load/";
+  url: "/api_keys/{project_id}/pipelines/load/";
 };
 
 export type LoadDocPipeline2Errors = {
@@ -1287,10 +1603,25 @@ export type AddGeneratorResponses = {
 
 export type ReadRetrieversData = {
   body?: never;
-  path?: never;
+  path: {
+    /**
+     * Project Id
+     */
+    project_id: string;
+  };
   query?: never;
-  url: "/main-pipeline/retrievers/";
+  url: "/main-pipeline/{project_id}/retrievers/";
 };
+
+export type ReadRetrieversErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ReadRetrieversError =
+  ReadRetrieversErrors[keyof ReadRetrieversErrors];
 
 export type ReadRetrieversResponses = {
   /**
@@ -1312,9 +1643,14 @@ export type AddRetrieversData = {
   body: Array<{
     [key: string]: unknown;
   }>;
-  path?: never;
+  path: {
+    /**
+     * Project Id
+     */
+    project_id: string;
+  };
   query?: never;
-  url: "/main-pipeline/retrievers/";
+  url: "/main-pipeline/{project_id}/retrievers/";
 };
 
 export type AddRetrieversErrors = {
@@ -1431,12 +1767,16 @@ export type ReadConversionPipelineData = {
   body?: never;
   path: {
     /**
+     * Project Id
+     */
+    project_id: string;
+    /**
      * Doc Id
      */
     doc_id: string;
   };
   query?: never;
-  url: "/conversion/{doc_id}/data";
+  url: "/conversion/{project_id}/docs/{doc_id}/data";
 };
 
 export type ReadConversionPipelineErrors = {
@@ -1471,12 +1811,16 @@ export type AddConversionPipelineData = {
   };
   path: {
     /**
+     * Project Id
+     */
+    project_id: string;
+    /**
      * Doc Id
      */
     doc_id: string;
   };
   query?: never;
-  url: "/conversion/{doc_id}/data";
+  url: "/conversion/{project_id}/docs/{doc_id}/data";
 };
 
 export type AddConversionPipelineErrors = {
@@ -1500,12 +1844,16 @@ export type RunConversionPipelineData = {
   body?: never;
   path: {
     /**
+     * Project Id
+     */
+    project_id: string;
+    /**
      * Doc Id
      */
     doc_id: string;
   };
   query?: never;
-  url: "/conversion/{doc_id}/run";
+  url: "/conversion/{project_id}/docs/{doc_id}/run";
 };
 
 export type RunConversionPipelineErrors = {
@@ -1527,10 +1875,24 @@ export type RunConversionPipelineResponses = {
 
 export type ConvertAllData = {
   body?: never;
-  path?: never;
+  path: {
+    /**
+     * Project Id
+     */
+    project_id: string;
+  };
   query?: never;
-  url: "/conversion/run";
+  url: "/conversion/{project_id}/run";
 };
+
+export type ConvertAllErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ConvertAllError = ConvertAllErrors[keyof ConvertAllErrors];
 
 export type ConvertAllResponses = {
   /**
@@ -1543,12 +1905,16 @@ export type ReadChunkingPipelineData = {
   body?: never;
   path: {
     /**
+     * Project Id
+     */
+    project_id: string;
+    /**
      * Doc Id
      */
     doc_id: string;
   };
   query?: never;
-  url: "/chunking/{doc_id}/data";
+  url: "/chunking/{project_id}/docs/{doc_id}/data";
 };
 
 export type ReadChunkingPipelineErrors = {
@@ -1566,11 +1932,9 @@ export type ReadChunkingPipelineResponses = {
    * Response Chunking-Read Chunking Pipeline
    * Successful Response
    */
-  200: {
-    [key: string]: Array<{
-      [key: string]: unknown;
-    }>;
-  };
+  200: Array<{
+    [key: string]: unknown;
+  }>;
 };
 
 export type ReadChunkingPipelineResponse =
@@ -1580,19 +1944,21 @@ export type AddChunkingPipelineData = {
   /**
    * Pipeline
    */
-  body: {
-    [key: string]: Array<{
-      [key: string]: unknown;
-    }>;
-  };
+  body: Array<{
+    [key: string]: unknown;
+  }>;
   path: {
+    /**
+     * Project Id
+     */
+    project_id: string;
     /**
      * Doc Id
      */
     doc_id: string;
   };
   query?: never;
-  url: "/chunking/{doc_id}/data";
+  url: "/chunking/{project_id}/docs/{doc_id}/data";
 };
 
 export type AddChunkingPipelineErrors = {
@@ -1616,12 +1982,16 @@ export type RunChunkingPipelineData = {
   body?: never;
   path: {
     /**
+     * Project Id
+     */
+    project_id: string;
+    /**
      * Doc Id
      */
     doc_id: string;
   };
   query?: never;
-  url: "/chunking/{doc_id}/run";
+  url: "/chunking/{project_id}/docs/{doc_id}/run";
 };
 
 export type RunChunkingPipelineErrors = {
@@ -1645,12 +2015,16 @@ export type ReadChunkingLevelsData = {
   body?: never;
   path: {
     /**
+     * Project Id
+     */
+    project_id: string;
+    /**
      * Doc Id
      */
     doc_id: string;
   };
   query?: never;
-  url: "/chunking/{doc_id}/levels";
+  url: "/chunking/{project_id}/docs/{doc_id}/levels";
 };
 
 export type ReadChunkingLevelsErrors = {
@@ -1678,12 +2052,16 @@ export type ReadChunkingResultsData = {
   body?: never;
   path: {
     /**
+     * Project Id
+     */
+    project_id: string;
+    /**
      * Doc Id
      */
     doc_id: string;
   };
   query?: never;
-  url: "/chunking/{doc_id}/results";
+  url: "/chunking/{project_id}/docs/{doc_id}/results";
 };
 
 export type ReadChunkingResultsErrors = {
@@ -1718,12 +2096,16 @@ export type AddChunkingResultsData = {
   }>;
   path: {
     /**
+     * Project Id
+     */
+    project_id: string;
+    /**
      * Doc Id
      */
     doc_id: string;
   };
   query?: never;
-  url: "/chunking/{doc_id}/results";
+  url: "/chunking/{project_id}/docs/{doc_id}/results";
 };
 
 export type AddChunkingResultsErrors = {
@@ -1780,10 +2162,24 @@ export type ReadMarkdownResultsResponse =
 
 export type ChunkAllData = {
   body?: never;
-  path?: never;
+  path: {
+    /**
+     * Project Id
+     */
+    project_id: string;
+  };
   query?: never;
-  url: "/chunking/run";
+  url: "/chunking/{project_id}/run";
 };
+
+export type ChunkAllErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ChunkAllError = ChunkAllErrors[keyof ChunkAllErrors];
 
 export type ChunkAllResponses = {
   /**
@@ -1796,12 +2192,16 @@ export type ReadExtractionPipelineData = {
   body?: never;
   path: {
     /**
+     * Project Id
+     */
+    project_id: string;
+    /**
      * Doc Id
      */
     doc_id: string;
   };
   query?: never;
-  url: "/extraction/{doc_id}/data";
+  url: "/extraction/{project_id}/docs/{doc_id}/data";
 };
 
 export type ReadExtractionPipelineErrors = {
@@ -1819,11 +2219,9 @@ export type ReadExtractionPipelineResponses = {
    * Response Extraction-Read Extraction Pipeline
    * Successful Response
    */
-  200: {
-    [key: string]: Array<{
-      [key: string]: unknown;
-    }>;
-  };
+  200: Array<{
+    [key: string]: unknown;
+  }>;
 };
 
 export type ReadExtractionPipelineResponse =
@@ -1833,19 +2231,21 @@ export type AddExtractionPipelineData = {
   /**
    * Pipeline
    */
-  body: {
-    [key: string]: Array<{
-      [key: string]: unknown;
-    }>;
-  };
+  body: Array<{
+    [key: string]: unknown;
+  }>;
   path: {
+    /**
+     * Project Id
+     */
+    project_id: string;
     /**
      * Doc Id
      */
     doc_id: string;
   };
   query?: never;
-  url: "/extraction/{doc_id}/data";
+  url: "/extraction/{project_id}/docs/{doc_id}/data";
 };
 
 export type AddExtractionPipelineErrors = {
@@ -1869,12 +2269,16 @@ export type RunExtractionPipelineData = {
   body?: never;
   path: {
     /**
+     * Project Id
+     */
+    project_id: string;
+    /**
      * Doc Id
      */
     doc_id: string;
   };
   query?: never;
-  url: "/extraction/{doc_id}/run";
+  url: "/extraction/{project_id}/docs/{doc_id}/run";
 };
 
 export type RunExtractionPipelineErrors = {
@@ -1898,12 +2302,16 @@ export type ReadRetrievalPipelineData = {
   body?: never;
   path: {
     /**
+     * Project Id
+     */
+    project_id: string;
+    /**
      * Doc Id
      */
     doc_id: string;
   };
   query?: never;
-  url: "/retrieval/{doc_id}/data";
+  url: "/retrieval/{project_id}/docs/{doc_id}/data";
 };
 
 export type ReadRetrievalPipelineErrors = {
@@ -1938,12 +2346,16 @@ export type AddRetrievalPipelineData = {
   }>;
   path: {
     /**
+     * Project Id
+     */
+    project_id: string;
+    /**
      * Doc Id
      */
     doc_id: string;
   };
   query?: never;
-  url: "/retrieval/{doc_id}/data";
+  url: "/retrieval/{project_id}/docs/{doc_id}/data";
 };
 
 export type AddRetrievalPipelineErrors = {
@@ -1967,12 +2379,16 @@ export type ExportPipelineData = {
   body?: never;
   path: {
     /**
+     * Project Id
+     */
+    project_id: string;
+    /**
      * Doc Id
      */
     doc_id: string;
   };
   query?: never;
-  url: "/retrieval/{doc_id}/run";
+  url: "/retrieval/{project_id}/docs/{doc_id}/run";
 };
 
 export type ExportPipelineErrors = {
@@ -1994,10 +2410,24 @@ export type ExportPipelineResponses = {
 
 export type ExportAllData = {
   body?: never;
-  path?: never;
+  path: {
+    /**
+     * Project Id
+     */
+    project_id: string;
+  };
   query?: never;
-  url: "/retrieval/run";
+  url: "/retrieval/{project_id}/run";
 };
+
+export type ExportAllErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ExportAllError = ExportAllErrors[keyof ExportAllErrors];
 
 export type ExportAllResponses = {
   /**
@@ -2005,6 +2435,40 @@ export type ExportAllResponses = {
    */
   200: unknown;
 };
+
+export type RagQueryToolData = {
+  /**
+   * Payload
+   */
+  body: {
+    [key: string]: unknown;
+  };
+  path?: never;
+  query?: never;
+  url: "/chat/generator";
+};
+
+export type RagQueryToolErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type RagQueryToolError = RagQueryToolErrors[keyof RagQueryToolErrors];
+
+export type RagQueryToolResponses = {
+  /**
+   * Response Chat-Rag Query Tool
+   * Successful Response
+   */
+  200: {
+    [key: string]: unknown;
+  };
+};
+
+export type RagQueryToolResponse =
+  RagQueryToolResponses[keyof RagQueryToolResponses];
 
 export type AuthorizeData = {
   body?: never;

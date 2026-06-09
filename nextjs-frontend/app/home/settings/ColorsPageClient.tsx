@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { addColors } from "@/app/api/rag/settings/colors-action";
 import { addThemes } from "@/app/api/rag/settings/themes-action";
 
-import { SaveActions } from "@/components/custom-ui/SaveRunActions";
+import {SaveSettingsActions} from "@/components/custom-ui/SaveRunActions";
 import { ColorPicker } from "@/components/custom-ui/ColorPicker";
 import { Button } from "@/components/ui/button";
 import {
@@ -205,7 +205,7 @@ export default function ColorsPageClient({
             ))}
           </select>
 
-          <SaveActions
+          <SaveSettingsActions
             addFunction={addThemes}
             pipelineJson={themeJson}
             saveLabel="Theme"
@@ -227,7 +227,7 @@ export default function ColorsPageClient({
               Reset defaults
             </Button>
 
-            <SaveActions
+            <SaveSettingsActions
               addFunction={addColors}
               pipelineJson={pipelineJson}
               saveLabel="Colors"

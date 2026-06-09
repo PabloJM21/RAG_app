@@ -64,14 +64,14 @@ def load_pipeline_old(pipeline):
 
 def load_pipeline(pipeline):
     if pipeline is None:
-        return None
+        return {}
     return json.loads(pipeline)
 
 
 def load_doc_pipelines(pipelines):
 
     if pipelines is None:
-        return None
+        return {}
 
     pipelines = json.loads(pipelines)
 
@@ -89,7 +89,7 @@ def load_doc_pipelines(pipelines):
 
 
 
-async def get_doc_paths(user_id: UUID, project_id: int, doc_id: UUID, db: AsyncSession):
+async def get_doc_paths(user_id: UUID, project_id: UUID, doc_id: UUID, db: AsyncSession):
     row = await DocPipelines.get_row(where_dict={"user_id": user_id, "project_id": project_id, "doc_id": doc_id}, db=db)
     source_path = row.path
     processed_path = os.path.join(os.path.dirname(source_path), "processed_markdown.md")
@@ -97,7 +97,7 @@ async def get_doc_paths(user_id: UUID, project_id: int, doc_id: UUID, db: AsyncS
 
     return source_path, processed_path
 
-async def get_doc_title(user_id: UUID, project_id: int, doc_id: UUID, db: AsyncSession):
+async def get_doc_title(user_id: UUID, project_id: UUID, doc_id: UUID, db: AsyncSession):
     row = await DocPipelines.get_row(where_dict={"user_id": user_id, "project_id": project_id, "doc_id": doc_id}, db=db)
 
     return row.name

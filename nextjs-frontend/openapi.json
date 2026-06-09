@@ -675,6 +675,342 @@
         }
       }
     },
+    "/projects/export/": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Export Project",
+        "operationId": "export_project",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/app__routes__projects__ExportBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/projects/load/": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Load Project",
+        "operationId": "load_project",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoadProjectBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/projects/list/saved/": {
+      "get": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "List Saved Projects",
+        "operationId": "list_saved_projects",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProjectResponse"
+                  },
+                  "type": "array",
+                  "title": "Response Projects-List Saved Projects"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/projects/list/exported/": {
+      "get": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "List Exported Projects",
+        "operationId": "list_exported_projects",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProjectResponse"
+                  },
+                  "type": "array",
+                  "title": "Response Projects-List Exported Projects"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/projects/": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Create Project",
+        "operationId": "create_project",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/projects/set/{project_id}": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Set Project",
+        "operationId": "set_project",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}": {
+      "delete": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Delete Project",
+        "operationId": "delete_project",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/evaluator/": {
+      "get": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Read Evaluator",
+        "operationId": "read_evaluator",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Projects-Read Evaluator"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Add Evaluator",
+        "operationId": "add_evaluator",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Evaluator"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
     "/docs/api_keys/": {
       "get": {
         "tags": [
@@ -773,50 +1109,39 @@
         }
       }
     },
-    "/docs/": {
-      "get": {
-        "tags": [
-          "docs"
-        ],
-        "summary": "Read Doc List",
-        "operationId": "read_doc_list",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/DocResponse"
-                  },
-                  "type": "array",
-                  "title": "Response Docs-Read Doc List"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ]
-      },
+    "/docs/{project_id}": {
       "post": {
         "tags": [
           "docs"
         ],
         "summary": "Create Doc",
         "operationId": "create_doc",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/DocCreate"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -839,15 +1164,60 @@
               }
             }
           }
-        },
+        }
+      },
+      "get": {
+        "tags": [
+          "docs"
+        ],
+        "summary": "Read Doc List",
+        "operationId": "read_doc_list",
         "security": [
           {
             "OAuth2PasswordBearer": []
           }
-        ]
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DocResponse"
+                  },
+                  "title": "Response Docs-Read Doc List"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
-    "/docs/uploads/{doc_id}": {
+    "/docs/{project_id}/uploads/{doc_id}": {
       "post": {
         "tags": [
           "docs"
@@ -860,6 +1230,16 @@
           }
         ],
         "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          },
           {
             "name": "doc_id",
             "in": "path",
@@ -903,7 +1283,7 @@
         }
       }
     },
-    "/docs/{doc_id}": {
+    "/docs/{project_id}/deletes/{doc_id}": {
       "delete": {
         "tags": [
           "docs"
@@ -916,6 +1296,16 @@
           }
         ],
         "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          },
           {
             "name": "doc_id",
             "in": "path",
@@ -949,22 +1339,39 @@
         }
       }
     },
-    "/docs/pipelines/export/": {
+    "/docs/{project_id}/pipelines/export/": {
       "post": {
         "tags": [
           "docs"
         ],
         "summary": "Export Doc Pipeline",
         "operationId": "export_doc_pipeline",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ExportBody"
+                "$ref": "#/components/schemas/app__routes__docs__ExportBody"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -985,30 +1392,42 @@
               }
             }
           }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ]
+        }
       }
     },
-    "/docs/pipelines/load/": {
+    "/docs/{project_id}/pipelines/load/": {
       "post": {
         "tags": [
           "docs"
         ],
         "summary": "Load Doc Pipeline",
         "operationId": "load_doc_pipeline",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/LoadBody"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -1029,12 +1448,7 @@
               }
             }
           }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ]
+        }
       }
     },
     "/docs/pipelines/list/": {
@@ -1211,50 +1625,39 @@
         }
       }
     },
-    "/api_keys/": {
-      "get": {
-        "tags": [
-          "docs"
-        ],
-        "summary": "Read Doc List",
-        "operationId": "read_doc_list",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/DocResponse"
-                  },
-                  "type": "array",
-                  "title": "Response Docs-Read Doc List"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ]
-      },
+    "/api_keys/{project_id}": {
       "post": {
         "tags": [
           "docs"
         ],
         "summary": "Create Doc",
         "operationId": "create_doc",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/DocCreate"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -1277,15 +1680,60 @@
               }
             }
           }
-        },
+        }
+      },
+      "get": {
+        "tags": [
+          "docs"
+        ],
+        "summary": "Read Doc List",
+        "operationId": "read_doc_list",
         "security": [
           {
             "OAuth2PasswordBearer": []
           }
-        ]
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DocResponse"
+                  },
+                  "title": "Response Docs-Read Doc List"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
-    "/api_keys/uploads/{doc_id}": {
+    "/api_keys/{project_id}/uploads/{doc_id}": {
       "post": {
         "tags": [
           "docs"
@@ -1298,6 +1746,16 @@
           }
         ],
         "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          },
           {
             "name": "doc_id",
             "in": "path",
@@ -1341,7 +1799,7 @@
         }
       }
     },
-    "/api_keys/{doc_id}": {
+    "/api_keys/{project_id}/deletes/{doc_id}": {
       "delete": {
         "tags": [
           "docs"
@@ -1354,6 +1812,16 @@
           }
         ],
         "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          },
           {
             "name": "doc_id",
             "in": "path",
@@ -1387,22 +1855,39 @@
         }
       }
     },
-    "/api_keys/pipelines/export/": {
+    "/api_keys/{project_id}/pipelines/export/": {
       "post": {
         "tags": [
           "docs"
         ],
         "summary": "Export Doc Pipeline",
         "operationId": "export_doc_pipeline",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ExportBody"
+                "$ref": "#/components/schemas/app__routes__docs__ExportBody"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -1423,30 +1908,42 @@
               }
             }
           }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ]
+        }
       }
     },
-    "/api_keys/pipelines/load/": {
+    "/api_keys/{project_id}/pipelines/load/": {
       "post": {
         "tags": [
           "docs"
         ],
         "summary": "Load Doc Pipeline",
         "operationId": "load_doc_pipeline",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/LoadBody"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -1467,12 +1964,7 @@
               }
             }
           }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ]
+        }
       }
     },
     "/api_keys/pipelines/list/": {
@@ -1623,35 +2115,57 @@
         ]
       }
     },
-    "/main-pipeline/retrievers/": {
+    "/main-pipeline/{project_id}/retrievers/": {
       "get": {
         "tags": [
           "main-pipeline"
         ],
         "summary": "Read Retrievers",
         "operationId": "read_retrievers",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "additionalProperties": true,
-                    "type": "object"
-                  },
                   "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
                   "title": "Response Main-Pipeline-Read Retrievers"
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ]
+        }
       },
       "post": {
         "tags": [
@@ -1660,20 +2174,37 @@
         "summary": "Add Retrievers",
         "description": "router = retrievers[0] if retrievers else {}\nrouter = retrievers[1] if retrievers else {}",
         "operationId": "add_retrievers",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "items": {
-                  "additionalProperties": true,
-                  "type": "object"
-                },
                 "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
                 "title": "Retrievers"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -1694,12 +2225,7 @@
               }
             }
           }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ]
+        }
       }
     },
     "/settings/colors/": {
@@ -1846,7 +2372,7 @@
         ]
       }
     },
-    "/conversion/{doc_id}/data": {
+    "/conversion/{project_id}/docs/{doc_id}/data": {
       "get": {
         "tags": [
           "conversion"
@@ -1859,6 +2385,16 @@
           }
         ],
         "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          },
           {
             "name": "doc_id",
             "in": "path",
@@ -1908,6 +2444,16 @@
         ],
         "parameters": [
           {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          },
+          {
             "name": "doc_id",
             "in": "path",
             "required": true,
@@ -1952,7 +2498,7 @@
         }
       }
     },
-    "/conversion/{doc_id}/run": {
+    "/conversion/{project_id}/docs/{doc_id}/run": {
       "post": {
         "tags": [
           "conversion"
@@ -1965,6 +2511,16 @@
           }
         ],
         "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          },
           {
             "name": "doc_id",
             "in": "path",
@@ -1998,13 +2554,30 @@
         }
       }
     },
-    "/conversion/run": {
+    "/conversion/{project_id}/run": {
       "post": {
         "tags": [
           "conversion"
         ],
         "summary": "Convert All",
         "operationId": "convert_all",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -2013,16 +2586,21 @@
                 "schema": {}
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ]
+        }
       }
     },
-    "/chunking/{doc_id}/data": {
+    "/chunking/{project_id}/docs/{doc_id}/data": {
       "get": {
         "tags": [
           "chunking"
@@ -2035,6 +2613,16 @@
           }
         ],
         "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          },
           {
             "name": "doc_id",
             "in": "path",
@@ -2052,13 +2640,10 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "additionalProperties": true
-                    }
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
                   },
                   "title": "Response Chunking-Read Chunking Pipeline"
                 }
@@ -2090,6 +2675,16 @@
         ],
         "parameters": [
           {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          },
+          {
             "name": "doc_id",
             "in": "path",
             "required": true,
@@ -2105,13 +2700,10 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "additionalProperties": true
-                  }
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true
                 },
                 "title": "Pipeline"
               }
@@ -2140,7 +2732,7 @@
         }
       }
     },
-    "/chunking/{doc_id}/run": {
+    "/chunking/{project_id}/docs/{doc_id}/run": {
       "post": {
         "tags": [
           "chunking"
@@ -2153,6 +2745,16 @@
           }
         ],
         "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          },
           {
             "name": "doc_id",
             "in": "path",
@@ -2186,7 +2788,7 @@
         }
       }
     },
-    "/chunking/{doc_id}/levels": {
+    "/chunking/{project_id}/docs/{doc_id}/levels": {
       "get": {
         "tags": [
           "chunking"
@@ -2199,6 +2801,16 @@
           }
         ],
         "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          },
           {
             "name": "doc_id",
             "in": "path",
@@ -2238,7 +2850,7 @@
         }
       }
     },
-    "/chunking/{doc_id}/results": {
+    "/chunking/{project_id}/docs/{doc_id}/results": {
       "get": {
         "tags": [
           "chunking"
@@ -2251,6 +2863,16 @@
           }
         ],
         "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          },
           {
             "name": "doc_id",
             "in": "path",
@@ -2302,6 +2924,16 @@
           }
         ],
         "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          },
           {
             "name": "doc_id",
             "in": "path",
@@ -2403,13 +3035,30 @@
         }
       }
     },
-    "/chunking/run": {
+    "/chunking/{project_id}/run": {
       "post": {
         "tags": [
           "chunking"
         ],
         "summary": "Chunk All",
         "operationId": "chunk_all",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -2418,16 +3067,21 @@
                 "schema": {}
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ]
+        }
       }
     },
-    "/extraction/{doc_id}/data": {
+    "/extraction/{project_id}/docs/{doc_id}/data": {
       "get": {
         "tags": [
           "extraction"
@@ -2440,6 +3094,16 @@
           }
         ],
         "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          },
           {
             "name": "doc_id",
             "in": "path",
@@ -2457,13 +3121,10 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "additionalProperties": true
-                    }
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
                   },
                   "title": "Response Extraction-Read Extraction Pipeline"
                 }
@@ -2495,6 +3156,16 @@
         ],
         "parameters": [
           {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          },
+          {
             "name": "doc_id",
             "in": "path",
             "required": true,
@@ -2510,13 +3181,10 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "additionalProperties": true
-                  }
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true
                 },
                 "title": "Pipeline"
               }
@@ -2545,7 +3213,7 @@
         }
       }
     },
-    "/extraction/{doc_id}/run": {
+    "/extraction/{project_id}/docs/{doc_id}/run": {
       "post": {
         "tags": [
           "extraction"
@@ -2558,6 +3226,16 @@
           }
         ],
         "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          },
           {
             "name": "doc_id",
             "in": "path",
@@ -2591,7 +3269,7 @@
         }
       }
     },
-    "/retrieval/{doc_id}/data": {
+    "/retrieval/{project_id}/docs/{doc_id}/data": {
       "get": {
         "tags": [
           "retrieval"
@@ -2604,6 +3282,16 @@
           }
         ],
         "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          },
           {
             "name": "doc_id",
             "in": "path",
@@ -2656,6 +3344,16 @@
         ],
         "parameters": [
           {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          },
+          {
             "name": "doc_id",
             "in": "path",
             "required": true,
@@ -2703,7 +3401,7 @@
         }
       }
     },
-    "/retrieval/{doc_id}/run": {
+    "/retrieval/{project_id}/docs/{doc_id}/run": {
       "post": {
         "tags": [
           "retrieval"
@@ -2716,6 +3414,16 @@
           }
         ],
         "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          },
           {
             "name": "doc_id",
             "in": "path",
@@ -2749,7 +3457,7 @@
         }
       }
     },
-    "/retrieval/run": {
+    "/retrieval/{project_id}/run": {
       "post": {
         "tags": [
           "retrieval"
@@ -2757,12 +3465,84 @@
         "summary": "Export All",
         "description": "1. Runs Embeddings for each doc_id where exported=0\n2. Bundles all retrieval pipelines and exports them to the MainPipeline table",
         "operationId": "export_all",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/chat/generator": {
+      "post": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Rag Query Tool",
+        "operationId": "rag_query_tool",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Payload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Chat-Rag Query Tool"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -3169,24 +3949,6 @@
         ],
         "title": "ErrorModel"
       },
-      "ExportBody": {
-        "properties": {
-          "pipelineName": {
-            "type": "string",
-            "title": "Pipelinename"
-          },
-          "doc_id": {
-            "type": "string",
-            "title": "Doc Id"
-          }
-        },
-        "type": "object",
-        "required": [
-          "pipelineName",
-          "doc_id"
-        ],
-        "title": "ExportBody"
-      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -3286,6 +4048,24 @@
         ],
         "title": "LoadBody"
       },
+      "LoadProjectBody": {
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          },
+          "target_id": {
+            "type": "string",
+            "title": "Target Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_id",
+          "target_id"
+        ],
+        "title": "LoadProjectBody"
+      },
       "PipelineResponse": {
         "properties": {
           "pipelineName": {
@@ -3304,6 +4084,25 @@
           "pipeline_id"
         ],
         "title": "PipelineResponse"
+      },
+      "ProjectResponse": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "project_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Project Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "project_id"
+        ],
+        "title": "ProjectResponse"
       },
       "UserCreate": {
         "properties": {
@@ -3489,6 +4288,42 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "app__routes__docs__ExportBody": {
+        "properties": {
+          "pipelineName": {
+            "type": "string",
+            "title": "Pipelinename"
+          },
+          "doc_id": {
+            "type": "string",
+            "title": "Doc Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "pipelineName",
+          "doc_id"
+        ],
+        "title": "ExportBody"
+      },
+      "app__routes__projects__ExportBody": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "project_id": {
+            "type": "string",
+            "title": "Project Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "project_id"
+        ],
+        "title": "ExportBody"
       },
       "login": {
         "properties": {

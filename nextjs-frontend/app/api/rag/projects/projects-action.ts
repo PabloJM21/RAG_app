@@ -1,6 +1,14 @@
 "use server";
 
 import { cookies } from "next/headers";
+import {revalidatePath} from "next/cache";
+import {
+  createEvaluator, createProject, deleteProject, EvaluatorSpec,
+  exportProjectSDK,
+  listExportedProjectsSDK,
+  listSavedProjectsSDK, loadProjectSDK,
+  readEvaluator, setProject
+} from "@/app/api/rag/projects/sdk.gen";
 
 
 /**
@@ -8,11 +16,11 @@ import { cookies } from "next/headers";
  */
 export async function exportProject(formData: FormData) {
   const project_id = formData.get("project_id");
-  const projectName = formData.get("projectName");
+  const name = formData.get("name");
 
   if (
     typeof project_id !== "string" ||
-    typeof projectName !== "string"
+    typeof name !== "string"
   ) {
     throw new Error("Invalid form data");
   }
@@ -25,7 +33,7 @@ export async function exportProject(formData: FormData) {
   }
 
   const response = await exportProjectSDK({
-    body: { project_id, projectName },
+    body: { project_id, name },
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -43,9 +51,16 @@ export async function exportProject(formData: FormData) {
  */
 
 
+export type ListProject = {
+  project_id: string;
+  name: string;
+};
+
+
+
 export async function listSavedProjects(
   _formData?: FormData
-): Promise<string[]> {
+): Promise<ListProject[]> {
   const cookieStore = await cookies();
   const token = cookieStore.get("accessToken")?.value;
 
@@ -60,19 +75,15 @@ export async function listSavedProjects(
   });
 
   if (response.error) {
-    throw new Error("Project fetching failed");
+    console.error("[listSavedProjects] API error:", response.error);
+    throw new Error(
+      `Project fetching failed: ${JSON.stringify(response.error)}`
+    );
   }
 
   return response.data;
 }
 
-
-
-
-export type ListProject = {
-  project_id: string;
-  projectName: string;
-};
 
 
 export async function listExportedProjects(
@@ -130,8 +141,7 @@ export async function loadProject(formData: FormData) {
     throw new Error("Loading failed");
   }
 
-  revalidatePath(`/home/rag/${project_id}`);
-  revalidatePath(`/home/rag/${project_id}/docs/${doc_id}`);
+  revalidatePath(`/home/rag/${target_id}`);
 
   return response.data;
 }
@@ -161,14 +171,49 @@ export async function removeProjectAction(project_id: string) {
     return { message: error };
   }
 
-  revalidatePath("home/profile");
+  revalidatePath(`/home/rag/${project_id}`);
 }
 
 
 
 
 
-export async function addProjectAction(project_id: string) {
+export async function addProjectAction() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("accessToken")?.value;
+
+  if (!token) {
+    return { message: "No access token found" };
+  }
+
+  const { data, error } = await createProject({
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (error) {
+    return { message: String(error) };
+  }
+
+  if (!data?.project_id || !data?.name) {
+    return { message: "Invalid project response" };
+  }
+
+  revalidatePath("/home/rag");
+
+  return {
+    project_id: data.project_id,
+    name: data.name,
+  };
+}
+
+
+
+
+
+
+export async function setCurrentProject(project_id: string) {
 
   const cookieStore = await cookies();
   const token = cookieStore.get("accessToken")?.value;
@@ -177,7 +222,7 @@ export async function addProjectAction(project_id: string) {
     return { message: "No access token found" };
   }
 
-  const { error } = await deleteProject({
+  const { error } = await setProject({
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -190,6 +235,57 @@ export async function addProjectAction(project_id: string) {
   if (error) {
     return { message: error };
   }
+}
 
-  revalidatePath("home/profile");
+
+/**
+ * Evaluator
+ */
+
+
+export async function addEvaluator(formData: FormData) {
+  const evaluator = JSON.parse(
+    formData.get("evaluator") as string
+  ) as EvaluatorSpec;
+
+  const cookieStore = await cookies();
+  const token = cookieStore.get("accessToken")?.value;
+
+  if (!token) {
+    throw new Error("No access token found");
+  }
+
+  const result = await createEvaluator({
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: evaluator,
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  revalidatePath(`/home/rag/evaluator`);
+}
+
+export async function fetchEvaluator(): Promise<EvaluatorSpec> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("accessToken")?.value;
+
+  if (!token) {
+    throw new Error("No access token found");
+  }
+
+  const result = await readEvaluator({
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  return result.data;
 }

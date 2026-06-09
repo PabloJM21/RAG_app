@@ -26,9 +26,12 @@ const RETRIEVER_TYPES = [
 
 /* ---------- Templates ---------- */
 
+export const ROUTER_LEVELS = ["document"];
+
 const DEFAULT_METHOD_COLOR = "#ffffff";
 
 const BASE_RETRIEVER_FIELDS = {
+  level: "",
   retrieval_amount: "",
   query_transformation_model: "",
   query_transformation_prompt: "",
@@ -111,6 +114,28 @@ function renderRetrieverField({
   if (key === "type") {
     return <span>{String(value)}</span>;
   }
+
+
+  if (key === "level" && slot === "router") {
+      return (
+        <>
+          <input
+            list="levels"
+            type="text"
+            value={String(value ?? "")}
+            onChange={(e) => updateField(key, e.target.value)}
+            style={{ width: "100%" }}
+          />
+
+          <datalist id="levels">
+            {ROUTER_LEVELS.map((lvl) => (
+              <option key={lvl} value={lvl} />
+            ))}
+          </datalist>
+        </>
+      );
+    }
+
 
   if (typeof value === "boolean") {
     return (
@@ -400,12 +425,13 @@ export default function RetrieversPageClient({
           <div className="flex items-center gap-2">
             <RunExportActions
               project_id={project_id}
-              runConversion={() => run("conversion")}
-              runChunking={() => run("chunking")}
-              runRetrieval={() => run("retrieval")}
+              runConversion={() => run(project_id, "conversion")}
+              runChunking={() => run(project_id, "chunking")}
+              runRetrieval={() => run(project_id, "retrieval")}
             />
 
             <SaveActions
+              project_id={project_id}
               addFunction={addRetrievers}
               pipelineJson={pipelineJson}
               saveLabel="Main Retrievers"

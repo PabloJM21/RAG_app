@@ -11,6 +11,11 @@ export const GENERATOR_PROMPTS = [
   "An extensive, deeply reasoned answer to the user QUERY using only the information contained in the CHUNKS. You must make full use of the CHUNKS: do not just scratch the surface—analyze, connect, and synthesize all relevant details."
 ];
 
+export const EVALUATOR_PROMPTS = [
+  "A complete answer to this QUERY based only on the provided CHUNKS, in the same language",
+  "An extensive, deeply reasoned answer to the user QUERY using only the information contained in the CHUNKS. You must make full use of the CHUNKS: do not just scratch the surface—analyze, connect, and synthesize all relevant details."
+];
+
 export const EMBEDDING_QUERY_PROMPTS = [
   "A paraphrase of this QUERY suited for retrieving text chunks based on embeddings and cosine similarity, in the same language",
 ];
@@ -26,4 +31,10 @@ export const BM25_QUERY_PROMPTS = [
 export const GENERATOR_QUERY_PROMPTS = [
   "A new string matching this QUERY that can be directly combined with some text chunks to provide a RAG answer, in the same language",
 ];
+
+
+export const EVALUATOR_QUERY_PROMPTS = [
+  "A new string matching this QUERY that can be directly combined with some text chunks to provide a RAG answer, in the same language",
+];
+
 

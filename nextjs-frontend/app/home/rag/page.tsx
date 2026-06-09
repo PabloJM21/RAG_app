@@ -1,14 +1,11 @@
-// app/home/rag/page.tsx
 import { redirect } from "next/navigation";
-import {listSavedProjects} from "@/app/api/rag/projects/projects-action";
-
+import { listSavedProjects } from "@/app/api/rag/projects/projects-action";
 
 export default async function RagIndexPage() {
-  const project_ids = await listSavedProjects();
-  const sorted = [...project_ids].sort((a, b) => a - b);
+  const projects = await listSavedProjects();
 
-  if (sorted.length > 0) {
-    redirect(`/home/rag/${sorted[0]}`);
+  if (projects.length > 0) {
+    redirect(`/home/rag/${projects[0].project_id}`);
   }
 
   redirect("/home/rag/evaluator");

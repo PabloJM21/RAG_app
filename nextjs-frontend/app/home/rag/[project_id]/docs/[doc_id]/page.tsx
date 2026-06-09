@@ -46,8 +46,8 @@ export default async function DocRootPage({
           project_id={project_id}
           doc_id={doc_id}
           initialConversion={(conversionPipeline ?? {}) as MethodSpec}
-          initialChunking={(chunkingPipeline ?? {}) as PipelineSpec}
-          initialEnrichment={(extractionPipeline ?? {}) as PipelineSpec}
+          initialChunking={(chunkingPipeline ?? []) as PipelineSpec}
+          initialEnrichment={(extractionPipeline ?? []) as PipelineSpec}
           levels={(levels ?? []) as string[]}
           results={results ?? []}
           initialRetrieval={(retrievalPipeline ?? []) as PipelineSpec}

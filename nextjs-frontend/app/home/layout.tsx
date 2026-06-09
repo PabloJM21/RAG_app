@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Home } from "lucide-react";
+import { Home, MessageCircle } from "lucide-react";
 
 import {
   Breadcrumb,
@@ -71,6 +71,19 @@ export default async function DashboardParentLayout({
                 >
                   /
                 </BreadcrumbSeparator>
+
+                <BreadcrumbItem>
+                  <BreadcrumbLink asChild>
+                    <Link
+                      href="/home/chat"
+                      className="flex items-center gap-2"
+                      style={{ color: "var(--theme-page-muted-fg)" }}
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                      <span>Chat</span>
+                    </Link>
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
               </BreadcrumbList>
             </Breadcrumb>
 

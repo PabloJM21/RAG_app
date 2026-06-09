@@ -1,12 +1,10 @@
 from uuid import UUID
 from pydantic import BaseModel
 
-from pathlib import Path
+
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
-from sqlalchemy import Column, String, Integer, ForeignKey
-from sqlalchemy.orm import DeclarativeBase, relationship
+
 
 from app.models import DocPipelines, MainPipeline
 from app.database import User, get_async_session
@@ -35,7 +33,7 @@ MethodSpec = Dict[str, Any]
 
 @router.get("/{project_id}/docs/{doc_id}/data", response_model=List[MethodSpec])
 async def read_retrieval_pipeline(
-    project_id: int,
+    project_id: UUID,
     doc_id: UUID,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
@@ -54,7 +52,7 @@ async def read_retrieval_pipeline(
 
 @router.post("/{project_id}/docs/{doc_id}/data")
 async def add_retrieval_pipeline(
-    project_id: int,
+    project_id: UUID,
     doc_id: UUID,
     pipeline: List[MethodSpec],
     db: AsyncSession = Depends(get_async_session),
@@ -77,16 +75,17 @@ async def add_retrieval_pipeline(
 
 @router.post("/{project_id}/docs/{doc_id}/run")
 async def export_pipeline(
-    project_id: int,
+    project_id: UUID,
     doc_id: UUID,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
     # 1. filter: this endpoint is only triggered when a pipeline is fetched or created from the UI
 
+
     main_pipeline = await MainPipeline.get_row(where_dict={"user_id": user.id, "project_id": project_id}, db=db)
     document_pipelines = {}
-    if main_pipeline.doc_pipelines:
+    if main_pipeline and main_pipeline.doc_pipelines:
         document_pipelines = json.loads(main_pipeline.doc_pipelines)
 
 
@@ -122,7 +121,17 @@ async def export_pipeline(
 
         # finally update main_pipeline with the created document_pipelines dict
         if document_pipelines:
-            main_pipeline.doc_pipelines = json.dumps(document_pipelines)
+            if main_pipeline:
+                main_pipeline.doc_pipelines = json.dumps(document_pipelines)
+            else:
+                main_pipeline = await MainPipeline.insert_data(
+                    data_dict={
+                        "user_id": user.id,
+                        "project_id": project_id,
+                        "doc_pipelines": json.dumps(document_pipelines),
+                    },
+                    db=db,
+                )
 
     await db.commit()
 
@@ -136,7 +145,7 @@ async def export_pipeline(
 # ---------- ALL DOCs ----------
 @router.post("/{project_id}/run")
 async def export_all(
-    project_id: int,
+    project_id: UUID,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
@@ -148,7 +157,7 @@ async def export_all(
 
     main_pipeline = await MainPipeline.get_row(where_dict={"user_id": user.id, "project_id": project_id}, db=db)
     document_pipelines = {}
-    if main_pipeline.doc_pipelines:
+    if main_pipeline and main_pipeline.doc_pipelines:
         document_pipelines = json.loads(main_pipeline.doc_pipelines)
 
     # Avoid exported=1 to be exported again.
@@ -181,7 +190,17 @@ async def export_all(
     
     # finally update main_pipeline with the created document_pipelines dict
     if document_pipelines:
-        main_pipeline.doc_pipelines = json.dumps(document_pipelines)
+        if main_pipeline:
+            main_pipeline.doc_pipelines = json.dumps(document_pipelines)
+        else:
+            main_pipeline = await MainPipeline.insert_data(
+                data_dict={
+                    "user_id": user.id,
+                    "project_id": project_id,
+                    "doc_pipelines": json.dumps(document_pipelines),
+                },
+                db=db,
+            )
     
     await db.commit()
 

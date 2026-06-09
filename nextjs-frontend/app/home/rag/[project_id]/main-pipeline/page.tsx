@@ -1,5 +1,5 @@
-import { fetchGenerator, fetchRetrievers } from "@/app/api/rag/main-pipeline/pipeline-action";
-import MainPipelineTabs from "./MainPipelineTabs";
+import { fetchRetrievers } from "@/app/api/rag/main-pipeline/pipeline-action";
+import RetrieversPageClient from "./RetrieversPageClient";
 
 type MethodSpec = Record<string, any>;
 
@@ -8,18 +8,14 @@ export default async function MainPipelinePage({
 }: {
   project_id: string;
 }) {
-  const [Generator, Retrievers] = await Promise.all([
-    fetchGenerator(project_id),
-    fetchRetrievers(project_id),
-  ]);
+  const retrievers = await fetchRetrievers(project_id);
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      <div className="flex-1 overflow-hidden">
-        <MainPipelineTabs
+      <div className="flex-1 overflow-auto p-4">
+        <RetrieversPageClient
           project_id={project_id}
-          initialGenerator={(Generator ?? {}) as MethodSpec}
-          initialRetrievers={(Retrievers ?? []) as MethodSpec[]}
+          pipeline={(retrievers ?? []) as MethodSpec[]}
         />
       </div>
     </div>

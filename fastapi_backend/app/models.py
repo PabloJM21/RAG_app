@@ -187,7 +187,7 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
 class ProjectData(Base):
     __tablename__ = "ProjectData"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    current_project_id = Column(Integer, nullable=False)
+    current_id = Column(UUID(as_uuid=True), nullable=True, default=uuid4)
     evaluator = Column(String, nullable=True)
 
     user_id = Column(UUID(as_uuid=True), ForeignKey("user.id"), nullable=False)
@@ -204,7 +204,7 @@ class ProjectData(Base):
 class SavedProjects(Base):
     __tablename__ = "SavedProjects"
 
-    project_id = Column(Integer, primary_key=True)
+    project_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     name = Column(String, nullable=True)
     kind = Column(String, nullable=True) # saved / exported
 
@@ -229,7 +229,7 @@ class DocPipelines(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     doc_id = Column(UUID(as_uuid=True), nullable=False, default=uuid4)
-    project_id = Column(Integer, nullable=False)
+    project_id = Column(UUID(as_uuid=True), nullable=False, default=uuid4)
 
     name = Column(String, nullable=True)
     path = Column(String, nullable=True)
@@ -241,7 +241,6 @@ class DocPipelines(Base):
     chunked = Column(Boolean, nullable=False, server_default=false())
 
     extraction_pipeline = Column(String, nullable=True) # string representing a List[Dict]
-    #extracted = Column(Integer, nullable=True) # 0 or 1
 
     retrieval_pipeline = Column(String, nullable=True) # string representing a List[Dict]
     exported = Column(Boolean, nullable=False, server_default=false())
@@ -259,11 +258,10 @@ class MainPipeline(Base):
     __tablename__ = "MainPipeline"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    project_id = Column(Integer, nullable=False)
+    project_id = Column(UUID(as_uuid=True), nullable=False, default=uuid4)
     router = Column(String, nullable=True)
     doc_pipelines = Column(String, nullable=True)
     reranker = Column(String, nullable=True)
-    generator = Column(String, nullable=True)
 
     user_id = Column(UUID(as_uuid=True), ForeignKey("user.id"), nullable=False)
 
@@ -277,6 +275,7 @@ class Settings(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     method_colors = Column(String, nullable=True)
     themes = Column(String, nullable=True)
+    generator = Column(String, nullable=True)
 
     user_id = Column(UUID(as_uuid=True), ForeignKey("user.id"), nullable=False)
 
@@ -312,7 +311,7 @@ class Paragraph(Base):
 
     paragraph_id = Column(Integer, primary_key=True)
     doc_id = Column(UUID(as_uuid=True), nullable=False, default=uuid4)
-    project_id = Column(Integer, nullable=False)
+    project_id = Column(UUID(as_uuid=True), nullable=False, default=uuid4)
 
     paragraph = Column(Text, nullable=True)
     paragraph_metadata = Column(Text, nullable=True) # example: {"section_id": 1, "embedding_chunk_id": 2}
@@ -329,7 +328,8 @@ class Paragraph(Base):
     ) -> T:
 
         # 1. Define which keys belong to "real" columns (not metadata)
-        paragraph_keys = ["paragraph_id", "paragraph", "user_id", "doc_id"]
+        paragraph_keys = ["paragraph_id", "paragraph", "user_id", "project_id", "doc_id"]
+        #metadata_keys = ["paragraph_metadata"]
 
         # 2. Split the incoming where_dict into:
         #    - paragraph_dict: filters for real columns
@@ -416,7 +416,7 @@ class Paragraph(Base):
             columns: list[str] | None = None,
     ):
 
-        PARAGRAPH_KEYS = {"paragraph_id", "paragraph", "user_id", "doc_id"}
+        PARAGRAPH_KEYS = {"paragraph_id", "paragraph", "user_id", "project_id", "doc_id"}
 
         if not columns:
             # This is wrong and should be replaced
@@ -478,7 +478,7 @@ class Retrieval(Base):
     __tablename__ = "Retrievals"
 
     retrieval_id = Column(Integer, primary_key=True) # retrieval_id
-    project_id = Column(Integer, nullable=False)
+    project_id = Column(UUID(as_uuid=True), nullable=False, default=uuid4)
     doc_id = Column(UUID(as_uuid=True), default=uuid4)
     level_id = Column(Integer, nullable=True)
     level = Column(String, nullable=True)
@@ -493,13 +493,11 @@ class Retrieval(Base):
 
 
 
-
-
 class Embedding(Base):
     __tablename__ = "Embeddings"
 
     embedding_id = Column(Integer, primary_key=True)  # retrieval_id
-    project_id = Column(Integer, nullable=False)
+    project_id = Column(UUID(as_uuid=True), nullable=False, default=uuid4)
     doc_id = Column(UUID(as_uuid=True), default=uuid4)
     retrieval_id = Column(Integer, nullable=True) # 1-to-1 relationship to pk
     level = Column(String, nullable=True)

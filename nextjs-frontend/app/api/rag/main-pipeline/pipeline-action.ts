@@ -38,7 +38,6 @@ export async function run(project_id: string, stage: string) {
 }
 
 export async function addGenerator(formData: FormData) {
-  const project_id = formData.get("project_id") as string;
   const pipeline = JSON.parse(
     formData.get("pipeline") as string
   ) as GeneratorSpec;
@@ -54,9 +53,6 @@ export async function addGenerator(formData: FormData) {
     headers: {
       Authorization: `Bearer ${token}`,
     },
-    path: {
-      project_id,
-    },
     body: pipeline,
   });
 
@@ -64,10 +60,13 @@ export async function addGenerator(formData: FormData) {
     throw result.error;
   }
 
-  revalidatePath(`/home/rag/${project_id}`);
+  revalidatePath(`/home/profile`);
 }
 
-export async function fetchGenerator(project_id: string): Promise<GeneratorSpec> {
+
+
+
+export async function fetchGenerator(): Promise<GeneratorSpec> {
   const cookieStore = await cookies();
   const token = cookieStore.get("accessToken")?.value;
 
@@ -79,9 +78,6 @@ export async function fetchGenerator(project_id: string): Promise<GeneratorSpec>
     headers: {
       Authorization: `Bearer ${token}`,
     },
-    path: {
-      project_id,
-    },
   });
 
   if (result.error) {
@@ -90,6 +86,10 @@ export async function fetchGenerator(project_id: string): Promise<GeneratorSpec>
 
   return result.data;
 }
+
+
+
+
 
 export async function addRetrievers(formData: FormData) {
   const project_id = formData.get("project_id") as string;

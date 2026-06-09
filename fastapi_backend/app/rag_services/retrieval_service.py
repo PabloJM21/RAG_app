@@ -16,12 +16,8 @@ from app.rag_apis.embed_api import EmbeddingOrchestrator
 
 
 
-# helpers for disc paths
-from app.rag_services.helpers import get_doc_paths, get_log_path, get_doc_title, get_user_api_keys, log_pipeline_methods, ExtractionError
-
-
-#embeddings
-from openai import OpenAI
+# External helpers
+from app.rag_services.helpers import load_doc_pipelines, load_pipeline, get_doc_paths, get_log_path, get_doc_title, get_user_api_keys, log_pipeline_methods, ExtractionError
 
 
 
@@ -32,7 +28,7 @@ from app.generate_markdown import export_logs
 # Database ops
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models import DocPipelines, MainPipeline, Paragraph, Retrieval, Embedding
+from app.models import ProjectData, SavedProjects, DocPipelines, MainPipeline, Paragraph, Retrieval, Embedding, Settings
 
 
 
@@ -104,8 +100,7 @@ class ChatGenerator:
       "output": "string"
     }}
 
-    The value of "output" must satisfy this instruction exactly:
-    {self.query_transformation_prompt}
+    The value of "output" must satisfy the instruction exactly.
 
     Rules:
     - Use the query as the source.
@@ -135,7 +130,7 @@ class ChatGenerator:
 
         return self.unwrap_answer(chat_output)
 
-    def _generate_content(self, query: str, retrieval_input_chunks: str) -> str:
+    def _generate_content(self, query: str, history: list[dict[str, Any]], retrieval_input_chunks: str) -> str:
         system_prompt = f"""
     You are an assistant that processes a user query together with retrieved text chunks.
 
@@ -144,8 +139,7 @@ class ChatGenerator:
       "output": "string"
     }}
 
-    The value of "output" must satisfy this instruction exactly:
-    {self.generator_prompt}
+    The value of "output" must satisfy the instructions exactly.
 
     Rules:
     - Use both the query and the provided chunks as the source.
@@ -173,15 +167,25 @@ class ChatGenerator:
     ---
     """.strip()
 
-        chat_output = self.chat_orchestrator.call(
-            label=self.generator_model,
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-        )
+        if history:
+
+            chat_output = self.chat_orchestrator.call_with_history(
+                label=self.generator_model,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                history=history,
+            )
+        else:
+
+            chat_output = self.chat_orchestrator.call(
+                label=self.generator_model,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+            )
 
         return self.unwrap_answer(chat_output)
 
-    async def run_generation(self, query: str, input_chunks: list[str]) -> str:
+    async def run_generation(self, query: str, history: list[dict[str, Any]], input_chunks: list[str]) -> str:
         await self.init_chat_client()
 
         if self.query_transformation_model:
@@ -191,7 +195,7 @@ class ChatGenerator:
 
         retrieval_input_chunks = "\n\n[NEW_CHUNK]\n\n".join(input_chunks)
 
-        output_answer = self._generate_content(query, retrieval_input_chunks)
+        output_answer = self._generate_content(query, history, retrieval_input_chunks)
 
         return output_answer
 
@@ -200,16 +204,11 @@ class ChatGenerator:
 
 
 
+# ====================================================================
+# ============================ RETRIEVERS ============================
+# ====================================================================
 
 
-
-
-
-# ---------------------------------------------
-
-# ---------------- RETRIEVERS --------------------
-
-# ---------------------------------------------
 
 def rows_to_columns(rows):
 
@@ -227,7 +226,7 @@ def rows_to_columns(rows):
 
 
 
-async def get_retrieval_content(db: AsyncSession, user_id: UUID, project_id: int, retrieval_ids: Iterable = ()):
+async def get_retrieval_content(db: AsyncSession, user_id: UUID, project_id: UUID, retrieval_ids: Iterable = ()):
     """
     Return a list of content strings for the given retrieval_ids.
     """
@@ -245,7 +244,7 @@ async def get_retrieval_content(db: AsyncSession, user_id: UUID, project_id: int
 
 
 
-async def get_level_position(db: AsyncSession, user_id: UUID, project_id: int, doc_id, level: str, retrieval_id):
+async def get_level_position(db: AsyncSession, user_id: UUID, project_id: UUID, doc_id, level: str, retrieval_id):
     where = {"user_id": user_id, "project_id": project_id, "doc_id": doc_id, "level": level}
 
     retrieval_rows, columns = await Retrieval.get_all(
@@ -267,7 +266,7 @@ async def get_level_position(db: AsyncSession, user_id: UUID, project_id: int, d
 
 
 
-async def get_chunk_metadata(db: AsyncSession, user_id: UUID, project_id: int, retrieval_ids: Iterable = ()):
+async def get_chunk_metadata(db: AsyncSession, user_id: UUID, project_id: UUID, retrieval_ids: Iterable = ()):
 
     where = {"user_id": user_id, "project_id": project_id, "retrieval_id": retrieval_ids}
 
@@ -300,7 +299,7 @@ class BaseRetriever:
         db: AsyncSession,
         logger: InfoLogger,
         user_id: UUID,
-        project_id: int,
+        project_id: UUID,
         level: str,
         retrieval_amount,
         query_transformation_model: str,
@@ -478,10 +477,6 @@ class BaseRetriever:
 
         return rows_to_columns(retrieval_rows)
             
-                
-            
-            
-        
 
 
 
@@ -496,8 +491,7 @@ class BaseRetriever:
           "output": "string"
         }}
 
-        The value of "output" must satisfy this instruction exactly:
-        {self.query_transformation_prompt}
+        The value of "output" must satisfy the instruction exactly.
 
         Rules:
         - Use the chunk content as the source.
@@ -599,7 +593,7 @@ class ReasonerRetriever(BaseRetriever):
     To create an instance of the class, provide the level at which the retrieval will take place
     """
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, project_id: int, level: str, retrieval_amount: int, reasoner_model: str, query_transformation_model: str, query_transformation_prompt: Optional[str] = "A new version of this query in the same language, suited for chunk retrieval with LLMs", doc_id: Optional[UUID] = None):
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, project_id: UUID, level: str, retrieval_amount: int, reasoner_model: str, query_transformation_model: str, query_transformation_prompt: Optional[str] = "A new version of this query in the same language, suited for chunk retrieval with LLMs", doc_id: Optional[UUID] = None):
 
         super().__init__(db=db, logger=logger, user_id=user_id, project_id=project_id, doc_id=doc_id, level=level, retrieval_amount=retrieval_amount, query_transformation_model=query_transformation_model, query_transformation_prompt=query_transformation_prompt)
 
@@ -645,13 +639,6 @@ class ReasonerRetriever(BaseRetriever):
             if isinstance(item, str) and item.strip():
                 output_ids.append(item.strip())
 
-        """
-        if not output_ids:
-            raise ExtractionError(
-                f"'retrieval_ids' list is empty or invalid: {retrieval_ids}",
-                status_code=422,
-            )
-        """
 
         return output_ids
 
@@ -746,7 +733,7 @@ class EmbeddingRetriever(BaseRetriever):
     Provides two methods: generate_embeddings, similarity_search
     """
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, project_id: int, level: str, retrieval_amount: int, embedding_model: str, query_transformation_model: str, query_transformation_prompt: Optional[str] = "A new version of this query in the same language, suited for chunk retrieval with LLMs", doc_id: Optional[UUID] = None):
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, project_id: UUID, level: str, retrieval_amount: int, embedding_model: str, query_transformation_model: str, query_transformation_prompt: Optional[str] = "A new version of this query in the same language, suited for chunk retrieval with LLMs", doc_id: Optional[UUID] = None):
 
         super().__init__(db=db, logger=logger, user_id=user_id, project_id=project_id, doc_id=doc_id, level=level, retrieval_amount=retrieval_amount, query_transformation_model=query_transformation_model, query_transformation_prompt=query_transformation_prompt)  # modern Python 3 style, no super(EmbeddingRetriever, self)
 
@@ -910,7 +897,7 @@ from collections import Counter, defaultdict
 
 class BM25Retriever(BaseRetriever):
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, project_id: int, level: str, retrieval_amount: int, query_transformation_model: str, query_transformation_prompt: str, doc_id: UUID, k1: str, b: str):
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, project_id: UUID, level: str, retrieval_amount: int, query_transformation_model: str, query_transformation_prompt: str, doc_id: UUID, k1: str, b: str):
 
         super().__init__(db=db, logger=logger, user_id=user_id, doc_id=doc_id, project_id=project_id, level=level, retrieval_amount=retrieval_amount, query_transformation_model=query_transformation_model, query_transformation_prompt=query_transformation_prompt)
 
@@ -1001,6 +988,257 @@ class BM25Retriever(BaseRetriever):
 
 
 
+# ====================================================================
+# ============================ Evaluator ============================
+# ====================================================================
+
+
+
+class Evaluator:
+    
+    """"
+    Provides final answer based on answer_dict and input query
+    """
+
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, reasoner_model: str, query_transformation_model: str, query_transformation_prompt: str):
+
+
+        self.reasoner_model = reasoner_model
+        self.db = db
+        self.logger = logger
+        self.user_id = user_id
+
+        self.transformation_model = query_transformation_model
+        self.query_transformation_prompt = query_transformation_prompt
+
+        self.chat_orchestrator: Optional[ChatOrchestrator] = None
+
+
+
+    @staticmethod
+    def unwrap_answer(chat_output: str) -> Any:
+        if not isinstance(chat_output, str):
+            raise ExtractionError("Invalid response type (expected string)", status_code=422)
+
+        try:
+            data = json.loads(chat_output)
+        except json.JSONDecodeError:
+            raise ExtractionError("Response is not valid JSON", status_code=422)
+
+        if not isinstance(data, dict):
+            raise ExtractionError("Response JSON is not an object", status_code=422)
+
+        output = data.get("output")
+        if isinstance(output, str):
+            return output.strip()
+
+        raise ExtractionError("No valid 'output' field found in response", status_code=422)
+
+
+
+    async def process_query(self, query: str) -> str:
+        # Qwen3-Coder is explicitly an instruction-tuned coder model, so its usage profile lines up with OpenAIs mini line
+
+        system_prompt = f"""
+            You are an assistant that processes text chunks.
+
+            Return ONLY valid JSON with exactly this structure:
+            {{
+              "output": "string"
+            }}
+
+            The value of "output" must satisfy this instruction exactly:
+            {self.query_transformation_prompt}
+
+            Rules:
+            - Use the chunk content as the source.
+            - Do not repeat the instruction text.
+            - Do not return a schema.
+            - Do not return keys other than "output".
+            - Do not use markdown code fences.
+            - If the chunk does not contain enough meaningful information to satisfy the instruction, return:
+              {{"output": ""}}
+            """.strip()
+
+        user_prompt = f"""
+            Apply this instruction to the query below:
+            {self.query_transformation_prompt}
+
+            Query:
+            ---
+            {query}
+            ---
+            """.strip()
+
+        chat_output = self.chat_orchestrator.call(
+            label=self.transformation_model,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+        )
+
+        return self.unwrap_answer(chat_output)
+
+
+
+
+    async def init_chat_client(self):
+
+        user_key_list = await get_user_api_keys(user_id=self.user_id, base_api="https://chat-ai.academiccloud.de/v1", db=self.db)
+
+        self.chat_orchestrator = ChatOrchestrator(user_key_list=user_key_list,  base_api="https://chat-ai.academiccloud.de/v1")
+
+
+    @staticmethod
+    def unwrap_scores(chat_output) -> List[str]:
+        """
+        Accept only a real JSON object with an actual scores field.
+        """
+
+        if not isinstance(chat_output, str):
+            raise ExtractionError(
+                f"Invalid response type (expected string): {type(chat_output)}",
+                status_code=422,
+            )
+
+        try:
+            data = json.loads(chat_output)
+        except json.JSONDecodeError:
+            raise ExtractionError(
+                f"Response is not valid JSON: {chat_output[:200]}",
+                status_code=422,
+            )
+
+        if not isinstance(data, dict):
+            raise ExtractionError(
+                "Response JSON is not an object",
+                status_code=422,
+            )
+
+        scores = data.get("scores")
+
+        if not isinstance(scores, list):
+            raise ExtractionError(
+                "No valid 'scores' field found (expected list)",
+                status_code=422,
+            )
+
+        output_scores = []
+        for item in scores:
+            try:
+                output_scores.append(round(float(item), 2))
+            except (TypeError, ValueError):
+                pass
+
+
+        return output_scores
+
+
+
+    async def _retrieve_scores(self, query: str, answer_input_chunks: str) -> List[str]:
+
+        system_prompt = f"""
+        You are an assistant that scores chunks for a query.
+
+        Return ONLY valid JSON with exactly this structure:
+        {{
+          "scores": ["float"]
+        }}
+
+        Rules:
+        - Use the query and the provided chunks as the source.
+        - Each item in "scores" must correspond to a chunk from the provided input and follow the same order.
+        - Do not return a schema.
+        - Do not return keys other than "scores".
+        - Do not use markdown code fences.
+        """.strip()
+
+        user_prompt = f"""
+        Assign scores to the chunks provided for the query below. Each score should be a float in the range 0-10
+
+        QUERY:
+        ---
+        {query}
+        ---
+
+        CHUNKS:
+        ---
+        {answer_input_chunks}
+        ---
+        """.strip()
+
+        # chat orchestrator already instanced by BaseRetriever
+        chat_output = self.chat_orchestrator.call(
+            label=self.reasoner_model,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+        )
+
+        scores = self.unwrap_scores(chat_output)
+
+        return scores
+
+    async def evaluate_answers(self, query: str, answer_dict: dict, metadata_dict: dict, time_list: list[float]):
+
+        # first of all instance chat orchestrator
+        await self.init_chat_client()
+
+        input_query = query
+        # first process query if required
+        if self.transformation_model:
+
+
+            query = await self.process_query(query)
+
+
+            #self.logger.log_step(task="table", layer=1, log_text="Query transformed successfully: ", table_data={"Input Query":input_query , "Output Query": query})
+
+
+        # ==================== Calling Evaluator=================
+        answer_input_chunks = ""
+        i = 1
+        project_ids = []
+        for project_id, content in answer_dict.items():
+            project_ids.append(project_id)
+            answer_input_chunks += f"Chunk {i}\n{content}\n\n"
+            i += 1
+
+        scores = await self._retrieve_scores(query, answer_input_chunks)
+
+        # =======================================================
+
+
+        if not (len(scores) == len(project_ids)):
+            #self.logger.log_step(task="info_text", layer=2, log_text=f"Evaluator returned incomplete scores!")
+            raise ExtractionError(
+                "Evaluator returned incomplete 'scores'",
+                status_code=422,
+            )
+
+
+        sorted_indices = sorted(range(len(scores)), key=lambda x: scores[x], reverse=True)
+
+        scores = [scores[i] for i in sorted_indices]
+        time_list = [time_list[i] for i in sorted_indices]
+        answer_list = [answer_dict[project_ids[i]] for i in sorted_indices]
+        meta_list = [metadata_dict[project_ids[i]] for i in sorted_indices]
+        project_numbers = [i + 1 for i in sorted_indices]
+
+
+        table_data = {
+            "Project": project_numbers,
+            "Answer": answer_list,
+            "Score": scores,
+            "Time": time_list,
+            "Sources": meta_list,
+        }
+
+        self.logger.log_step(task="table", layer=2, log_text=f"Ranking of answers to query: {input_query}",
+                                table_data=table_data)
+
+
+        return project_ids[0], table_data
+
+
 
 
 # ============================================================
@@ -1009,8 +1247,7 @@ class BM25Retriever(BaseRetriever):
 
 
 
-
-
+# helpers
 
 TYPE_MAPPER = {
     "ReasonerRetriever": ReasonerRetriever,
@@ -1018,25 +1255,6 @@ TYPE_MAPPER = {
     "BM25Retriever": BM25Retriever,
     "Generator": ChatGenerator,
 }
-
-def method_not_empty(input_method: Dict[str, Any]):
-    if not input_method:
-        return False
-
-    if "level" not in input_method:
-        return False
-
-    if not input_method["level"]:
-        return False
-    return True
-
-
-
-def pipeline_not_empty(input_pipeline: list[dict[str, Any]]):
-    for input_method in input_pipeline:
-        if not method_not_empty(input_method):
-            return False
-    return True
 
 def generator_not_empty(input_method: Dict[str, Any]):
     if not input_method:
@@ -1047,16 +1265,200 @@ def generator_not_empty(input_method: Dict[str, Any]):
 
     if not input_method["generator_model"]:
         return False
+
+    if "generator_prompt" not in input_method:
+        return False
+
+    if not input_method["generator_model"]:
+        return False
+
     return True
 
 
 
-async def run_retrieval(query: str, retrieval_dict: Dict[str, Any], user_id: UUID, project_id: int, db: AsyncSession):
+def reranker_or_evaluator_not_empty(input_method: Dict[str, Any]):
+    if not input_method:
+        return False
 
+    # Check for a key containing "model" with a non-empty value
+    has_model = any(
+        "model" in key.lower() and value
+        for key, value in input_method.items()
+    )
+
+    if not has_model:
+        return False
+
+    return True
+
+
+
+def retriever_not_empty(input_method: Dict[str, Any]):
+    if not input_method:
+        return False
+
+    if "level" not in input_method:
+        return False
+
+    if not input_method["level"]:
+        return False
+
+    # Check for a key containing "model" with a non-empty value
+    has_model = any(
+        "model" in key.lower() and value
+        for key, value in input_method.items()
+    )
+
+    if not has_model:
+        return False
+
+    return True
+
+
+
+def retrieval_pipeline_not_empty(input_pipeline: list[dict[str, Any]]):
+    for input_method in input_pipeline:
+        if not retriever_not_empty(input_method):
+            return False
+    return True
+
+
+# retrieval logic
+
+
+async def run_retrieval(db, user_id, query, history):
 
     log_path = await get_log_path(user_id, stage="retrieval")
     session_logger = InfoLogger(log_path=log_path, stage="retrieval")
 
+    info_row = await ProjectData.get_row(where_dict={"user_id": user_id}, db=db)
+
+    evaluator_method = load_pipeline(info_row.evaluator)
+    if evaluator_method and reranker_or_evaluator_not_empty(evaluator_method):
+        # log
+
+        rows, _ = await SavedProjects.get_all(columns=["project_id", "name"],
+                                              where_dict={"kind": "saved", "user_id": user_id},
+                                              db=db)
+
+        answer_dict = {}
+        metadata_dict = {}
+
+        time_list = []
+        p_count = 0
+        for row in rows:
+            p_count += 1
+
+            #session_logger.log_step(task="header_2", layer=1, log_text=f"Project {p_count}")
+
+            start = time.time()
+            project_id = row["project_id"]
+
+            output = await get_retrieval_output(db, user_id, project_id, session_logger, query, history)
+            end = time.time()
+
+            if output:
+                output_answer, metadata = output
+                answer_dict[project_id] = output_answer
+                metadata_dict[project_id] = metadata
+
+                time_list.append(round(end - start, 2))
+
+                #session_logger.log_step(task="header_3", layer=2, log_text="Sources")
+                #session_logger.log_step(task="table", layer=2, table_data=metadata)
+
+
+        if not answer_dict:
+            return None
+
+        # run evaluation
+        evaluator_method.pop("color", None)
+        evaluator_method.update({"logger": session_logger, "user_id": user_id, "db": db})
+        evaluator_instance = Evaluator(**evaluator_method)
+
+        #session_logger.log_step(task="header_1", layer=2, log_text=f"Evaluation")
+        selected_id, dashboard_data = await evaluator_instance.evaluate_answers(query, answer_dict, metadata_dict, time_list)
+
+
+
+        # Log final output
+        output_answer, metadata = answer_dict[selected_id], metadata_dict[selected_id]
+
+
+
+
+        # Finally we export the logs to md
+        await export_logs(log_path)
+        
+
+        return output_answer, metadata["Chunk"]
+
+    else:
+        project_id = info_row.current_id
+
+        output = await get_retrieval_output(db, user_id, project_id, session_logger, query, history)
+
+        if output:
+            output_answer, metadata = output
+
+            session_logger.log_step(task="table", layer=2, log_text="Sources: ", table_data=metadata)
+
+            await export_logs(log_path)
+
+            return output_answer, metadata["Chunk"]
+
+
+        # Finally we export the logs to md
+        await export_logs(log_path)
+
+        return None
+
+
+
+
+from sqlalchemy import select
+
+async def get_retrieval_output(db, user_id, project_id, session_logger, query, history):
+    #session_logger.log_step(task="info_text", layer=2, log_text=f"Requesting project_id {project_id}")
+
+
+    main_pipeline = await MainPipeline.get_row(where_dict={"user_id": user_id, "project_id": project_id}, db=db)
+    #session_logger.log_step(task="info_text", layer=2, log_text=f"Requesting doc_pipelines {main_pipeline.doc_pipelines}")
+    router, reranker, doc_pipelines = None, None, None
+    if main_pipeline:
+        router, reranker, doc_pipelines = main_pipeline.router, main_pipeline.reranker, main_pipeline.doc_pipelines
+
+
+    settings = await Settings.get_row(where_dict={"user_id": user_id}, db=db)
+    generator = None
+    if settings:
+        generator = settings.generator
+
+
+
+    retrieval_dict = load_doc_pipelines(doc_pipelines)
+
+    retrieval_dict.update({
+        "router": load_pipeline(router),
+        "reranker": load_pipeline(reranker),
+        "generator": load_pipeline(generator),
+    })
+
+    output = await run_project_retrieval(
+        session_logger=session_logger,
+        query=query,
+        history=history,
+        retrieval_dict=retrieval_dict,
+        user_id=user_id,
+        project_id=project_id,
+        db=db,
+    )
+
+    return output
+
+
+
+async def run_project_retrieval(session_logger, query: str, history: List[Dict[str, Any]], retrieval_dict: Dict[str, Any], user_id: UUID, project_id: UUID, db: AsyncSession):
 
     # init main pipeline methods
     generator_method = retrieval_dict.pop("generator")
@@ -1070,34 +1472,28 @@ async def run_retrieval(query: str, retrieval_dict: Dict[str, Any], user_id: UUI
     reranker_method.pop("color", None)
 
 
-    # Logg Retrieval Start
-    session_logger.log_step(task="header_1", layer=2, log_text="Starting Retrieval")
-
-    # --- RERANKING -----
-
+    doc_pipeline_data = []
 
     # with router
-    if router_method and method_not_empty(router_method):
+    if router_method and retriever_not_empty(router_method):
         # log
 
-        session_logger.log_step(task="header_2", layer=2, log_text=f"Starting Router")
-        session_logger.log_step(task="table", layer=2, log_text=f"Method description ", table_data=router_method)
+        #session_logger.log_step(task="header_3", layer=2, log_text=f"Starting Router")
+        #session_logger.log_step(task="table", layer=2, log_text=f"Method description ", table_data=router_method)
 
         router_type = router_method.pop("type")
         router_method.update({"logger": session_logger, "user_id": user_id, "project_id": project_id, "db": db})
         router_instance = TYPE_MAPPER[router_type](**router_method)
 
-
+        start = time.time()
         router_dict = await router_instance.run_retrieval(query=query)
+        end = time.time()
+
+        session_logger.log_step(task="header_3", layer=1, log_text=f"Document routing")
+        session_logger.log_step(task="table", layer=1, table_data={"Method": router_type, "Target level": router_method["level"], "Retrieval amount": len(router_dict["doc_id"]), "Time": round(end - start, 2)})
 
         if not router_dict:
             return None
-
-        # logg chunks
-        #session_logger.log_step(task="table", layer=1, table_data={"Retrieved chunks": router_dict["content"]})
-
-
-
 
         # ========== Logg ==============
         # get doc_ids of the retrieved chunks and their doc titles for logging
@@ -1111,11 +1507,12 @@ async def run_retrieval(query: str, retrieval_dict: Dict[str, Any], user_id: UUI
             table_data["Chunk"].append(chunk)
             table_data["Document"].append(doc_title_dict[doc_id])
 
-        session_logger.log_step(task="table", layer=2, log_text="Retrieved Chunks: ", table_data=table_data)
+        #session_logger.log_step(task="table", layer=2, log_text="Retrieved Chunks: ", table_data=table_data)
 
 
 
         # ========== Doc Pipelines ==============
+
 
         input_ids = router_dict["retrieval_id"]
 
@@ -1125,42 +1522,55 @@ async def run_retrieval(query: str, retrieval_dict: Dict[str, Any], user_id: UUI
             output_ids = []
             for doc_id in doc_ids:
 
+
                 # log start of document retrieval
-                session_logger.log_step(task="header_2", layer=2, log_text=f"Processing Document: {doc_title_dict[doc_id]}")
+                #session_logger.log_step(task="header_3", layer=2, log_text=f"Processing Document: {doc_title_dict[doc_id]}")
 
 
                 # get pipeline if it was exported for this doc_id, otherwise []
                 doc_pipeline = retrieval_dict[doc_id] if doc_id in retrieval_dict else []
+                pipeline_str = ", ".join([method["type"] for method in doc_pipeline])
 
-                if doc_pipeline:
-                    session_logger.log_step(task="info_text", layer=2, log_text=f"Found Document Pipeline")
-                    session_logger.log_step(task="header_2", layer=2, log_text=f"Starting Document Pipeline")
-                    log_pipeline_methods(logger=session_logger, input_pipeline=doc_pipeline)
+                #if doc_pipeline:
+                    #session_logger.log_step(task="info_text", layer=2, log_text=f"Found Document Pipeline")
+                    #session_logger.log_step(task="header_3", layer=2, log_text=f"Starting Document Pipeline")
+                    #log_pipeline_methods(logger=session_logger, input_pipeline=doc_pipeline)
 
-                else:
-                    session_logger.log_step(task="info_text", layer=2, log_text=f"Document Pipeline not found")
+                #else:
+                    #session_logger.log_step(task="info_text", layer=2, log_text=f"Document Pipeline not found")
 
                 # run pipeline
+
+                start = time.time()
                 filter_ids = await run_document_pipeline(query=query, input_ids=input_ids, input_pipeline=doc_pipeline,
                                                          logger=session_logger, user_id=user_id, project_id=project_id, doc_id=doc_id, db=db)
+                end = time.time()
+
+                #if doc_pipeline:
+                doc_pipeline_data.append({"Document": doc_title_dict[doc_id],
+                                             "Pipeline": pipeline_str,
+                                             "Target level": doc_pipeline[-1]["level"],
+                                             "Retrieval amount": len(filter_ids),
+                                             "Time": round(end - start, 2)})
+
                 # update output_ids
                 if filter_ids:
                     output_ids += filter_ids
 
-                if doc_pipeline:
-                    session_logger.log_step(task="info_text", layer=2, log_text=f"Finishing Document Pipeline")
+                #if doc_pipeline:
+                    #session_logger.log_step(task="info_text", layer=2, log_text=f"Finishing Document Pipeline")
 
-                session_logger.log_step(task="info_text", layer=2, log_text=f"Finishing processing Document")
+                #session_logger.log_step(task="info_text", layer=2, log_text=f"Finishing processing Document")
 
 
         # if no document pipelines are found, use IDs provided by router
         else:
             output_ids = input_ids
-            session_logger.log_step(task="header_2", layer=2, log_text=f"Processing Documents")
-            title_text = ", ".join(doc_title_dict.values())
-            session_logger.log_step(task="info_text", layer=2, log_text=f"These documents are: {title_text}")
-            session_logger.log_step(task="info_text", layer=2, log_text=f"\nNo Document Pipelines found for any Document")
-            session_logger.log_step(task="info_text", layer=2, log_text=f"Finishing processing Document")
+            #session_logger.log_step(task="header_3", layer=2, log_text=f"Processing Documents")
+            #title_text = ", ".join(doc_title_dict.values())
+            #session_logger.log_step(task="info_text", layer=2, log_text=f"These documents are: {title_text}")
+            #session_logger.log_step(task="info_text", layer=2, log_text=f"\nNo Document Pipelines found for any Document")
+            #session_logger.log_step(task="info_text", layer=2, log_text=f"Finishing processing Document")
 
 
 
@@ -1170,20 +1580,29 @@ async def run_retrieval(query: str, retrieval_dict: Dict[str, Any], user_id: UUI
         output_ids = []
         # run all exported pipelines with no input IDs
         for doc_id, doc_pipeline in retrieval_dict.items():
+            pipeline_str = ", ".join([method["type"] for method in doc_pipeline])
 
             # log start of document retrieval
             doc_title = await get_doc_title(user_id, project_id, doc_id, db=db)
 
-            session_logger.log_step(task="header_2", layer=2, log_text=f"Starting Document Pipeline for Document: {doc_title}")
+            #session_logger.log_step(task="header_3", layer=2, log_text=f"Starting Document Pipeline for Document: {doc_title}")
             log_pipeline_methods(logger=session_logger, input_pipeline=doc_pipeline)
 
+            start = time.time()
             filter_ids = await run_document_pipeline(query=query, input_ids=[], input_pipeline=doc_pipeline,
                                                          logger=session_logger, user_id=user_id, project_id=project_id, doc_id=doc_id, db=db)
+            end = time.time()
+
+            doc_pipeline_data.append({"Document": doc_title,
+                                      "Pipeline": pipeline_str,
+                                      "Target level": doc_pipeline[-1]["level"],
+                                      "Retrieval amount": len(filter_ids),
+                                      "Time": round(end - start, 2)})
 
             if filter_ids:
                 output_ids += filter_ids
 
-            session_logger.log_step(task="info_text", layer=2, log_text=f"Finishing Document Pipeline")
+            #session_logger.log_step(task="info_text", layer=2, log_text=f"Finishing Document Pipeline")
 
 
 
@@ -1192,13 +1611,18 @@ async def run_retrieval(query: str, retrieval_dict: Dict[str, Any], user_id: UUI
     else:
         output_ids = []
 
+
+    # ---- Log --------
+
+    session_logger.log_step(task="header_3", layer=1, log_text=f"Document retrieval")
+    session_logger.log_step(task="table", layer=1, table_data=rows_to_columns(doc_pipeline_data))
+
     # --- RERANKING -----
 
 
-
-    if reranker_method and method_not_empty(reranker_method):
-        session_logger.log_step(task="header_2", layer=2, log_text=f"Starting Master Reranker")
-        session_logger.log_step(task="table", layer=2, log_text=f"Method description: ", table_data=reranker_method)
+    if reranker_method and reranker_or_evaluator_not_empty(reranker_method):
+        #session_logger.log_step(task="header_3", layer=2, log_text=f"Starting Master Reranker")
+        #session_logger.log_step(task="table", layer=2, log_text=f"Method description: ", table_data=reranker_method)
 
 
         reranker_type = reranker_method.pop("type")
@@ -1209,46 +1633,26 @@ async def run_retrieval(query: str, retrieval_dict: Dict[str, Any], user_id: UUI
         if not reranker_dict:
             return None
 
-        # logg chunks
-        #session_logger.log_step(task="table", layer=1, table_data={"Chunks after reranking": reranker_dict["content"]})
-
         output_ids = reranker_dict["retrieval_id"]
 
 
     # --- GENERATION -----
 
-    session_logger.log_step(task="header_2", layer=2, log_text=f"Starting Generator")
-    session_logger.log_step(task="table", layer=2, log_text=f"Method description: ", table_data=generator_method)
+    #session_logger.log_step(task="header_3", layer=2, log_text=f"Starting Generator")
+    #session_logger.log_step(task="table", layer=2, log_text=f"Method description: ", table_data=generator_method)
 
 
     metadata= await get_chunk_metadata(db, user_id, project_id, output_ids)
 
-
-    #session_logger.log_step(task="table", layer=2, log_text="Following chunks will be used: ", table_data={"Sources": chunk_list})
-
     # pass chunks and query to generator
     generator_type = generator_method.pop("type")
-    generator_method.update({"logger": session_logger, "user_id": user_id, "project_id": project_id, "db": db})
+    generator_method.update({"logger": session_logger, "user_id": user_id, "db": db}) # "project_id": project_id
     generator_instance = TYPE_MAPPER[generator_type](**generator_method)
 
     session_logger.log_step(task="info_text", layer=1, log_text=f"Starting generator call")
-    output_answer = await generator_instance.run_generation(query=query, input_chunks=metadata["Chunk"])
-    #session_logger.log_step(task="info_text", layer=1, log_text=f"Finishing generator call. Output answer:\n{output_answer}")
+    output_answer = await generator_instance.run_generation(query=query, history=history, input_chunks=metadata["Chunk"])
 
-    session_logger.log_step(task="header_2", layer=2, log_text=f"Final Results")
-
-
-    session_logger.log_step(task="table", layer=2, log_text="Generation concluded successfully obtaining following output: ", table_data={"Query": query, "Output": output_answer})
-
-    session_logger.log_step(task="table", layer=2, log_text="Sources: ", table_data=metadata)
-
-
-    # Finally we export the logs to md
-    await export_logs(log_path)
-
-
-
-    return output_answer, metadata["Chunk"]
+    return output_answer, metadata
 
 
 
@@ -1264,7 +1668,7 @@ async def run_document_pipeline(query, input_ids, input_pipeline, logger, user_i
 
             method_type = method.pop("type")
 
-            logger.log_step(task="header_3", layer=2, log_text=f"Starting {method["level"]} retrieval with {method_type}")
+            logger.log_step(task="info_text", layer=2, log_text=f"**Starting {method["level"]} retrieval with {method_type}**")
 
             logger.log_step(task="table", layer=1, log_text=f"Method description: ", table_data=method)
 
@@ -1314,13 +1718,13 @@ EMBEDDING_TYPE_MAPPER = {
     "EmbeddingRetriever": EmbeddingRetriever,
 }
 
-async def run_embeddings(method_list: list[dict[str, Any]], user_id: UUID, project_id: int, doc_id: UUID, db: AsyncSession):
+async def run_embeddings(method_list: list[dict[str, Any]], user_id: UUID, project_id: UUID, doc_id: UUID, db: AsyncSession):
     log_path = await get_log_path(user_id, stage="retrieval")
     session_logger = InfoLogger(log_path=log_path, stage="retrieval")
 
     # logg
     doc_title = await get_doc_title(user_id, project_id, doc_id, db=db)
-    session_logger.log_step(task="header_1", layer=2, log_text=f"Generating Embeddings for document: {doc_title}")
+    session_logger.log_step(task="header_1", layer=2, log_text=f"Generating Embeddings in project {project_id} for document: {doc_title}")
     log_pipeline_methods(session_logger, method_list)
 
     for method in method_list:
@@ -1346,7 +1750,7 @@ async def run_embeddings(method_list: list[dict[str, Any]], user_id: UUID, proje
 
 async def run_doc_embeddings(retrieval_pipeline, user_id, project_id, doc_id, db: AsyncSession):
 
-    if not pipeline_not_empty(retrieval_pipeline):
+    if not retrieval_pipeline_not_empty(retrieval_pipeline):
         return False
 
 

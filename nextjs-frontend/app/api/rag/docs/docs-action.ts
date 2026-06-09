@@ -74,6 +74,10 @@ export async function removeDoc(formData: FormData) {
   redirect(`/home/rag/${project_id}`);
 }
 
+
+
+
+
 export async function addDoc(prevState: {}, formData: FormData) {
   const cookieStore = await cookies();
   const token = cookieStore.get("accessToken")?.value;
@@ -117,6 +121,10 @@ export async function addDoc(prevState: {}, formData: FormData) {
 
   return { doc_id };
 }
+
+
+
+
 
 export async function uploadDoc(
   project_id: string,

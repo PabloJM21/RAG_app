@@ -549,7 +549,7 @@ async def run_processing(image_dict, table_dict, md_path, user_id: UUID, db: Asy
 
 
 
-async def run_conversion(converter_dict: Dict[str, Any], user_id: UUID, project_id: int, doc_id: UUID, db: AsyncSession):
+async def run_conversion(converter_dict: Dict[str, Any], user_id: UUID, project_id: UUID, doc_id: UUID, db: AsyncSession):
 
     input_path, output_path = await get_doc_paths(user_id, project_id, doc_id, db=db)
     log_path = await get_log_path(user_id, stage="conversion")
@@ -685,20 +685,22 @@ class ItemEnricher:
 
     def _call_orchestrator(self, system_prompt, user_prompt):
         if self.do_history:
-            output_dict = json.loads(
-                self.chat_orchestrator.call_with_history(label=self.model, system_prompt=system_prompt,
-                                                         user_prompt=user_prompt, history=self.history))
+            chat_output = self.chat_orchestrator.call_with_history(label=self.model, system_prompt=system_prompt,
+                                                         user_prompt=user_prompt, history=self.history)
+
+            output_string = self.unwrap_answer(chat_output)
 
             # update history list with user and assistant input of the new call
             self.history += [{"role": "user", "content": user_prompt},
-                             {"role": "assistant", "content": output_dict["Output"]}]
+                             {"role": "assistant", "content": output_string}]
 
         else:
-            output_dict = json.loads(
-                self.chat_orchestrator.call(label=self.model, system_prompt=system_prompt,
-                                            user_prompt=user_prompt))
+            chat_output = self.chat_orchestrator.call(label=self.model, system_prompt=system_prompt,
+                                            user_prompt=user_prompt)
 
-        return self.unwrap_answer(output_dict)
+            output_string = self.unwrap_answer(chat_output)
+
+        return output_string
 
     def _enrich_chunk(self, chunk: str) -> str:
         # Qwen3-Coder is explicitly an instruction-tuned coder model, so its usage profile lines up with OpenAIs mini line
@@ -1114,7 +1116,7 @@ async def run_md_processing(pipeline: list[dict[str, Any]], user_id: UUID, doc_i
 
 class BaseChunker:
     
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, project_id: int, doc_id: UUID, level_name: str, doc_title: str, with_title: bool):
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, project_id: UUID, doc_id: UUID, level_name: str, doc_title: str, with_title: bool):
 
 
         self.db = db
@@ -1253,7 +1255,7 @@ class ParagraphChunker(BaseChunker):
 
     """
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, project_id: int, doc_id: UUID, level_name: str, doc_title: str,
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, project_id: UUID, doc_id: UUID, level_name: str, doc_title: str,
                  with_title: bool, separator: str = "##", tokenizer_model: str = "", max_tokens: int = 0):
 
         super().__init__(db=db, logger=logger, user_id=user_id, project_id=project_id, doc_id=doc_id, level_name=level_name, with_title=with_title, doc_title=doc_title)
@@ -1361,7 +1363,7 @@ class SlidingChunker(BaseChunker):
     tokenizer_model is mandatory
     """
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, project_id: int, doc_id: UUID, level_name: str, doc_title: str,
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, project_id: UUID, doc_id: UUID, level_name: str, doc_title: str,
                  with_title: bool, tokenizer_model: str = "", max_tokens: int = 0, overlap_tokens: int = 0):
 
         super().__init__(db=db, logger=logger, user_id=user_id, project_id=project_id, doc_id=doc_id, level_name=level_name, with_title=with_title, doc_title=doc_title)
@@ -1424,7 +1426,7 @@ class DoclingChunker(BaseChunker):
 
     """
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, project_id: int, doc_id: UUID, level_name: str, doc_title: str, with_title: bool):
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, project_id: UUID, doc_id: UUID, level_name: str, doc_title: str, with_title: bool):
 
         super().__init__(db=db, logger=logger, user_id=user_id, project_id=project_id, doc_id=doc_id, level_name=level_name, with_title=with_title, doc_title=doc_title)
 
@@ -1479,7 +1481,7 @@ class DoclingChunker(BaseChunker):
 
 class HierarchicalDoclingChunker(DoclingChunker):
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, project_id: int, doc_id: UUID, level_name: str, doc_title: str,
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, project_id: UUID, doc_id: UUID, level_name: str, doc_title: str,
         with_title: bool, max_tokens: int, min_tokens, overlap, merge_across_blocks):
         super().__init__(db=db, logger=logger, user_id=user_id, project_id=project_id, doc_id=doc_id, level_name=level_name, with_title=with_title, doc_title=doc_title)
 
@@ -1508,7 +1510,7 @@ class HierarchicalDoclingChunker(DoclingChunker):
 
 class HybridDoclingChunker(DoclingChunker):
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, project_id: int, doc_id: UUID, level_name: str, doc_title: str,
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, project_id: UUID, doc_id: UUID, level_name: str, doc_title: str,
         with_title: bool, tokenizer_model: str = "", max_tokens: int = 0):
 
         super().__init__(db=db, logger=logger, user_id=user_id, project_id=project_id, doc_id=doc_id, level_name=level_name, with_title=with_title, doc_title=doc_title)
@@ -1536,7 +1538,7 @@ class HybridDoclingChunker(DoclingChunker):
 
 
 
-async def run_chunking(pipeline: list[dict[str, Any]], user_id: UUID, project_id: int, doc_id: UUID, db: AsyncSession):
+async def run_chunking(pipeline: list[dict[str, Any]], user_id: UUID, project_id: UUID, doc_id: UUID, db: AsyncSession):
     _, input_path = await get_doc_paths(user_id, project_id, doc_id, db=db)
 
 
@@ -1603,7 +1605,7 @@ async def get_doc_chunk(input_path, user_id, project_id, doc_id, db, doc_title):
 
 
     # This dict will contain all metadata for the final insert in the "Paragraphs" table
-    first_array = [{"paragraph": md_text, "user_id": user_id, "doc_id": doc_id, "document_id": 1}]
+    first_array = [{"paragraph": md_text, "user_id": user_id, "project_id": project_id, "doc_id": doc_id, "document_id": 1}]
 
 
     return first_array
@@ -1611,7 +1613,7 @@ async def get_doc_chunk(input_path, user_id, project_id, doc_id, db, doc_title):
 
 
 
-async def run_chunking_pipeline(method_list: list[dict[str, Any]], user_id: UUID, project_id: int, doc_id: UUID, db: AsyncSession, session_logger: InfoLogger, input_path: str, doc_title: str):
+async def run_chunking_pipeline(method_list: list[dict[str, Any]], user_id: UUID, project_id: UUID, doc_id: UUID, db: AsyncSession, session_logger: InfoLogger, input_path: str, doc_title: str):
 
 
 
@@ -1682,7 +1684,7 @@ async def run_chunking_pipeline(method_list: list[dict[str, Any]], user_id: UUID
     #session_logger.log_step(task="table", layer=1, log_text=f"Inserting following data into the Paragraphs table", table_data=new_chunk_array)
 
     for chunk_dict in new_chunk_array:
-        #session_logger.log_step(task="info_text", log_text=f"Inserting dict: {chunk_dict}")
+        session_logger.log_step(task="info_text", log_text=f"[CHUNKING_DEBUG]: Inserting dict: {chunk_dict}")
         await Paragraph.insert_paragraphs(data_dict=chunk_dict, db=db)
 
 
@@ -1694,7 +1696,7 @@ async def run_chunking_pipeline(method_list: list[dict[str, Any]], user_id: UUID
 # Levels
 
 
-async def load_chunking_levels(user_id: UUID, project_id: int, doc_id: UUID, db: AsyncSession)-> List[str]:
+async def load_chunking_levels(user_id: UUID, project_id: UUID, doc_id: UUID, db: AsyncSession)-> List[str]:
 
 
 
@@ -1710,7 +1712,7 @@ async def load_chunking_levels(user_id: UUID, project_id: int, doc_id: UUID, db:
 # Results
 
 
-async def load_chunking_results(user_id: UUID, project_id: int, doc_id: UUID, db: AsyncSession)-> List[Dict[str, Any]]:
+async def load_chunking_results(user_id: UUID, project_id: UUID, doc_id: UUID, db: AsyncSession)-> List[Dict[str, Any]]:
 
 
 
@@ -1731,7 +1733,7 @@ async def load_chunking_results(user_id: UUID, project_id: int, doc_id: UUID, db
 
 
 
-async def update_chunking_results(user_id: UUID, project_id: int, db: AsyncSession, result_list: List[Dict[str, Any]]):
+async def update_chunking_results(user_id: UUID, project_id: UUID, db: AsyncSession, result_list: List[Dict[str, Any]]):
 
 
     df0 = pd.DataFrame(result_list).explode("items", ignore_index=True)

@@ -174,7 +174,7 @@ export default function DocsList({
       </div>
 
       <div style={{ marginTop: 12 }}>
-        <UploadButton project_id={project_id} />
+        <UploadButton projectId={project_id} />
       </div>
     </section>
   );

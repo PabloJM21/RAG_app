@@ -46,7 +46,7 @@ MethodSpec = Dict[str, Any]
 
 @router.get("/{project_id}/docs/{doc_id}/data", response_model=List[MethodSpec])
 async def read_chunking_pipeline(
-    project_id: int,
+    project_id: UUID,
     doc_id: UUID,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
@@ -55,7 +55,7 @@ async def read_chunking_pipeline(
 
     if row.chunking_pipeline is None:
         # Return default empty pipeline if none exists
-        return {}
+        return []
 
     chunking_pipeline = json.loads(row.chunking_pipeline)
 
@@ -66,7 +66,7 @@ async def read_chunking_pipeline(
 
 @router.post("/{project_id}/docs/{doc_id}/data")
 async def add_chunking_pipeline(
-    project_id: int,
+    project_id: UUID,
     doc_id: UUID,
     pipeline: List[MethodSpec],
     db: AsyncSession = Depends(get_async_session),
@@ -87,7 +87,7 @@ async def add_chunking_pipeline(
 
 @router.post("/{project_id}/docs/{doc_id}/run")
 async def run_chunking_pipeline(
-    project_id: int,
+    project_id: UUID,
     doc_id: UUID,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
@@ -131,7 +131,7 @@ async def run_chunking_pipeline(
 
 @router.get("/{project_id}/docs/{doc_id}/levels", response_model=list[str])
 async def read_chunking_levels(
-    project_id: int,
+    project_id: UUID,
     doc_id: UUID,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
@@ -144,7 +144,7 @@ async def read_chunking_levels(
 
 @router.get("/{project_id}/docs/{doc_id}/results", response_model=List[Dict[str, Any]])
 async def read_chunking_results(
-    project_id: int,
+    project_id: UUID,
     doc_id: UUID,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
@@ -158,7 +158,7 @@ async def read_chunking_results(
 
 @router.post("/{project_id}/docs/{doc_id}/results")
 async def add_chunking_results(
-    project_id: int,
+    project_id: UUID,
     doc_id: UUID,
     result_list: List[Dict[str, Any]],
     db: AsyncSession = Depends(get_async_session),
@@ -193,7 +193,7 @@ async def read_markdown_results(
 # ---------- ALL DOCs ----------
 @router.post("/{project_id}/run")
 async def chunk_all(
-    project_id: int,
+    project_id: UUID,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):

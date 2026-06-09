@@ -2,6 +2,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { cn } from "@/lib/utils";
+
 import {
   addExtractionPipeline,
   runExtraction,
@@ -17,6 +19,7 @@ import {FlexibleMethodCard} from "@/components/custom-ui/FlexibleMethodCard";
 import {MethodsContainerCard} from "@/components/custom-ui/Containers";
 
 import {ENRICHER_PROMPTS, FILTER_PROMPTS} from "@/components/frontend_data/Prompts"
+import ChunksResultsEditor, {Results} from "@/app/home/rag/[project_id]/docs/[doc_id]/ChunksResultsEditor";
 
 type MethodSpec = Record<string, any>;
 type PipelineSpec = MethodSpec[]
@@ -403,56 +406,89 @@ export function EnrichmentEditor({
 // =========== Page Client ===============
 
 
-
-
 export default function EnrichmentPageClient({
   project_id,
   doc_id,
   initialPipeline,
+  initialResults,
   levels,
   colors,
 }: {
   project_id: string;
   doc_id: string;
   initialPipeline: PipelineSpec;
+  initialResults: Results;
   levels: string[];
   colors: StageColors;
 }) {
   const [pipeline, setPipeline] = useState<PipelineSpec>(initialPipeline);
+  const [view, setView] = useState<"pipeline" | "chunks">("pipeline");
 
   const pipelineJson = useMemo(() => JSON.stringify(pipeline), [pipeline]);
 
-
-
   return (
-    <div style={{display: "flex", flexDirection: "column", height: "100%"}}>
-      {/* ---------- Main ---------- */}
-      <div style={{flex: 1, position: "relative", display: "flex", flexDirection: "column", minHeight: 0 }}>
+    <div className="flex flex-col h-full">
+      {/* Switcher */}
+      <div className="flex items-center justify-end gap-2 mb-4 px-1">
+        <button
+          onClick={() => setView("pipeline")}
+          className={cn(
+            "px-3 py-1.5 text-sm rounded-md border transition-colors",
+            view === "pipeline"
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted hover:bg-muted/70"
+          )}
+        >
+          Pipeline
+        </button>
 
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
-          <SaveRunActions
-            project_id={project_id}
-            addFunction={addExtractionPipeline}
-            runFunction={runExtraction}
-            doc_id={doc_id}
-            pipelineJson={pipelineJson}
-            runLabel="Enrichment"
-          />
-        </div>
-
-
-        <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
-          <EnrichmentEditor
-            methods={pipeline}
-            levels={levels}
-            colors={colors}
-            onChange={setPipeline}
-          />
-        </div>
-
+        <button
+          onClick={() => setView("chunks")}
+          className={cn(
+            "px-3 py-1.5 text-sm rounded-md border transition-colors",
+            view === "chunks"
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted hover:bg-muted/70"
+          )}
+        >
+          View Chunks
+        </button>
       </div>
 
+      {/* Content */}
+      <div className="flex-1 min-h-0 overflow-hidden">
+        {view === "pipeline" ? (
+          <div className="h-full flex flex-col">
+            <div className="flex justify-end mb-3">
+              <SaveRunActions
+                project_id={project_id}
+                addFunction={addExtractionPipeline}
+                runFunction={runExtraction}
+                doc_id={doc_id}
+                pipelineJson={pipelineJson}
+                runLabel="Enrichment"
+              />
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-auto">
+              <EnrichmentEditor
+                methods={pipeline}
+                levels={levels}
+                colors={colors}
+                onChange={setPipeline}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="h-full overflow-auto">
+            <ChunksResultsEditor
+              project_id={project_id}
+              doc_id={doc_id}
+              initialResults={initialResults}
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
-

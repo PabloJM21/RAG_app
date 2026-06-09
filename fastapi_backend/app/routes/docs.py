@@ -169,7 +169,7 @@ class DocCreate(BaseModel):
 
 @router.post("/{project_id}", response_model=DocResponse)
 async def create_doc(
-    project_id: int,
+    project_id: UUID,
     doc: DocCreate,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
@@ -190,7 +190,7 @@ async def create_doc(
 
 @router.post("/{project_id}/uploads/{doc_id}")
 async def upload_doc_file(
-    project_id: int,
+    project_id: UUID,
     doc_id: UUID,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_async_session),
@@ -233,7 +233,7 @@ from shutil import rmtree
 
 @router.delete("/{project_id}/deletes/{doc_id}")
 async def delete_doc(
-    project_id: int,
+    project_id: UUID,
     doc_id: UUID,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
@@ -287,7 +287,7 @@ class DocResponse(BaseModel):
 
 @router.get("/{project_id}", response_model=List[DocResponse])
 async def read_doc_list(
-    project_id: int,
+    project_id: UUID,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
@@ -316,7 +316,7 @@ class ExportBody(BaseModel):
 
 @router.post("/{project_id}/pipelines/export/")
 async def export_doc_pipeline(
-    project_id: int,
+    project_id: UUID,
     body: ExportBody,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
@@ -336,7 +336,7 @@ async def export_doc_pipeline(
 
     output_pipelines = {}
     for key in pipeline_names:
-        row_pipeline = json.loads(getattr(row, key))
+        row_pipeline = json.loads(getattr(row, key) or "{}")
         if row_pipeline:
             output_pipelines.update({key: row_pipeline})
 
@@ -365,7 +365,7 @@ class LoadBody(BaseModel):
 
 @router.post("/{project_id}/pipelines/load/")
 async def load_doc_pipeline(
-    project_id: int,
+    project_id: UUID,
     body: LoadBody,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),

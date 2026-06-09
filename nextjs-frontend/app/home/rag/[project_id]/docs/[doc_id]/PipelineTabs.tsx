@@ -15,7 +15,7 @@ import RetrievalPageClient from "./RetrievalPageClient";
 import ConversionPageClient from "./ConversionPageClient";
 
 type MethodSpec = Record<string, any>;
-type PipelineSpec = Record<string, MethodSpec[]>;
+type PipelineSpec = MethodSpec[];
 type StageColors = Record<string, string>;
 type ColorsSpec = {
   Chunking?: StageColors;
@@ -57,7 +57,6 @@ export default function PipelineTabs({
           <TabsTrigger value="conversion">Conversion</TabsTrigger>
           <TabsTrigger value="chunking">Chunking</TabsTrigger>
           <TabsTrigger value="enrichment">Enrichment</TabsTrigger>
-          <TabsTrigger value="chunks">View Chunks</TabsTrigger>
           <TabsTrigger value="retrieval">Retrieval</TabsTrigger>
         </TabsList>
       </div>
@@ -90,21 +89,13 @@ export default function PipelineTabs({
               project_id={project_id}
               doc_id={doc_id}
               initialPipeline={initialEnrichment}
+              initialResults={results}
               levels={levels}
               colors={currentColors.Enriching}
             />
           </section>
         </TabsContent>
 
-        <TabsContent value="chunks" className="h-full m-0">
-          <section className="p-4 overflow-auto h-full">
-            <ChunksResultsEditor
-              project_id={project_id}
-              doc_id={doc_id}
-              initialResults={results}
-            />
-          </section>
-        </TabsContent>
 
         <TabsContent value="retrieval" className="h-full m-0">
           <section className="p-4 overflow-auto h-full">

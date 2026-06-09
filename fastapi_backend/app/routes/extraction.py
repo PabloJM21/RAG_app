@@ -37,7 +37,7 @@ MethodSpec = Dict[str, Any]
 
 @router.get("/{project_id}/docs/{doc_id}/data", response_model=List[MethodSpec])
 async def read_extraction_pipeline(
-        project_id: int,
+        project_id: UUID,
         doc_id: UUID,
         db: AsyncSession = Depends(get_async_session),
         user: User = Depends(current_active_user),
@@ -47,7 +47,7 @@ async def read_extraction_pipeline(
 
     if row.extraction_pipeline is None:
         # Return default empty pipeline if none exists
-        return {}
+        return []
 
     extraction_pipeline = json.loads(row.extraction_pipeline)
 
@@ -56,7 +56,7 @@ async def read_extraction_pipeline(
 
 @router.post("/{project_id}/docs/{doc_id}/data")
 async def add_extraction_pipeline(
-        project_id: int,
+        project_id: UUID,
         doc_id: UUID,
         pipeline: List[MethodSpec],
         db: AsyncSession = Depends(get_async_session),
@@ -75,7 +75,7 @@ async def add_extraction_pipeline(
 
 @router.post("/{project_id}/docs/{doc_id}/run")
 async def run_extraction_pipeline(
-        project_id: int,
+        project_id: UUID,
         doc_id: UUID,
         db: AsyncSession = Depends(get_async_session),
         user: User = Depends(current_active_user),

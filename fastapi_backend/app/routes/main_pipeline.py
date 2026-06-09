@@ -1,9 +1,9 @@
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
+from uuid import UUID
 
-
-from app.models import MainPipeline
+from app.models import MainPipeline, Settings
 from app.database import User, get_async_session
 from app.users import current_active_user
 
@@ -20,13 +20,12 @@ MethodSpec = Dict[str, Any]
 
 
 
-@router.get("/{project_id}/generator/", response_model=MethodSpec)
+@router.get("/generator/", response_model=MethodSpec)
 async def read_generator(
-    project_id: int,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
-    row = await MainPipeline.get_row(where_dict={"user_id": user.id, "project_id": project_id}, db=db)
+    row = await Settings.get_row(where_dict={"user_id": user.id}, db=db)
 
     if row is None or row.generator is None:
         # Return default empty pipeline if none exists
@@ -39,7 +38,7 @@ async def read_generator(
 
 @router.get("/{project_id}/retrievers/", response_model=List[MethodSpec])
 async def read_retrievers(
-    project_id: int,
+    project_id: UUID,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
@@ -62,24 +61,22 @@ async def read_retrievers(
 
 
 
-@router.post("/{project_id}/generator/")
+@router.post("/generator/")
 async def add_generator(
-    project_id: int,
     generator: MethodSpec,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
     # First we delete current pipeline if it's set
-    row = await MainPipeline.get_row(where_dict={"user_id": user.id, "project_id": project_id}, db=db)
+    row = await Settings.get_row(where_dict={"user_id": user.id}, db=db)
 
 
     if row:
         row.generator = json.dumps(generator)
     else:
-        row = await MainPipeline.insert_data(
+        row = await Settings.insert_data(
             data_dict={
                 "user_id": user.id,
-                "project_id": project_id,
                 "generator": json.dumps(generator),
             },
             db=db,
@@ -95,7 +92,7 @@ async def add_generator(
 
 @router.post("/{project_id}/retrievers/")
 async def add_retrievers(
-    project_id: int,
+    project_id: UUID,
     retrievers: List[MethodSpec],
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),

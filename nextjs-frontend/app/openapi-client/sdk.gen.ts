@@ -44,6 +44,29 @@ import type {
   UsersPatchUserData,
   UsersPatchUserResponses,
   UsersPatchUserErrors,
+  ExportProjectData,
+  ExportProjectResponses,
+  ExportProjectErrors,
+  LoadProjectData,
+  LoadProjectResponses,
+  LoadProjectErrors,
+  ListSavedProjectsData,
+  ListSavedProjectsResponses,
+  ListExportedProjectsData,
+  ListExportedProjectsResponses,
+  CreateProjectData,
+  CreateProjectResponses,
+  SetProjectData,
+  SetProjectResponses,
+  SetProjectErrors,
+  DeleteProjectData,
+  DeleteProjectResponses,
+  DeleteProjectErrors,
+  ReadEvaluatorData,
+  ReadEvaluatorResponses,
+  AddEvaluatorData,
+  AddEvaluatorResponses,
+  AddEvaluatorErrors,
   ReadApiKeyData,
   ReadApiKeyResponses,
   SaveApiKeyData,
@@ -53,6 +76,7 @@ import type {
   DeleteApiKeyErrors,
   ReadDocListData,
   ReadDocListResponses,
+  ReadDocListErrors,
   CreateDocData,
   CreateDocResponses,
   CreateDocErrors,
@@ -82,6 +106,7 @@ import type {
   DeleteApiKey2Errors,
   ReadDocList2Data,
   ReadDocList2Responses,
+  ReadDocList2Errors,
   CreateDoc2Data,
   CreateDoc2Responses,
   CreateDoc2Errors,
@@ -109,6 +134,7 @@ import type {
   AddGeneratorErrors,
   ReadRetrieversData,
   ReadRetrieversResponses,
+  ReadRetrieversErrors,
   AddRetrieversData,
   AddRetrieversResponses,
   AddRetrieversErrors,
@@ -133,6 +159,7 @@ import type {
   RunConversionPipelineErrors,
   ConvertAllData,
   ConvertAllResponses,
+  ConvertAllErrors,
   ReadChunkingPipelineData,
   ReadChunkingPipelineResponses,
   ReadChunkingPipelineErrors,
@@ -156,6 +183,7 @@ import type {
   ReadMarkdownResultsErrors,
   ChunkAllData,
   ChunkAllResponses,
+  ChunkAllErrors,
   ReadExtractionPipelineData,
   ReadExtractionPipelineResponses,
   ReadExtractionPipelineErrors,
@@ -176,6 +204,10 @@ import type {
   ExportPipelineErrors,
   ExportAllData,
   ExportAllResponses,
+  ExportAllErrors,
+  RagQueryToolData,
+  RagQueryToolResponses,
+  RagQueryToolErrors,
   AuthorizeData,
   AuthorizeResponses,
   AuthorizeErrors,
@@ -484,6 +516,225 @@ export const usersPatchUser = <ThrowOnError extends boolean = false>(
 };
 
 /**
+ * Export Project
+ */
+export const exportProject = <ThrowOnError extends boolean = false>(
+  options: Options<ExportProjectData, ThrowOnError>,
+) => {
+  return (options.client ?? client).post<
+    ExportProjectResponses,
+    ExportProjectErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/projects/export/",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Load Project
+ */
+export const loadProject = <ThrowOnError extends boolean = false>(
+  options: Options<LoadProjectData, ThrowOnError>,
+) => {
+  return (options.client ?? client).post<
+    LoadProjectResponses,
+    LoadProjectErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/projects/load/",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * List Saved Projects
+ */
+export const listSavedProjects = <ThrowOnError extends boolean = false>(
+  options?: Options<ListSavedProjectsData, ThrowOnError>,
+) => {
+  return (options?.client ?? client).get<
+    ListSavedProjectsResponses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/projects/list/saved/",
+    ...options,
+  });
+};
+
+/**
+ * List Exported Projects
+ */
+export const listExportedProjects = <ThrowOnError extends boolean = false>(
+  options?: Options<ListExportedProjectsData, ThrowOnError>,
+) => {
+  return (options?.client ?? client).get<
+    ListExportedProjectsResponses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/projects/list/exported/",
+    ...options,
+  });
+};
+
+/**
+ * Create Project
+ */
+export const createProject = <ThrowOnError extends boolean = false>(
+  options?: Options<CreateProjectData, ThrowOnError>,
+) => {
+  return (options?.client ?? client).post<
+    CreateProjectResponses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/projects/",
+    ...options,
+  });
+};
+
+/**
+ * Set Project
+ */
+export const setProject = <ThrowOnError extends boolean = false>(
+  options: Options<SetProjectData, ThrowOnError>,
+) => {
+  return (options.client ?? client).post<
+    SetProjectResponses,
+    SetProjectErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/projects/set/{project_id}",
+    ...options,
+  });
+};
+
+/**
+ * Delete Project
+ */
+export const deleteProject = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteProjectData, ThrowOnError>,
+) => {
+  return (options.client ?? client).delete<
+    DeleteProjectResponses,
+    DeleteProjectErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/projects/{project_id}",
+    ...options,
+  });
+};
+
+/**
+ * Read Evaluator
+ */
+export const readEvaluator = <ThrowOnError extends boolean = false>(
+  options?: Options<ReadEvaluatorData, ThrowOnError>,
+) => {
+  return (options?.client ?? client).get<
+    ReadEvaluatorResponses,
+    unknown,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/projects/evaluator/",
+    ...options,
+  });
+};
+
+/**
+ * Add Evaluator
+ */
+export const addEvaluator = <ThrowOnError extends boolean = false>(
+  options: Options<AddEvaluatorData, ThrowOnError>,
+) => {
+  return (options.client ?? client).post<
+    AddEvaluatorResponses,
+    AddEvaluatorErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/projects/evaluator/",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
  * Read Api Key
  */
 export const readApiKey = <ThrowOnError extends boolean = false>(
@@ -556,11 +807,11 @@ export const deleteApiKey = <ThrowOnError extends boolean = false>(
  * Read Doc List
  */
 export const readDocList = <ThrowOnError extends boolean = false>(
-  options?: Options<ReadDocListData, ThrowOnError>,
+  options: Options<ReadDocListData, ThrowOnError>,
 ) => {
-  return (options?.client ?? client).get<
+  return (options.client ?? client).get<
     ReadDocListResponses,
-    unknown,
+    ReadDocListErrors,
     ThrowOnError
   >({
     responseType: "json",
@@ -570,7 +821,7 @@ export const readDocList = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/docs/",
+    url: "/docs/{project_id}",
     ...options,
   });
 };
@@ -593,7 +844,7 @@ export const createDoc = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/docs/",
+    url: "/docs/{project_id}",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -621,7 +872,7 @@ export const uploadDocFile = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/docs/uploads/{doc_id}",
+    url: "/docs/{project_id}/uploads/{doc_id}",
     ...options,
     headers: {
       "Content-Type": null,
@@ -648,7 +899,7 @@ export const deleteDoc = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/docs/{doc_id}",
+    url: "/docs/{project_id}/deletes/{doc_id}",
     ...options,
   });
 };
@@ -671,7 +922,7 @@ export const exportDocPipeline = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/docs/pipelines/export/",
+    url: "/docs/{project_id}/pipelines/export/",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -698,7 +949,7 @@ export const loadDocPipeline = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/docs/pipelines/load/",
+    url: "/docs/{project_id}/pipelines/load/",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -826,11 +1077,11 @@ export const deleteApiKey2 = <ThrowOnError extends boolean = false>(
  * Read Doc List
  */
 export const readDocList2 = <ThrowOnError extends boolean = false>(
-  options?: Options<ReadDocList2Data, ThrowOnError>,
+  options: Options<ReadDocList2Data, ThrowOnError>,
 ) => {
-  return (options?.client ?? client).get<
+  return (options.client ?? client).get<
     ReadDocList2Responses,
-    unknown,
+    ReadDocList2Errors,
     ThrowOnError
   >({
     responseType: "json",
@@ -840,7 +1091,7 @@ export const readDocList2 = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/api_keys/",
+    url: "/api_keys/{project_id}",
     ...options,
   });
 };
@@ -863,7 +1114,7 @@ export const createDoc2 = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/api_keys/",
+    url: "/api_keys/{project_id}",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -891,7 +1142,7 @@ export const uploadDocFile2 = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/api_keys/uploads/{doc_id}",
+    url: "/api_keys/{project_id}/uploads/{doc_id}",
     ...options,
     headers: {
       "Content-Type": null,
@@ -918,7 +1169,7 @@ export const deleteDoc2 = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/api_keys/{doc_id}",
+    url: "/api_keys/{project_id}/deletes/{doc_id}",
     ...options,
   });
 };
@@ -941,7 +1192,7 @@ export const exportDocPipeline2 = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/api_keys/pipelines/export/",
+    url: "/api_keys/{project_id}/pipelines/export/",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -968,7 +1219,7 @@ export const loadDocPipeline2 = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/api_keys/pipelines/load/",
+    url: "/api_keys/{project_id}/pipelines/load/",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -1077,11 +1328,11 @@ export const addGenerator = <ThrowOnError extends boolean = false>(
  * Read Retrievers
  */
 export const readRetrievers = <ThrowOnError extends boolean = false>(
-  options?: Options<ReadRetrieversData, ThrowOnError>,
+  options: Options<ReadRetrieversData, ThrowOnError>,
 ) => {
-  return (options?.client ?? client).get<
+  return (options.client ?? client).get<
     ReadRetrieversResponses,
-    unknown,
+    ReadRetrieversErrors,
     ThrowOnError
   >({
     responseType: "json",
@@ -1091,7 +1342,7 @@ export const readRetrievers = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/main-pipeline/retrievers/",
+    url: "/main-pipeline/{project_id}/retrievers/",
     ...options,
   });
 };
@@ -1116,7 +1367,7 @@ export const addRetrievers = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/main-pipeline/retrievers/",
+    url: "/main-pipeline/{project_id}/retrievers/",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -1243,7 +1494,7 @@ export const readConversionPipeline = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/conversion/{doc_id}/data",
+    url: "/conversion/{project_id}/docs/{doc_id}/data",
     ...options,
   });
 };
@@ -1266,7 +1517,7 @@ export const addConversionPipeline = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/conversion/{doc_id}/data",
+    url: "/conversion/{project_id}/docs/{doc_id}/data",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -1293,7 +1544,7 @@ export const runConversionPipeline = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/conversion/{doc_id}/run",
+    url: "/conversion/{project_id}/docs/{doc_id}/run",
     ...options,
   });
 };
@@ -1302,11 +1553,11 @@ export const runConversionPipeline = <ThrowOnError extends boolean = false>(
  * Convert All
  */
 export const convertAll = <ThrowOnError extends boolean = false>(
-  options?: Options<ConvertAllData, ThrowOnError>,
+  options: Options<ConvertAllData, ThrowOnError>,
 ) => {
-  return (options?.client ?? client).post<
+  return (options.client ?? client).post<
     ConvertAllResponses,
-    unknown,
+    ConvertAllErrors,
     ThrowOnError
   >({
     responseType: "json",
@@ -1316,7 +1567,7 @@ export const convertAll = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/conversion/run",
+    url: "/conversion/{project_id}/run",
     ...options,
   });
 };
@@ -1339,7 +1590,7 @@ export const readChunkingPipeline = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/chunking/{doc_id}/data",
+    url: "/chunking/{project_id}/docs/{doc_id}/data",
     ...options,
   });
 };
@@ -1362,7 +1613,7 @@ export const addChunkingPipeline = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/chunking/{doc_id}/data",
+    url: "/chunking/{project_id}/docs/{doc_id}/data",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -1389,7 +1640,7 @@ export const runChunkingPipeline = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/chunking/{doc_id}/run",
+    url: "/chunking/{project_id}/docs/{doc_id}/run",
     ...options,
   });
 };
@@ -1412,7 +1663,7 @@ export const readChunkingLevels = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/chunking/{doc_id}/levels",
+    url: "/chunking/{project_id}/docs/{doc_id}/levels",
     ...options,
   });
 };
@@ -1435,7 +1686,7 @@ export const readChunkingResults = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/chunking/{doc_id}/results",
+    url: "/chunking/{project_id}/docs/{doc_id}/results",
     ...options,
   });
 };
@@ -1458,7 +1709,7 @@ export const addChunkingResults = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/chunking/{doc_id}/results",
+    url: "/chunking/{project_id}/docs/{doc_id}/results",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -1494,11 +1745,11 @@ export const readMarkdownResults = <ThrowOnError extends boolean = false>(
  * Chunk All
  */
 export const chunkAll = <ThrowOnError extends boolean = false>(
-  options?: Options<ChunkAllData, ThrowOnError>,
+  options: Options<ChunkAllData, ThrowOnError>,
 ) => {
-  return (options?.client ?? client).post<
+  return (options.client ?? client).post<
     ChunkAllResponses,
-    unknown,
+    ChunkAllErrors,
     ThrowOnError
   >({
     responseType: "json",
@@ -1508,7 +1759,7 @@ export const chunkAll = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/chunking/run",
+    url: "/chunking/{project_id}/run",
     ...options,
   });
 };
@@ -1531,7 +1782,7 @@ export const readExtractionPipeline = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/extraction/{doc_id}/data",
+    url: "/extraction/{project_id}/docs/{doc_id}/data",
     ...options,
   });
 };
@@ -1554,7 +1805,7 @@ export const addExtractionPipeline = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/extraction/{doc_id}/data",
+    url: "/extraction/{project_id}/docs/{doc_id}/data",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -1581,7 +1832,7 @@ export const runExtractionPipeline = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/extraction/{doc_id}/run",
+    url: "/extraction/{project_id}/docs/{doc_id}/run",
     ...options,
   });
 };
@@ -1604,7 +1855,7 @@ export const readRetrievalPipeline = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/retrieval/{doc_id}/data",
+    url: "/retrieval/{project_id}/docs/{doc_id}/data",
     ...options,
   });
 };
@@ -1627,7 +1878,7 @@ export const addRetrievalPipeline = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/retrieval/{doc_id}/data",
+    url: "/retrieval/{project_id}/docs/{doc_id}/data",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -1654,7 +1905,7 @@ export const exportPipeline = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/retrieval/{doc_id}/run",
+    url: "/retrieval/{project_id}/docs/{doc_id}/run",
     ...options,
   });
 };
@@ -1665,11 +1916,11 @@ export const exportPipeline = <ThrowOnError extends boolean = false>(
  * 2. Bundles all retrieval pipelines and exports them to the MainPipeline table
  */
 export const exportAll = <ThrowOnError extends boolean = false>(
-  options?: Options<ExportAllData, ThrowOnError>,
+  options: Options<ExportAllData, ThrowOnError>,
 ) => {
-  return (options?.client ?? client).post<
+  return (options.client ?? client).post<
     ExportAllResponses,
-    unknown,
+    ExportAllErrors,
     ThrowOnError
   >({
     responseType: "json",
@@ -1679,8 +1930,35 @@ export const exportAll = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/retrieval/run",
+    url: "/retrieval/{project_id}/run",
     ...options,
+  });
+};
+
+/**
+ * Rag Query Tool
+ */
+export const ragQueryTool = <ThrowOnError extends boolean = false>(
+  options: Options<RagQueryToolData, ThrowOnError>,
+) => {
+  return (options.client ?? client).post<
+    RagQueryToolResponses,
+    RagQueryToolErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/chat/generator",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
   });
 };
 

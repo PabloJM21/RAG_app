@@ -5,6 +5,7 @@ from .schemas import UserCreate, UserRead, UserUpdate
 from fastapi.middleware.cors import CORSMiddleware
 from .utils import simple_generate_unique_route_id
 from app.routes.api_keys import router as api_router
+from app.routes.projects import router as projects_router
 from app.routes.docs import router as docs_router
 from app.routes.main_pipeline import router as main_pipeline_router
 from app.routes.settings import router as settings_router
@@ -13,6 +14,7 @@ from app.routes.chunking import router as chunking_router
 from app.routes.extraction import router as extraction_router
 from app.routes.retrieval import router as retrieval_router
 from app.routes.mcp import router as mcp_router
+from app.routes.chat import router as chat_router
 from app.config import settings
 from app.database import create_db_and_tables, drop_tables, drop_specific_table
 
@@ -82,9 +84,8 @@ app = FastAPI(
     openapi_url=settings.OPENAPI_URL,
 )
 
-#await drop_tables()
+
 #await drop_specific_table("Retrievals")
-#await drop_tables()
 #await drop_tables()
 
 import os
@@ -132,6 +133,7 @@ app.include_router(
 )
 
 # Include routes
+app.include_router(projects_router, prefix="/projects")
 app.include_router(docs_router, prefix="/docs")
 app.include_router(docs_router, prefix="/api_keys")
 app.include_router(main_pipeline_router, prefix="/main-pipeline")
@@ -140,11 +142,9 @@ app.include_router(conversion_router, prefix="/conversion")
 app.include_router(chunking_router, prefix="/chunking")
 app.include_router(extraction_router, prefix="/extraction")
 app.include_router(retrieval_router, prefix="/retrieval")
+app.include_router(chat_router, prefix="/chat")
 # --- MCP protocol ---
 app.include_router(mcp_router, prefix="/mcp")
-
-
-
 
 
 

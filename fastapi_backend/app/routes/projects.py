@@ -7,11 +7,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import User, get_async_session, create_db_and_tables
 from app.users import current_active_user
-from app.models import MainPipeline, DocPipelines, Paragraph, Retrieval, Embedding, SavedProjects
+from app.models import MainPipeline, DocPipelines, Paragraph, Retrieval, Embedding, SavedProjects, ProjectData
 
-from typing import List
+from typing import List, Dict, Any
 from uuid import uuid4
-
+from copy import copy
 
 router = APIRouter(tags=["projects"])
 
@@ -21,37 +21,40 @@ router = APIRouter(tags=["projects"])
 # ========= EXPORT PROJECT =================
 
 async def copy_rows_to_project(
-    model,
+    db_model,
+    pk_name,
     user_id,
-    source_project_id: int,
-    target_project_id: int,
+    source_project_id: UUID,
+    target_project_id: UUID,
     db,
 ) -> None:
 
-    rows, columns = await model.get_all(
+    rows, columns = await db_model.get_all(
         where_dict={"user_id": user_id, "project_id": source_project_id},
         db=db,
     )
 
     for row in rows:
-        data_dict = dict(zip(columns, row))
-        data_dict["project_id"] = target_project_id
-        await model.insert_data(data_dict=data_dict, db=db)
+        if row:
+            data_dict: dict[str, Any] = dict(row)
+            data_dict.pop(pk_name, None)
+            data_dict["project_id"] = target_project_id
+            print("DEBUG INSERT:", {k: (v, type(v)) for k, v in data_dict.items()})
+            await db_model.insert_data(data_dict=data_dict, db=db)
+
+    await db.commit()
 
 
 async def copy_project_data(db, user_id, source_id, target_id):
-    main_row = await MainPipeline.get_row(
-        where_dict={"user_id": user_id, "project_id": source_id},
-        db=db,
-    )
-    if main_row:
-        main_row.project_id = target_id
+
 
     # ===================================================
 
-    for model in (DocPipelines, Paragraph, Retrieval, Embedding):
+    for db_model, pk_name in [(MainPipeline, "id"), (DocPipelines, "id"), (Paragraph, "paragraph_id"),
+                           (Retrieval, "retrieval_id"), (Embedding, "embedding_id")]:
         await copy_rows_to_project(
-            model,
+            db_model,
+            pk_name,
             user_id=user_id,
             source_project_id=source_id,
             target_project_id=target_id,
@@ -61,11 +64,9 @@ async def copy_project_data(db, user_id, source_id, target_id):
 
 
 
-
-
 class ExportBody(BaseModel):
-    projectName: str
-    project_id: int
+    name: str
+    project_id: str
 
 
 @router.post("/export/")
@@ -76,49 +77,46 @@ async def export_project(
 ):
 
     # first define new target_id
-    rows, _ = await SavedProjects.get_all(columns=["poject_id", "name"], where_dict={"user_id": user.id},
-                                          db=db)
-    target_id = max([row["project_id"] for row in rows]) + 1 # should be an integer
+    export_name = body.name
 
-
-    # ===================================================
-    # then copy all project data from project_id to target_id
-    source_id = body.project_id
-
-    await copy_project_data(db, user.id, source_id, target_id)
-
-
-
-    # ===================================================
-
-
-    # finally store target_id of exported project
-    export_name = body.projectName
-
-    await SavedProjects.insert_data(
-        data_dict={"project_id": target_id, "name": export_name, "kind": "exported"}, where_dict={"user_id": user.id},
+    new_row = await SavedProjects.insert_data(
+        data_dict={"user_id": user.id, "name": export_name, "kind": "exported"},
         db=db,
     )
 
     await db.commit()
+    await db.refresh(new_row)
+
+    target_id = new_row.project_id
+    # ===================================================
+    # then copy all project data from project_id to target_id
+    source_id = UUID(body.project_id)
+
+    print(f"source and target project_ids (exporting): {source_id}, {target_id}")
+
+    await copy_project_data(db, user.id, source_id, target_id)
+
+
+    #await db.commit()
 
     return {"status": "ok"}
 
 
 
-
-
-
-
+class LoadProjectBody(BaseModel):
+    source_id: str
+    target_id: str
 
 @router.post("/load/")
 async def load_project(
-    source_id: int,
-    target_id: int,
+    body: LoadProjectBody,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
 
+    source_id = UUID(body.source_id)
+    target_id = UUID(body.target_id)
+    print(f"source and target project_ids (exporting): {source_id}, {target_id}")
 
     await copy_project_data(db, user.id, source_id, target_id)
 
@@ -132,8 +130,8 @@ async def load_project(
 
 
 class ProjectResponse(BaseModel):
-    projectName: str
-    project_id: int
+    name: str
+    project_id: UUID
 
 
 @router.get("/list/saved/", response_model=List[ProjectResponse])
@@ -141,12 +139,14 @@ async def list_saved_projects(
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
-    rows, _ = await SavedProjects.get_all(columns=["poject_id", "name"], where_dict={"kind": "saved", "user_id": user.id}, db=db) #"path": None
+    rows, _ = await SavedProjects.get_all(columns=["project_id", "name"], where_dict={"kind": "saved", "user_id": user.id}, db=db) #"path": None
+
+    print([(type(row["project_id"]), row["project_id"]) for row in rows])
 
     return [
         ProjectResponse(
-            project_id=int(row["project_id"]),
-            projectName=row["name"],
+            project_id=str(row["project_id"]),
+            name=row["name"],
         )
         for row in rows
     ]
@@ -157,35 +157,80 @@ async def list_exported_projects(
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
-    rows, _ = await SavedProjects.get_all(columns=["poject_id", "name"], where_dict={"kind": "exported", "user_id": user.id}, db=db) #"path": None
+    rows, _ = await SavedProjects.get_all(columns=["project_id", "name"], where_dict={"kind": "exported", "user_id": user.id}, db=db) #"path": None
 
     return [
         ProjectResponse(
-            project_id=int(row["project_id"]),
-            projectName=row["name"],
+            project_id=str(row["project_id"]),
+            name=row["name"],
         )
         for row in rows
     ]
 
 
 
-@router.post("/{project_id}")
+@router.post("/")
 async def create_project(
-    project_id: int,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
+    rows, _ = await SavedProjects.get_all(
+        columns=["name"],
+        where_dict={"user_id": user.id, "kind": "saved"},
+        db=db,
+    )
 
+    numeric_names = [
+        int(row.name)
+        for row in rows
+        if str(row.name).isdigit()
+    ]
 
-    await SavedProjects.insert_data(
-        data_dict={"project_id": project_id, "name": project_id, "kind": "saved"}, where_dict={"user_id": user.id},
+    name_id = str(max(numeric_names, default=0) + 1)
+
+    new_row = await SavedProjects.insert_data(
+        data_dict={
+            "user_id": user.id,
+            "name": name_id,
+            "kind": "saved",
+        },
         db=db,
     )
 
     await db.commit()
 
-    return {"status": "ok"}
+    return {
+        "name": name_id,
+        "project_id": str(new_row.project_id),
+    }
 
+
+@router.post("/set/{project_id}")
+async def set_project(
+    project_id: UUID,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+    row = await ProjectData.get_row(where_dict={"user_id": user.id}, db=db)
+
+
+    if row:
+        row.current_id = project_id
+    else:
+        row = await ProjectData.insert_data(
+            data_dict={
+                "user_id": user.id,
+                "current_id": project_id,
+            },
+            db=db,
+        )
+
+    await db.commit()
+    await db.refresh(row)
+
+    return {
+        "status": "ok"
+    }
 
 
 # ========================= DELETE ==============================
@@ -201,10 +246,12 @@ async def delete_project_data(db, user_id, project_id):
 
 @router.delete("/{project_id}")
 async def delete_project(
-    project_id: int,
+    project_id: UUID,
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
+
+
     row = await SavedProjects.get_row(
         where_dict={
             "user_id": user.id,
@@ -225,3 +272,50 @@ async def delete_project(
 
 
 
+# ===================== EVALUATOR ================================
+MethodSpec = Dict[str, Any]
+
+@router.get("/evaluator/", response_model=MethodSpec)
+async def read_evaluator(
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+    row = await ProjectData.get_row(where_dict={"user_id": user.id}, db=db)
+
+    if row is None or row.evaluator is None:
+        # Return default empty evaluator if none exists
+        return {}
+
+    evaluator = json.loads(row.evaluator)
+
+    return evaluator
+
+
+
+@router.post("/evaluator/")
+async def add_evaluator(
+    evaluator: MethodSpec,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+    # First we delete current pipeline if it's set
+    row = await ProjectData.get_row(where_dict={"user_id": user.id}, db=db)
+
+
+    if row:
+        row.evaluator = json.dumps(evaluator)
+    else:
+        row = await ProjectData.insert_data(
+            data_dict={
+                "user_id": user.id,
+                "evaluator": json.dumps(evaluator),
+            },
+            db=db,
+        )
+
+    await db.commit()
+    await db.refresh(row)
+
+    return {
+        "status": "ok"
+    }
