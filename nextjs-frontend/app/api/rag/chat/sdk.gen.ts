@@ -56,17 +56,40 @@ export type Errors = {
 
 
 
-export type ChatMessage = {
+export type ChatHistoryMessage = {        // renamed from ChatMessage
   role: "user" | "assistant";
   content: string;
 };
 
 export type QuerySpec = {
   query: string;
-  history?: ChatMessage[];
+  history?: ChatHistoryMessage[];
 };
 
-export type AnswerSpec = Record<string, any>;
+// Metadata table returned per dashboard item
+export type ChunkMetadata = {
+  Chunk: string[];
+  Document: string[];
+  Level: string[];
+  Number: (string | number)[];
+};
+
+// One result entry in dashboard_list
+export type DashboardEntry = {
+  project: string;
+  answer: string;
+  time: number;
+  score?: number;
+  metadata: ChunkMetadata;
+};
+
+// Full API response
+export type AnswerSpec = {
+  ok: boolean;
+  answer: string;                         // first item's answer (for chat bubble)
+  sources?: string[];                     // first item's chunk snippets (for chat bubble)
+  dashboard_list?: DashboardEntry[];      // full list for dashboard
+};
 
 export type runQueryData = {
   body: QuerySpec;

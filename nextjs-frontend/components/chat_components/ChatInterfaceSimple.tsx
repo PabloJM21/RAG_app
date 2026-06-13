@@ -54,6 +54,7 @@ export function ChatInterfaceSimple() {
     addMessage,
     setLoading,
     clearMessages,
+    setDashboardItems,
   } = useStore()
 
   const scrollToBottom = () => {
@@ -134,10 +135,13 @@ export function ChatInterfaceSimple() {
 
       addMessage({
         role: 'assistant',
-        content:
-          result?.data?.answer ||
-          'No response returned.',
+        content: result?.data?.answer || 'No response returned.',
+        sources: result?.data?.sources ?? [],
       })
+
+      if (result?.data?.dashboard_list?.length) {
+        setDashboardItems(result.data.dashboard_list)
+      }
     } catch (error) {
       const message =
         error instanceof Error

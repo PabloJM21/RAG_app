@@ -10,7 +10,7 @@ from app.rag_services.helpers import ExtractionError
 
 from app.rag_services.retrieval_service import run_retrieval
 
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import json
 
 router = APIRouter(tags=["chat"])
@@ -18,7 +18,27 @@ router = APIRouter(tags=["chat"])
 
 # API Endpoint
 
-MethodSpec = Dict[str, Any]
+from pydantic import BaseModel
+
+
+class ChunkMetadata(BaseModel):
+    Chunk: list[str]
+    Document: list[str]
+    Level: list[str]
+    Number: list[str | int]
+
+class DashboardEntry(BaseModel):
+    project: str
+    answer: str
+    time: float
+    score: Optional[float] = None
+    metadata: ChunkMetadata
+
+class MethodSpec(BaseModel):
+    ok: bool
+    answer: str
+    sources: Optional[list[str]] = None
+    dashboard_list: Optional[list[DashboardEntry]] = None
 
 
 @router.post("/generator", response_model=MethodSpec)
@@ -29,47 +49,32 @@ async def rag_query_tool(
 ):
     try:
         query = payload.get("query", "")
-
         history = payload.get("history", [])
 
-        cleaned_history = []
+        cleaned_history = [
+            {"role": m["role"], "content": m["content"]}
+            for m in history
+            if m.get("role") in ["user", "assistant"] and m.get("content")
+        ]
 
-        for message in history:
-            role = message.get("role")
-            content = message.get("content")
-
-            if (
-                role in ["user", "assistant"]
-                and content
-            ):
-                cleaned_history.append({
-                    "role": role,
-                    "content": content,
-                })
-
-        output = await run_retrieval(
-            db,
-            user.id,
-            query,
-            history=cleaned_history,
+        dashboard_list = await run_retrieval(
+            db, user.id, query, history=cleaned_history
         )
 
-        if output:
-            answer, sources = output
+        if not dashboard_list:
+            return {"ok": True, "answer": "No result", "dashboard_list": []}
 
-            return {
-                "ok": True,
-                "answer": answer,
-                "sources": sources,
-            }
+        # First item drives the chat bubble
+        first = dashboard_list[0]
+        answer = first["answer"]
+        sources = first["metadata"]["Chunk"]   # list of chunk strings
 
         return {
             "ok": True,
-            "answer": "No result",
+            "answer": answer,
+            "sources": sources,
+            "dashboard_list": dashboard_list,   # full list for dashboard
         }
 
     except ExtractionError as e:
-        raise HTTPException(
-            status_code=e.status_code,
-            detail=e.message,
-        )
+        raise HTTPException(status_code=e.status_code, detail=e.message)

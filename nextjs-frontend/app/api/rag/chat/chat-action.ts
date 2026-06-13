@@ -51,7 +51,7 @@ export async function submitQuery(formData: FormData) {
 
     return {
       ok: true,
-      data: result.data,
+      data: result.data,   // AnswerSpec - now typed, carries both answer + dashboard_list
     };
   } catch (error: any) {
     return {

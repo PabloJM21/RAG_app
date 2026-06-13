@@ -1177,7 +1177,9 @@ class Evaluator:
 
         return scores
 
-    async def evaluate_answers(self, query: str, answer_dict: dict, metadata_dict: dict, time_list: list[float]):
+
+
+    async def evaluate_answers(self, query: str, dashboard_dict: dict):
 
         # first of all instance chat orchestrator
         await self.init_chat_client()
@@ -1185,27 +1187,22 @@ class Evaluator:
         input_query = query
         # first process query if required
         if self.transformation_model:
-
-
             query = await self.process_query(query)
 
-
             #self.logger.log_step(task="table", layer=1, log_text="Query transformed successfully: ", table_data={"Input Query":input_query , "Output Query": query})
-
 
         # ==================== Calling Evaluator=================
         answer_input_chunks = ""
         i = 1
         project_ids = []
-        for project_id, content in answer_dict.items():
+        for project_id, row in dashboard_dict.items():
             project_ids.append(project_id)
-            answer_input_chunks += f"Chunk {i}\n{content}\n\n"
+            answer_input_chunks += f"Chunk {i}\n{row['answer']}\n\n"
             i += 1
 
         scores = await self._retrieve_scores(query, answer_input_chunks)
 
         # =======================================================
-
 
         if not (len(scores) == len(project_ids)):
             #self.logger.log_step(task="info_text", layer=2, log_text=f"Evaluator returned incomplete scores!")
@@ -1213,30 +1210,11 @@ class Evaluator:
                 "Evaluator returned incomplete 'scores'",
                 status_code=422,
             )
+        for pid, score in zip(project_ids, scores):
+            dashboard_dict[pid]["score"] = score
 
 
-        sorted_indices = sorted(range(len(scores)), key=lambda x: scores[x], reverse=True)
-
-        scores = [scores[i] for i in sorted_indices]
-        time_list = [time_list[i] for i in sorted_indices]
-        answer_list = [answer_dict[project_ids[i]] for i in sorted_indices]
-        meta_list = [metadata_dict[project_ids[i]] for i in sorted_indices]
-        project_numbers = [i + 1 for i in sorted_indices]
-
-
-        table_data = {
-            "Project": project_numbers,
-            "Answer": answer_list,
-            "Score": scores,
-            "Time": time_list,
-            "Sources": meta_list,
-        }
-
-        self.logger.log_step(task="table", layer=2, log_text=f"Ranking of answers to query: {input_query}",
-                                table_data=table_data)
-
-
-        return project_ids[0], table_data
+        return dashboard_dict
 
 
 
@@ -1335,21 +1313,14 @@ async def run_retrieval(db, user_id, query, history):
 
     evaluator_method = load_pipeline(info_row.evaluator)
     if evaluator_method and reranker_or_evaluator_not_empty(evaluator_method):
+
         # log
+        rows, _ = await SavedProjects.get_all(columns=["project_id", "name"], where_dict={"kind": "saved", "user_id": user_id}, db=db)
 
-        rows, _ = await SavedProjects.get_all(columns=["project_id", "name"],
-                                              where_dict={"kind": "saved", "user_id": user_id},
-                                              db=db)
-
-        answer_dict = {}
-        metadata_dict = {}
-
-        time_list = []
+        dashboard_dict = {}
         p_count = 0
         for row in rows:
             p_count += 1
-
-            #session_logger.log_step(task="header_2", layer=1, log_text=f"Project {p_count}")
 
             start = time.time()
             project_id = row["project_id"]
@@ -1359,16 +1330,15 @@ async def run_retrieval(db, user_id, query, history):
 
             if output:
                 output_answer, metadata = output
-                answer_dict[project_id] = output_answer
-                metadata_dict[project_id] = metadata
 
-                time_list.append(round(end - start, 2))
+                dashboard_dict[project_id] = {
+                    "project": str(p_count),
+                    "answer": output_answer,
+                    "time": round(end - start, 2),
+                    "metadata": metadata
+                }
 
-                #session_logger.log_step(task="header_3", layer=2, log_text="Sources")
-                #session_logger.log_step(task="table", layer=2, table_data=metadata)
-
-
-        if not answer_dict:
+        if not dashboard_dict:
             return None
 
         # run evaluation
@@ -1377,35 +1347,56 @@ async def run_retrieval(db, user_id, query, history):
         evaluator_instance = Evaluator(**evaluator_method)
 
         #session_logger.log_step(task="header_1", layer=2, log_text=f"Evaluation")
-        selected_id, dashboard_data = await evaluator_instance.evaluate_answers(query, answer_dict, metadata_dict, time_list)
-
+        dashboard_dict = await evaluator_instance.evaluate_answers(query, dashboard_dict)
 
 
         # Log final output
-        output_answer, metadata = answer_dict[selected_id], metadata_dict[selected_id]
+
+        sorted_ids = sorted(dashboard_dict.keys(), key=lambda x: dashboard_dict[x]["score"], reverse=True)
+        dashboard_list = [dashboard_dict[pid] for pid in sorted_ids]
 
 
+        #selected_id = sorted_ids[0]
+        #output_answer, metadata = dashboard_dict[selected_id]["answer"], dashboard_dict[selected_id]["metadata"]
 
 
         # Finally we export the logs to md
         await export_logs(log_path)
         
 
-        return output_answer, metadata["Chunk"]
+        return dashboard_list #output_answer, metadata["Chunk"]
 
     else:
         project_id = info_row.current_id
 
+        start = time.time()
         output = await get_retrieval_output(db, user_id, project_id, session_logger, query, history)
+        end = time.time()
 
         if output:
             output_answer, metadata = output
+
+            ################## Obtain project number (temporary)
+
+            rows, _ = await SavedProjects.get_all(columns=["project_id", "name"],
+                                                  where_dict={"kind": "saved", "user_id": user_id}, db=db)
+            project_ids = [row["project_id"] for row in rows]
+            p_number = project_ids.index(project_id) + 1
+
+            ###############
+
+            dashboard_list = {
+                "project": p_number,
+                "answer": output_answer,
+                "time": round(end - start, 2),
+                "metadata": metadata
+            }
 
             session_logger.log_step(task="table", layer=2, log_text="Sources: ", table_data=metadata)
 
             await export_logs(log_path)
 
-            return output_answer, metadata["Chunk"]
+            return dashboard_list #output_answer, metadata["Chunk"]
 
 
         # Finally we export the logs to md
@@ -1509,10 +1500,7 @@ async def run_project_retrieval(session_logger, query: str, history: List[Dict[s
 
         #session_logger.log_step(task="table", layer=2, log_text="Retrieved Chunks: ", table_data=table_data)
 
-
-
         # ========== Doc Pipelines ==============
-
 
         input_ids = router_dict["retrieval_id"]
 
@@ -1522,10 +1510,8 @@ async def run_project_retrieval(session_logger, query: str, history: List[Dict[s
             output_ids = []
             for doc_id in doc_ids:
 
-
                 # log start of document retrieval
                 #session_logger.log_step(task="header_3", layer=2, log_text=f"Processing Document: {doc_title_dict[doc_id]}")
-
 
                 # get pipeline if it was exported for this doc_id, otherwise []
                 doc_pipeline = retrieval_dict[doc_id] if doc_id in retrieval_dict else []
@@ -1685,7 +1671,7 @@ async def run_document_pipeline(query, input_ids, input_pipeline, logger, user_i
             # stop pipeline if any retriever returns no IDs
             if not pipeline_output_dict:
 
-                return None
+                return []
 
             pipeline_output_ids = pipeline_output_dict["retrieval_id"]
 
