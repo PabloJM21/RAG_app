@@ -7,7 +7,7 @@ on:
 
 env:
   REGISTRY: ${{ secrets.AZURE_REGISTRY_NAME }}.azurecr.io
-  IMAGE_NAME: fastapi-backend
+  IMAGE_NAME: fastapi_backend
 
 jobs:
   build-and-push:
@@ -27,8 +27,8 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: ./fastapi-backend
-          file: ./fastapi-backend/Dockerfile
+          context: ./fastapi_backend
+          file: ./fastapi_backend/Dockerfile
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
 
