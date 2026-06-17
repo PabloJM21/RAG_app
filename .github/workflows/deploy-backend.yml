@@ -45,7 +45,16 @@ jobs:
       - name: Deploy to Azure App Service (Container)
         uses: azure/webapps-deploy@v2
         with:
-          app-name: rag-app-container          # Name deiner Container-Web-App
-          slot-name: Production                # oder weglassen, wenn kein Slot
+          app-name: rag-app-container
+          slot-name: Production
+          resource-group-name: rag-app-rg-gwc        # ← neu
           images: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            
+            
+
+      - name: Trigger Azure WebApp restart
+        run: |
+          az webapp restart \
+            --name rag-app-container \
+            --resource-group rag-app-rg-gwc
