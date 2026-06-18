@@ -1046,17 +1046,17 @@ class BaseChunker:
 class ParagraphChunker(BaseChunker):
 
     """
-    tokenizer_model and max_tokens can be empty
+    tokenizer_model and max_words can be empty
 
     """
 
     def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, project_id: UUID, doc_id: UUID, level_name: str, doc_title: str,
-                 with_title: bool, separator: str = "##", tokenizer_model: str = "", max_tokens: int = 0):
+                 with_title: bool, separator: str = "##", max_words: int = 0):
 
         super().__init__(db=db, logger=logger, user_id=user_id, project_id=project_id, doc_id=doc_id, level_name=level_name, with_title=with_title, doc_title=doc_title)
 
 
-        self.max_tokens = int(max_tokens) if max_tokens else 0
+        self.max_words = int(max_words) if max_words else 0
         self.separator = separator
 
 
@@ -1067,13 +1067,13 @@ class ParagraphChunker(BaseChunker):
 
         """
         paragraph length will be computed as the number of words
-        if max_tokens is empty, the chunking applied is equivalent to normal splitting based on regex
+        if max_words is empty, the chunking applied is equivalent to normal splitting based on regex
         """
-        if self.max_tokens:
-            # count words, if no tokenizer was specified
+        if self.max_words:
+            # count words
             return len(paragraph.split(" "))#len(paragraph)
 
-        return 1  # ensures that len(paragraph) > max_tokens
+        return 1  # ensures that len(paragraph) > max_words
 
 
 
@@ -1113,7 +1113,7 @@ class ParagraphChunker(BaseChunker):
             p_len = self.compute_paragraph_length(p)
 
 
-            if current_len + p_len > self.max_tokens:
+            if current_len + p_len > self.max_words:
 
                 """
                 if current: # enable further paragraph chunking
@@ -1139,17 +1139,17 @@ class ParagraphChunker(BaseChunker):
 class SlidingChunker(BaseChunker):
 
     """
-    max_tokens and overlap_tokens can be empty
+    max_words and overlap_tokens can be empty
     tokenizer_model is mandatory
     """
 
     def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, project_id: UUID, doc_id: UUID, level_name: str, doc_title: str,
-                 with_title: bool, max_tokens: int = 0, overlap_tokens: int = 0):
+                 with_title: bool, max_words: int = 0, overlap_tokens: int = 0):
 
         super().__init__(db=db, logger=logger, user_id=user_id, project_id=project_id, doc_id=doc_id, level_name=level_name, with_title=with_title, doc_title=doc_title)
 
 
-        self.max_tokens = int(max_tokens) if max_tokens else 0
+        self.max_words = int(max_words) if max_words else 0
 
 
         self.overlap_tokens = int(overlap_tokens) if overlap_tokens else 0
@@ -1177,11 +1177,11 @@ class SlidingChunker(BaseChunker):
         start = 0
 
         while start < len(tokens):
-            end = start + self.max_tokens
+            end = start + self.max_words
             chunk_tokens = tokens[start:end]
             chunk_text = self.decode_tokens(chunk_tokens)
             chunks.append(chunk_text)
-            start += self.max_tokens - self.overlap_tokens
+            start += self.max_words - self.overlap_tokens
 
         return chunks
 

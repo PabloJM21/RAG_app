@@ -1,12 +1,10 @@
 from uuid import UUID
 from pydantic import BaseModel
 
-from pathlib import Path
+
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
-from sqlalchemy import Column, String, Integer, ForeignKey
-from sqlalchemy.orm import DeclarativeBase, relationship
+
 
 from app.models import ApiKey
 from app.database import User, get_async_session
@@ -16,10 +14,7 @@ from app.rag_services.helpers import encrypt_key, decrypt_key
 
 
 from typing import List, Dict, Any
-from uuid import uuid4
-import json
-import os
-import pandas as pd
+
 
 from dotenv import load_dotenv
 

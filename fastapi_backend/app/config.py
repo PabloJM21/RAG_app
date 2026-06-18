@@ -19,9 +19,6 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_SECONDS: int = 3600
 
-    # MCP Tokens
-
-    MCP_SECRET_KEY: str
 
     # Email
     MAIL_USERNAME: str | None = None

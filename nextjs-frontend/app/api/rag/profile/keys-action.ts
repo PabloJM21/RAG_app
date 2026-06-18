@@ -3,11 +3,9 @@
 
 import {cookies} from "next/headers";
 import {revalidatePath} from "next/cache";
-import {createKey, readKeyList, deleteKey, KeyRead, readUrl, UrlRead } from "./sdk.gen";
-import { keySchema } from "@/lib/definitions";
+import {createKey, readKeyList, deleteKey, KeyRead} from "./sdk.gen";
 
 import { redirect } from "next/navigation";
-import {KeyCreate} from "./sdk.gen";
 
 
 
@@ -88,7 +86,6 @@ export async function addKey(prevState: {}, formData: FormData) {
 
 
 
-
 export async function fetchKeys(): Promise<KeyRead[]> {
   const cookieStore = await cookies();
   const token = cookieStore.get("accessToken")?.value;
@@ -115,41 +112,5 @@ export async function fetchKeys(): Promise<KeyRead[]> {
 
 
 
-type State = {
-  mcp_url: string | null;
-  error?: string;
-};
 
 
-
-export async function getUrl() {
-
-
-  const cookieStore = await cookies();
-  const token = cookieStore.get("accessToken")?.value;
-
-  if (!token) {
-    throw new Error("No access token found");
-  }
-
-  const response = await readUrl({
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  // 3. Handle API errors
-  if (response.error) {
-    return { message: "Error while getting Url" };
-  }
-
-  // 4. Extract url correctly
-  const mcp_url = response.data?.mcp_url;
-
-  if (!mcp_url) {
-    return { message: "No mcp_url returned" };
-  }
-
-  // 5. Return mcp_url to client
-  return { mcp_url };
-}

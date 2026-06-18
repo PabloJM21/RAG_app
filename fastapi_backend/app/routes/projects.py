@@ -10,8 +10,7 @@ from app.users import current_active_user
 from app.models import MainPipeline, DocPipelines, Paragraph, Retrieval, Embedding, SavedProjects, ProjectData
 
 from typing import List, Dict, Any
-from uuid import uuid4
-from copy import copy
+
 
 router = APIRouter(tags=["projects"])
 

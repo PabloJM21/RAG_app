@@ -2,7 +2,7 @@
 name = "app"
 version = "0.0.6"
 description = ""
-authors = [{ name = "Anderson Resende", email = "anderson@vinta.com.br" }]
+authors = [{ name = "Pablo Jahnen", email = "pablo.jahnenmellado@gmail.com" }]
 requires-python = ">=3.12,<3.13"
 readme = "README.md"
 
@@ -17,18 +17,10 @@ dependencies = [
     "aiosqlite>=0.22.1",
     # HTTP & async
     "httpx>=0.27,<0.29",
-    # Data & numerics
-    "pandas>=2.1,<3",
-    "numpy==1.26.4",
     # Logging & config
     "loguru>=0.7,<1",
     "python-dotenv>=1.0.1,<2",
-    # AI / RAG stack
-    "sqlite-vec>=0.1.6",
     #FastAPI
-    "fastmcp==2.14.4",
-    "mcp==1.26.0",
-    "pyjwt[crypto]==2.10.1",
     "fastapi-users[sqlalchemy]==14.0.1",
 ]
 

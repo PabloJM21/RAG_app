@@ -26,7 +26,7 @@ def load_sqlite_vec(dbapi_connection, connection_record):
     # unwrap aiosqlite → sqlite3.Connection
     raw_conn = dbapi_connection._connection._conn
     # load sqlite-vec via Python package
-    sqlite_vec.load(raw_conn)
+    #sqlite_vec.load(raw_conn)
 
     #raw_conn.enable_load_extension(True)
     #raw_conn.load_extension(r"C:\Program Files\sqlite-vec\vec0.dll")

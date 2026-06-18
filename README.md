@@ -1,14 +1,4 @@
-<div style="position: relative;">
 
-<!-- Background Image -->
-
-<p align="center">
-  <img src="./nextjs-frontend/public/images/Homepage.png" alt="Try RAGain Homepage" width="100%" />
-</p>
-
-<!-- Foreground Content -->
-
-<div style="position: relative; z-index: 1; padding: 20px;">
 
 ## Try RAGain
 
@@ -18,31 +8,42 @@
 
 ---
 
-Try RAGain is a tool designed to simplify the creation and interaction with Retrieval-Augmented Generation (RAG) pipelines. It enables users to upload and work with multiple documents—such as PDFs, Word files, and other formats supported by the Docling API—and seamlessly query them through a unified interface.
+Tool designed to create and interact with Retrieval-Augmented Generation (RAG) pipelines that are highly scalable and customizable. It enables users to upload and work with multiple documents—such as PDFs, Word files, and other formats and seamlessly query them through a unified interface. 
 
-Built with a modern full-stack architecture, Try RAGain provides a scalable environment for experimenting with and deploying RAG-based applications.
+- Agents: APIs for Chat Assistants, Document conversion and image processing through OCR
+- Data processing: Document ingestion, tect chunking and merging via an end-to-end unstructured data pipeline (ETL) 
+- Data storage: SQLite database for storing text chunks and vectorized text embeddings 
 
-### Key features
-
-✔ Multi-document support – Upload and process PDFs, Word files, and other formats supported by the Docling API.
-
-✔ RAG pipeline management – Easily create, configure, and interact with multiple RAG pipelines.
-
-✔ End-to-end type safety – Strong typing across frontend and backend for reliable data handling.
-
-✔ Developer-friendly – Clean architecture and modern tooling for rapid development and iteration.
 
 ---
 
 ## Technology stack
 
-This project uses a modern set of technologies:
 
-* FastAPI – High-performance backend for building APIs.
-* Next.js – React framework for building the frontend.
-* TypeScript – Type-safe frontend development.
-* UV – Python dependency management.
-* pnpm – Fast package manager.
+* Frontend - Vercel
+* Backend - Azure App Service
+* Database - SQLite
+* CI/CD - GitHub Actions
+
+---
+## Architecture
+<div style="position: relative;">
+
+<!-- Background Image -->
+
+<p align="center">
+  <img src="./nextjs-frontend/public/images/deployment_diagram.png" width="100%" />
+</p>
+
+<!-- Foreground Content -->
+
+<div style="position: relative; z-index: 1; padding: 20px;">
+
+
+
+
+
+## Chunking
 
 ---
 

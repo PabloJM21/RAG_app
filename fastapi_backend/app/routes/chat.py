@@ -1,7 +1,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
-from uuid import UUID
+
 
 from app.database import User, get_async_session
 from app.users import current_active_user
@@ -11,7 +11,7 @@ from app.rag_services.helpers import ExtractionError
 from app.rag_services.retrieval_service import run_retrieval
 
 from typing import List, Dict, Any, Optional
-import json
+
 
 router = APIRouter(tags=["chat"])
 

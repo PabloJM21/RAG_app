@@ -1,13 +1,9 @@
 import json
-import asyncio
 from typing import Any, Dict, List, Optional, Iterable
 import re
 from unittest.mock import inplace
 import time
-import numpy as np
-import pandas as pd
-import os
-import copy
+
 
 #Orchestrators
 from app.rag_apis.chat_api import ChatOrchestrator
@@ -103,24 +99,13 @@ class Extractor:
         # loggs
 
         paragraphs_rows, paragraphs_columns = await Paragraph.get_all_paragraphs(columns=[f"{self.input_level}_id", f"{self.output_level}_id"], where_dict={"user_id": self.user_id, "project_id": self.project_id, "doc_id": self.doc_id}, db=self.db)
-        paragraphs_df = pd.DataFrame(paragraphs_rows, columns=paragraphs_columns)
 
         self.logger.log_step(task="info_text", log_text=f"[EXTRACTION_DEBUG]: paragraph rows: {paragraphs_rows}")
 
         input_rows, input_columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "project_id": self.project_id, "doc_id": self.doc_id, "level": self.input_level}, db=self.db)
         input_rows = [dict(row) for row in input_rows]
 
-        input_df = pd.DataFrame(input_rows, columns=input_columns)  # like the retrievals table, but one for each hierarchy level
-        input_ids = sorted(set(input_df["level_id"]))
-
-        """
-        input_df = pd.DataFrame(rows, columns=columns).sort_values(by="level_id")  # like the retrievals table, but one for each hierarchy level
-        input_ids = sorted(set(input_df["level_id"]))
-        
-        rows, columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "doc_id": self.doc_id, "level": self.output_level}, db=self.db)
-        output_df = pd.DataFrame(rows, columns=columns).sort_values(by="level_id")  like the retrievals table, but one for each hierarchy level
-        """
-
+        input_ids = sorted({row["level_id"] for row in input_rows})
 
 
         # PURPOSE: if input_level < output_level, we ensure that the titles of input_level_id_names get attached in order.
@@ -382,7 +367,7 @@ class Enricher:
 
         new_content = self._call_orchestrator(system_prompt, user_prompt)
 
-
+        self.logger.log_step(task="info_text", log_text=f"new_content: {new_content}")
         # Caption and Position Logic
 
         if self.caption:
@@ -404,41 +389,45 @@ class Enricher:
 
 
     async def run_method(self):
-        # use the content of input_level to generate metadata for output_level (e.g. section for section, or section for paragraph)
-        # for example generate a section summary to enrich each section or provide context for all paragraphs in that section
-
-        # loggs
         await self.init_clients()
 
+        rows, columns = await Retrieval.get_all(
+            where_dict={
+                "user_id": self.user_id,
+                "project_id": self.project_id,
+                "doc_id": self.doc_id,
+                "level": self.input_level
+            },
+            db=self.db
+        )
 
-        rows, columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "project_id": self.project_id, "doc_id": self.doc_id, "level": self.input_level}, db=self.db)
 
+        rows = [dict(row) for row in rows]
 
+        input_ids = sorted({row["level_id"] for row in rows})
 
-        input_df = pd.DataFrame(rows, columns=columns)  # like the retrievals table, but one for each hierarchy level
+        # Index für schnellen Lookup: level_id → content
+        content_by_id = {row["level_id"]: str(row["content"]) for row in rows}
 
-        input_ids = sorted(set(input_df[f"level_id"]))
-
-
-        table_data = []
         for input_id in input_ids:
-            #print(f"proceeding to enrich {input_id}")
-
-            # instead of extracting chunk from paragraphs table, we search for the input or output column of the retrievals table
-
-            old_content = input_df.loc[input_df["level_id"] == input_id, "content"].astype(str).iloc[0]  # one row dataframe
+            old_content = content_by_id.get(input_id, "")
 
             if not old_content:
-
                 continue
 
-
-            start = time.time()
             new_content = self._enrich_chunk(old_content)
-            end = time.time()
 
-            await Retrieval.update_data(data_dict={"content": new_content}, where_dict={"user_id": self.user_id, "project_id": self.project_id, "doc_id": self.doc_id, "level_id": input_id, "level": self.input_level}, db=self.db)
-
+            await Retrieval.update_data(
+                data_dict={"content": new_content},
+                where_dict={
+                    "user_id": self.user_id,
+                    "project_id": self.project_id,
+                    "doc_id": self.doc_id,
+                    "level_id": input_id,
+                    "level": self.input_level
+                },
+                db=self.db
+            )
 
 
 
@@ -605,7 +594,6 @@ class Filter:
                 ---
                 """.strip()
 
-        #self.logger.log_step(task="info_text", layer=1, log_text=f"Starting to filter following chunk: {input_chunk}")
 
         bool_output = self._call_orchestrator(user_prompt, system_prompt)
 
@@ -613,32 +601,41 @@ class Filter:
 
 
 
-    async def run_method(self):
-        # use the content of input_level to generate metadata for output_level (e.g. section for section, or section for paragraph)
-        # for example generate a section summary to enrich each section or provide context for all paragraphs in that section
 
-        # loggs
+    async def run_method(self):
         await self.init_clients()
 
-        rows, columns = await Retrieval.get_all(where_dict={"user_id": self.user_id, "project_id": self.project_id, "doc_id": self.doc_id, "level": self.input_level}, db=self.db)
+        rows, columns = await Retrieval.get_all(
+            where_dict={
+                "user_id": self.user_id,
+                "project_id": self.project_id,
+                "doc_id": self.doc_id,
+                "level": self.input_level
+            },
+            db=self.db
+        )
 
-        input_df = pd.DataFrame(rows, columns=columns)  # like the retrievals table, but one for each hierarchy level
+        rows = [dict(row) for row in rows]
 
-        input_ids = sorted(set(input_df[f"level_id"]))
+        input_ids = sorted({row["level_id"] for row in rows})
+        content_by_id = {row["level_id"]: str(row["content"]) for row in rows}
 
         for input_id in input_ids:
-            # print(f"proceeding to enrich {input_id}")
-
-            # instead of extracting chunk from paragraphs table, we search for the input or output column of the retrievals table
-
-            content = input_df.loc[input_df["level_id"] == input_id, "content"].astype(str).iloc[0]  # one row dataframe
+            content = content_by_id.get(input_id, "")
 
             is_relevant = self._decide_relevance(content)
 
             if not is_relevant:
-
-                await Retrieval.delete_data(where_dict={"user_id": self.user_id, "project_id": self.project_id, "doc_id": self.doc_id, "level_id": input_id, "level": self.input_level}, db=self.db)
-
+                await Retrieval.delete_data(
+                    where_dict={
+                        "user_id": self.user_id,
+                        "project_id": self.project_id,
+                        "doc_id": self.doc_id,
+                        "level_id": input_id,
+                        "level": self.input_level
+                    },
+                    db=self.db
+                )
                 self.logger.log_step(task="info_text", layer=1, log_text=f"Removed chunk:\n {content}\n")
 
 

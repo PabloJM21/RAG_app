@@ -21,70 +21,34 @@ type StageColors = Record<string, string>;
 
 const METHOD_TYPES = [
   "Paragraph Chunker",
-  "Hybrid Chunker",
   "Sliding Chunker",
-  "Enricher",
-  "Filter",
 ] as const;
 
-const ENRICHER_POSITION = ["top", "bottom", "replace"];
-const ENRICHER_MODELS = ["coder", "thinker", "classifier", "generator", "reasoner"];
-const ENRICHER_PROMPTS = [
-  "A fluent and complete version of this chunk in the same language.",
-];
 
-const EMBEDDING_MODELS = [
-  "intfloat/e5-mistral-7b-instruct",
-  "intfloat/multilingual-e5-large-instruct",
-  "Qwen/Qwen3-Embedding-4B",
-];
+
 
 const PARAGRAPH_TEMPLATE: MethodSpec = {
   type: "Paragraph Chunker",
   level_name: "",
   separator: "##",
-  tokenizer_model: "",
-  max_tokens: "",
+  max_words: "",
   with_title: false,
 };
 
-const HYBRID_TEMPLATE: MethodSpec = {
-  type: "Hybrid Chunker",
-  level_name: "",
-  tokenizer_model: "",
-  max_tokens: "",
-  with_title: false,
-};
 
 const SLIDING_TEMPLATE: MethodSpec = {
   type: "Sliding Window Chunker",
   level_name: "",
-  tokenizer_model: "",
-  max_tokens: "",
-  overlap_tokens: "",
+  max_words: "",
+  overlap_words: "",
   with_title: false,
 };
 
-const ENRICHER_TEMPLATE: MethodSpec = {
-  type: "Enricher",
-  model: "",
-  prompt: "",
-  position: "",
-  caption: "",
-};
 
-const FILTER_TEMPLATE: MethodSpec = {
-  type: "Filter",
-  model: "",
-  prompt: "",
-};
 
 const TEMPLATE_MAP: Record<(typeof METHOD_TYPES)[number], MethodSpec> = {
   "Paragraph Chunker": PARAGRAPH_TEMPLATE,
-  "Hybrid Chunker": HYBRID_TEMPLATE,
   "Sliding Chunker": SLIDING_TEMPLATE,
-  Enricher: ENRICHER_TEMPLATE,
-  Filter: FILTER_TEMPLATE,
 };
 
 function templateFor(type: (typeof METHOD_TYPES)[number]): MethodSpec {
@@ -150,92 +114,9 @@ export function ChunkingEditor({
         </select>
       );
     }
-
-    if (method.type === "Enricher" && key === "prompt") {
-      return (
-        <>
-          <input
-            list="enricher-prompts"
-            type="text"
-            value={String(value ?? "")}
-            onChange={(e) => updatePipeline(index, key, e.target.value)}
-            style={{ width: "100%" }}
-          />
-          <datalist id="enricher-prompts">
-            {ENRICHER_PROMPTS.map((w) => (
-              <option key={w} value={w} />
-            ))}
-          </datalist>
-        </>
-      );
-    }
-
-    if (method.type === "Enricher" && key === "position") {
-      return (
-        <select
-          value={value}
-          onChange={(e) => updatePipeline(index, key, e.target.value)}
-        >
-          <option value="">—</option>
-          {ENRICHER_POSITION.map((w) => (
-            <option key={w} value={w}>
-              {w}
-            </option>
-          ))}
-        </select>
-      );
-    }
-
-    if (method.type === "Filter" && key === "prompt") {
-      return (
-        <>
-          <input
-            list="filter-prompts"
-            type="text"
-            value={String(value ?? "")}
-            onChange={(e) => updatePipeline(index, key, e.target.value)}
-            style={{ width: "100%" }}
-          />
-          <datalist id="filter-prompts">
-            {FILTER_PROMPTS.map((w) => (
-              <option key={w} value={w} />
-            ))}
-          </datalist>
-        </>
-      );
-    }
-
-    if (key === "model") {
-      return (
-        <select
-          value={value}
-          onChange={(e) => updatePipeline(index, key, e.target.value)}
-        >
-          <option value="">—</option>
-          {ENRICHER_MODELS.map((label) => (
-            <option key={label} value={label}>
-              {label}
-            </option>
-          ))}
-        </select>
-      );
-    }
-
-    if (key === "tokenizer_model") {
-      return (
-        <select
-          value={value}
-          onChange={(e) => updatePipeline(index, key, e.target.value)}
-        >
-          <option value="">—</option>
-          {EMBEDDING_MODELS.map((label) => (
-            <option key={label} value={label}>
-              {label}
-            </option>
-          ))}
-        </select>
-      );
-    }
+    
+    
+    
 
     return (
       <input
@@ -288,9 +169,6 @@ export function ChunkingEditor({
     </section>
   );
 }
-
-
-
 
 
 

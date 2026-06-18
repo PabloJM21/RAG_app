@@ -18,7 +18,6 @@ import {
 import { fetchKeys } from "@/app/api/rag/profile/keys-action";
 import { fetchGenerator } from "@/app/api/rag/main-pipeline/pipeline-action";
 
-import { RequestUrlButton } from "./requestUrl";
 import {
   DeleteKeyButton,
   DeletePipelineButton,
@@ -286,19 +285,6 @@ export default async function KeyEditorPage() {
         </div>
       </section>
 
-      {/* MCP URL */}
-      <section className="space-y-3">
-        <div>
-          <h3 className="text-base font-semibold">MCP URL</h3>
-          <p className="text-sm text-muted-foreground">
-            Request or refresh the MCP endpoint used by your integrations.
-          </p>
-        </div>
-
-        <div className="rounded-xl border bg-card p-4">
-          <RequestUrlButton />
-        </div>
-      </section>
     </div>
   );
 }

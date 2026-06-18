@@ -1,19 +1,13 @@
 from uuid import UUID
-from pydantic import BaseModel
 
-from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
-from sqlalchemy import Column, String, Integer, ForeignKey
-from sqlalchemy.orm import DeclarativeBase, relationship
 
 from app.models import DocPipelines
 from app.database import User, get_async_session
 from app.users import current_active_user
 
 from typing import List, Dict, Any
-from uuid import uuid4
 import json
 
 # helper for removing "color" from stored pipelines

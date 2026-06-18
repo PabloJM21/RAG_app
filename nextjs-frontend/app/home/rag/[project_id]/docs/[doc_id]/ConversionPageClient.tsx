@@ -348,7 +348,7 @@ export default function ConversionPageClient({
   pipeline: MethodSpec;
 }) {
   const [pipeline, setPipeline] = useState<MethodSpec>(
-    initialPipeline ?? structuredClone(DEFAULT_CONFIG)
+    structuredClone({ ...DEFAULT_CONFIG, ...initialPipeline })
   );
 
   const pipelineJson = useMemo(() => JSON.stringify(pipeline), [pipeline]);

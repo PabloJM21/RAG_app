@@ -3529,9 +3529,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Chat-Rag Query Tool"
+                  "$ref": "#/components/schemas/MethodSpec"
                 }
               }
             }
@@ -3552,218 +3550,6 @@
             "OAuth2PasswordBearer": []
           }
         ]
-      }
-    },
-    "/mcp/oauth/authorize": {
-      "get": {
-        "tags": [
-          "mcp"
-        ],
-        "summary": "Authorize",
-        "operationId": "authorize",
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "response_type",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Response Type"
-            }
-          },
-          {
-            "name": "client_id",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Client Id"
-            }
-          },
-          {
-            "name": "redirect_uri",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Redirect Uri"
-            }
-          },
-          {
-            "name": "state",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "State"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/mcp/oauth/token": {
-      "post": {
-        "tags": [
-          "mcp"
-        ],
-        "summary": "Token",
-        "operationId": "token",
-        "requestBody": {
-          "content": {
-            "application/x-www-form-urlencoded": {
-              "schema": {
-                "$ref": "#/components/schemas/Body_mcp-token"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/mcp/.well-known/oauth-authorization-server": {
-      "get": {
-        "tags": [
-          "mcp"
-        ],
-        "summary": "Oauth Metadata",
-        "operationId": "oauth_metadata",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/mcp/.well-known/oauth-protected-resource": {
-      "get": {
-        "tags": [
-          "mcp"
-        ],
-        "summary": "Resource Metadata",
-        "operationId": "resource_metadata",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/mcp/issue-url": {
-      "post": {
-        "tags": [
-          "mcp"
-        ],
-        "summary": "Issue Mcp Url",
-        "operationId": "issue_mcp_url",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "OAuth2PasswordBearer": []
-          }
-        ]
-      }
-    },
-    "/mcp/": {
-      "post": {
-        "tags": [
-          "mcp"
-        ],
-        "summary": "Mcp Jsonrpc",
-        "operationId": "mcp_jsonrpc",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/JsonRpcRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
       }
     }
   },
@@ -3860,39 +3646,90 @@
         ],
         "title": "Body_docs-upload_doc_file"
       },
-      "Body_mcp-token": {
+      "ChunkMetadata": {
         "properties": {
-          "grant_type": {
-            "type": "string",
-            "title": "Grant Type"
+          "Chunk": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Chunk"
           },
-          "code": {
-            "type": "string",
-            "title": "Code"
+          "Document": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Document"
           },
-          "client_id": {
-            "type": "string",
-            "title": "Client Id"
+          "Level": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Level"
           },
-          "client_secret": {
+          "Number": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Number"
+          }
+        },
+        "type": "object",
+        "required": [
+          "Chunk",
+          "Document",
+          "Level",
+          "Number"
+        ],
+        "title": "ChunkMetadata"
+      },
+      "DashboardEntry": {
+        "properties": {
+          "project": {
+            "type": "string",
+            "title": "Project"
+          },
+          "answer": {
+            "type": "string",
+            "title": "Answer"
+          },
+          "time": {
+            "type": "number",
+            "title": "Time"
+          },
+          "score": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "number"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Client Secret"
+            "title": "Score"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/ChunkMetadata"
           }
         },
         "type": "object",
         "required": [
-          "grant_type",
-          "code",
-          "client_id"
+          "project",
+          "answer",
+          "time",
+          "metadata"
         ],
-        "title": "Body_mcp-token"
+        "title": "DashboardEntry"
       },
       "DocCreate": {
         "properties": {
@@ -3962,50 +3799,6 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
-      "JsonRpcRequest": {
-        "properties": {
-          "jsonrpc": {
-            "type": "string",
-            "title": "Jsonrpc",
-            "default": "2.0"
-          },
-          "id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Id"
-          },
-          "method": {
-            "type": "string",
-            "title": "Method"
-          },
-          "params": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Params"
-          }
-        },
-        "type": "object",
-        "required": [
-          "method"
-        ],
-        "title": "JsonRpcRequest"
-      },
       "KeyReadData": {
         "properties": {
           "key_id": {
@@ -4065,6 +3858,52 @@
           "target_id"
         ],
         "title": "LoadProjectBody"
+      },
+      "MethodSpec": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "answer": {
+            "type": "string",
+            "title": "Answer"
+          },
+          "sources": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sources"
+          },
+          "dashboard_list": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/DashboardEntry"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dashboard List"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok",
+          "answer"
+        ],
+        "title": "MethodSpec"
       },
       "PipelineResponse": {
         "properties": {

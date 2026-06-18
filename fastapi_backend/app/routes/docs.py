@@ -5,9 +5,6 @@ from pydantic import BaseModel
 from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
-from sqlalchemy import Column, String, Integer, ForeignKey
-from sqlalchemy.orm import DeclarativeBase, relationship
 
 
 from app.database import User, get_async_session, create_db_and_tables
@@ -15,7 +12,6 @@ from app.users import current_active_user
 from app.models import DocPipelines, ExportedPipelines, Retrieval, Paragraph, Embedding
 
 from typing import List
-from uuid import uuid4
 
 
 router = APIRouter(tags=["docs"])
