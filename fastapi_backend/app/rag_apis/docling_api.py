@@ -113,6 +113,8 @@ class DoclingClient:
             extract_tables_as_images: bool = False,
             image_resolution_scale: float = 1.0,
     ) -> Dict[str, Any]:
+
+
         async with self.lock:
             total_attempts = MAX_RETRIES * len(self.keys)
 

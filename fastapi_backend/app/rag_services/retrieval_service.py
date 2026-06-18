@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import time
 import copy
+import struct
 
 #fastapi exceptions
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -793,7 +794,7 @@ class EmbeddingRetriever(BaseRetriever):
 
             embeddings = await self._embed(input_dict["content"])
 
-            embeddings = [np.array(e, dtype=np.float32).tobytes() for e in embeddings]
+            embeddings = [struct.pack(f"{len(e)}f", *e) for e in embeddings]
 
             output_list = [{"user_id": self.user_id, "project_id": self.project_id, "retrieval_id": input_dict["retrieval_id"][i], "embedding": embeddings[i]} for i in range(len(embeddings))]
 
@@ -832,13 +833,17 @@ class EmbeddingRetriever(BaseRetriever):
 
 
         # Convert BLOBs back to float32 vectors
-        vectors = [np.frombuffer(b, dtype=np.float32) for b in embedding_columns["embedding"]]
 
-        # Make a matrix shaped (N, dim)
-        emb_matrix = np.vstack(vectors)
+        vectors = [
+            list(struct.unpack(f"{len(b) // 4}f", b))
+            for b in embedding_columns["embedding"]
+        ]
 
-        # Embed the query
-        query_embedding = np.array((await self._embed([query]))[0], dtype="float32")
+        # Matrix als list-of-lists (kein np.vstack nötig)
+        emb_matrix = vectors  # shape: (N, dim) als Python list
+
+        # Query embedding als plain list
+        query_embedding = list((await self._embed([query]))[0])
 
         # compute score
         embedding_columns["cosine_similarity"] = self._cosine_similarity(query_embedding, emb_matrix)
@@ -850,41 +855,40 @@ class EmbeddingRetriever(BaseRetriever):
         #  6. Return retrieval_ids
         return top_k_embedding_columns["retrieval_id"]
 
-
-
-
     @staticmethod
-    def _cosine_similarity(query_embedding, emb_matrix):
+    def _cosine_similarity(query_embedding: list[float], emb_matrix: list[list[float]]) -> list[float]:
         """
         Compute cosine similarity between a single query vector and a matrix of embeddings.
 
         Parameters:
-            query_embedding : np.ndarray, shape (d,)
-            emb_matrix : np.ndarray, shape (n, d)
+            query_embedding : list[float], length d
+            emb_matrix      : list[list[float]], shape (n, d)
 
         Returns:
-            sims : np.ndarray, shape (n,)
+            sims : list[float], length n
         """
-        query_norm = np.linalg.norm(query_embedding)
-        emb_norms = np.linalg.norm(emb_matrix, axis=1)
-        sims = (emb_matrix @ query_embedding) / (emb_norms * query_norm)
+        query_norm = math.sqrt(sum(x * x for x in query_embedding))
+
+        sims = []
+        for row in emb_matrix:
+            dot = sum(a * b for a, b in zip(row, query_embedding))
+            row_norm = math.sqrt(sum(x * x for x in row))
+            denom = row_norm * query_norm
+            sims.append(dot / denom if denom != 0.0 else 0.0)
+
         return sims
 
+
+
     @staticmethod
-    def top_k_numpy(col_dict, sort_col, k):
+    def top_k_numpy(col_dict: dict, sort_col: str, k: int) -> dict:
+        values = col_dict[sort_col]  # list[float]
 
-        #values = np.array(col_dict[sort_col]) # convert to np array
-
-        values = col_dict[sort_col]  # already np.ndarray
-
-        # Partition to get top-k unsorted
-        idx = np.argpartition(values, -k)[-k:]
-
-        # Now sort only those k
-        sorted_idx = idx[np.argsort(values[idx])[::-1]]
+        # Top-k indices sortiert absteigend nach similarity
+        sorted_idx = sorted(range(len(values)), key=lambda i: values[i], reverse=True)[:k]
 
         return {
-            col: np.array(col_dict[col])[sorted_idx].tolist()
+            col: [col_dict[col][i] for i in sorted_idx]
             for col in col_dict
         }
 

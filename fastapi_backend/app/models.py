@@ -11,11 +11,9 @@ from sqlalchemy.future import select
 from sqlalchemy.inspection import inspect
 from typing import TypeVar, Type, Dict, Any, Optional
 from sqlalchemy.types import TypeDecorator, UserDefinedType
-
+from sqlalchemy import LargeBinary
 # used for vector embeddings
-class Vec1536(UserDefinedType):
-    def get_col_spec(self):
-        return "VEC(1536)"
+
 
 
 
@@ -502,7 +500,7 @@ class Embedding(Base):
     retrieval_id = Column(Integer, nullable=True) # 1-to-1 relationship to pk
     level = Column(String, nullable=True)
 
-    embedding = Column(Vec1536, nullable=False)
+    embedding = Column(LargeBinary, nullable=False)
 
     user_id = Column(UUID(as_uuid=True), ForeignKey("user.id"), nullable=False)
 

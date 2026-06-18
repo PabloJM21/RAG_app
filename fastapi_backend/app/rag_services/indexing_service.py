@@ -1,9 +1,6 @@
 import json
-import asyncio
-from typing import Any, Dict, List, Optional, Iterable
+from typing import Any, Dict, List, Optional
 import re
-import pandas as pd
-import copy
 
 import os
 import time
@@ -15,31 +12,6 @@ from app.rag_apis.chat_api import ChatOrchestrator
 
 # External methods (Enrichers and Filters)
 from app.rag_services.extraction_service import Enricher, Filter
-
-# -----------------------------------------
-# Docling
-# -----------------------------------------
-
-# Tokenizers and chunkers
-
-from docling_core.transforms.chunker.hybrid_chunker import HybridChunker
-from docling_core.transforms.chunker.tokenizer.base import BaseTokenizer
-from docling_core.transforms.chunker.tokenizer.huggingface import HuggingFaceTokenizer
-from torch.masked import argmax
-from transformers import AutoTokenizer
-from docling_core.transforms.chunker.base import BaseChunk
-from docling_core.transforms.chunker.hierarchical_chunker import DocChunk, HierarchicalChunker
-
-# Doc conversion
-
-from docling.datamodel.base_models import InputFormat
-from docling.document_converter import DocumentConverter
-
-# from pdf path
-from docling.datamodel.pipeline_options import PdfPipelineOptions
-from docling.document_converter import PdfFormatOption
-
-
 
 
 # -----------------------------------------
@@ -60,25 +32,6 @@ from app.generate_markdown import export_logs
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import DocPipelines, Paragraph, Retrieval
-
-
-
-"""
-    Currently  there are separated tables for each hierarchy level.
-    Replace them with:
-    A single paragraph table with marker columns (Chapter: 1 Section: 1, Chapter: 2 Section: 2, Chapter: 2 Section: 3)
-
-    Extraction based on level and id (e.g. Chapter 2):
-    output_df = pd.DataFrame(self.db.get_all(where level=id))   #where Section=3, where Subsection=4 ...
-    paragraphs = output_df["content"]
-    level_chunk = "\n".join([paragraphs.tolist()])
-
-
-    A single metadata table (
-
-"""
-
-
 
 
 import base64
@@ -175,17 +128,7 @@ class ImageConverter:
 
 
             
-"""
-       is_relevant = self.filter_image_content(content)
-                if is_relevant:
-                    start = time.time()
-                    output_image_content = await self.rewrite_image_content(content)
-                    end = time.time()
 
-                    self.logger.log_step(task="table", log_text=f"Rewritten Image Content: ", table_data={"Duration": round(end - start, 2), "Input": content, "Output": output_image_content})
-
-                    return f"{output_image_content}"
-"""
             
 
 
@@ -199,7 +142,7 @@ class BaseConverter:
         self.input_path = input_path
         self.output_path = output_path
 
-        self.paragraph_df = pd.DataFrame()
+
 
 
 
@@ -339,92 +282,6 @@ class CustomConverter(BaseConverter):
 
 
 
-class DoclingConverter(BaseConverter):
-    """
-    Base Docling Method for Hierarchical and Hybrid variants
-
-    """
-
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id,
-                 input_path: str, output_path: str, do_ocr=True, keep_tables=True):
-
-        super().__init__(db=db, logger=logger, user_id=user_id, input_path=input_path, output_path=output_path)
-
-        self.do_ocr = do_ocr
-        self.do_table_structure = keep_tables
-        # Force CPU
-
-    def convert_file(self, input_path: str):
-        try:
-            pipeline_options = PdfPipelineOptions()
-            pipeline_options.do_ocr = self.do_ocr
-            pipeline_options.do_table_structure = self.do_table_structure
-            pipeline_options.table_structure_options.do_cell_matching = True
-
-            doc_converter = DocumentConverter(
-                format_options={
-                    InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
-                }
-            )
-        except Exception as e:
-            raise ExtractionError(
-                f"Failed to initialize document converter: {str(e)}",
-                status_code=500,
-            ) from e
-
-        try:
-            start = time.time()
-            result = doc_converter.convert(source=input_path)
-        except Exception as e:
-            raise ExtractionError(
-                f"Document conversion failed for file '{input_path}': {str(e)}",
-                status_code=502,
-            ) from e
-
-        try:
-            dl_doc = result.document
-        except Exception as e:
-            raise ExtractionError(
-                f"Conversion result missing document for file '{input_path}'",
-                status_code=502,
-            ) from e
-
-        try:
-            output = dl_doc.export_to_markdown()
-        except Exception as e:
-            raise ExtractionError(
-                f"Failed to export document to markdown for file '{input_path}': {str(e)}",
-                status_code=502,
-            ) from e
-
-        end = time.time()
-
-        if not isinstance(output, str) or not output.strip():
-            raise ExtractionError(
-                f"Exported markdown is empty for file '{input_path}'",
-                status_code=422,
-            )
-
-        self.logger.log_step(
-            task="header_2",
-            log_text=f"Doc converted to Markdown in {round(end - start, 2)} seconds",
-        )
-
-        return output
-
-
-    def run_conversion(self) -> None:
-        # First, check if there is any Doc_ID in the  "Docs" table that doesn't have a paragraphs table.
-        # Then, run the docling client and process the markdown text
-
-
-        raw_text = self.convert_file(self.input_path)
-
-        output_text = raw_text.replace("<!-- image -->", "") # remove possible image placeholders for valid markdown sections
-
-        with open(self.output_path, "w", encoding="utf-8") as f:
-            f.write(output_text)
-
 
 
 
@@ -444,7 +301,6 @@ async def maybe_await(value):
 # Run Conversion
 
 CONVERSION_TYPE_MAPPER = {
-    "Docling": DoclingConverter,
     "Custom Conversion": CustomConverter,
 }
 
@@ -1130,70 +986,9 @@ class BaseChunker:
         self.level_id = 1
         self.with_title = with_title
 
-        self.paragraph_df = pd.DataFrame()
-
-
-    def get_tokenizer_tools(self, model: str, max_tokens: int = 512):
-
-        # -----------------------------
-        # Load tokenizer from HuggingFace
-        # -----------------------------
-        try:
-            hf_tok = AutoTokenizer.from_pretrained(model)
-        except Exception as e:
-            raise ExtractionError(
-                f"Failed to load tokenizer for model '{model}'. Model may not exist or is not accessible: {str(e)}",
-                status_code=404,
-            ) from e
-
-        # -----------------------------
-        # Validate tokenizer object
-        # -----------------------------
-        if hf_tok is None:
-            raise ExtractionError(
-                f"Tokenizer loading returned None for model '{model}'",
-                status_code=500,
-            )
-
-        # -----------------------------
-        # Max tokens handling
-        # -----------------------------
-
-        if not max_tokens:
-            max_tokens = hf_tok.model_max_length
-            self.logger.log_step(task="info_text", layer=1, log_text=f"Setting max_tokens={max_tokens} corresponding to {model}")
-
-        else:
-            self.logger.log_step(task="info_text", layer=1, log_text=f"Keeping max_tokens={max_tokens}")
 
 
 
-        token_limit = 100000  # prevent too big embeddings given by wrong max_tokens
-
-        if max_tokens > token_limit:
-
-            self.logger.log_step(task="info_text", layer=1, log_text=f"Tokens too big. Setting max_tokens={token_limit}")
-
-            max_tokens = token_limit
-
-        # -----------------------------
-        # Wrap tokenizer
-        # -----------------------------
-        try:
-            tokenizer: BaseTokenizer = HuggingFaceTokenizer(
-                tokenizer=hf_tok,
-                max_tokens=max_tokens,
-            )
-        except Exception as e:
-            raise ExtractionError(
-                f"HuggingFace tokenizer for model '{model}' is not supported or incompatible: {str(e)}",
-                status_code=422,
-            ) from e
-
-
-
-        return tokenizer, int(max_tokens)
-    
 
         
 
@@ -1261,9 +1056,6 @@ class ParagraphChunker(BaseChunker):
         super().__init__(db=db, logger=logger, user_id=user_id, project_id=project_id, doc_id=doc_id, level_name=level_name, with_title=with_title, doc_title=doc_title)
 
 
-        self.tokenizer: BaseTokenizer = None
-        self.model = tokenizer_model
-
         self.max_tokens = int(max_tokens) if max_tokens else 0
         self.separator = separator
 
@@ -1274,25 +1066,16 @@ class ParagraphChunker(BaseChunker):
     def compute_paragraph_length(self, paragraph):
 
         """
-        if tokenizer_model is empty, paragraph length will be computed as the number of characters
-        if max_tokens is empty, the max tokens of tokenizer_model will be used
-        if tokenizer_model and max_tokens are empty, the chunking applied is equivalent to normal splitting based on regex
+        paragraph length will be computed as the number of words
+        if max_tokens is empty, the chunking applied is equivalent to normal splitting based on regex
         """
-        if not self.model and not self.max_tokens:
-            return 1 # ensures that len(paragraph) > max_tokens
-
-        elif not self.model:
+        if self.max_tokens:
             # count words, if no tokenizer was specified
             return len(paragraph.split(" "))#len(paragraph)
 
+        return 1  # ensures that len(paragraph) > max_tokens
 
-        # if tokenizer_model was given with no max_tokens
 
-        elif not self.tokenizer:
-            self.tokenizer, self.max_tokens = self.get_tokenizer_tools(self.model, self.max_tokens)
-
-        length = self.tokenizer.count_tokens(paragraph)
-        return int(length)
 
     @staticmethod
     def normalize_newlines(text: str) -> str:
@@ -1353,9 +1136,6 @@ class ParagraphChunker(BaseChunker):
 
 
 
-
-
-
 class SlidingChunker(BaseChunker):
 
     """
@@ -1364,12 +1144,10 @@ class SlidingChunker(BaseChunker):
     """
 
     def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, project_id: UUID, doc_id: UUID, level_name: str, doc_title: str,
-                 with_title: bool, tokenizer_model: str = "", max_tokens: int = 0, overlap_tokens: int = 0):
+                 with_title: bool, max_tokens: int = 0, overlap_tokens: int = 0):
 
         super().__init__(db=db, logger=logger, user_id=user_id, project_id=project_id, doc_id=doc_id, level_name=level_name, with_title=with_title, doc_title=doc_title)
 
-        self.tokenizer: BaseTokenizer = None
-        self.model = tokenizer_model
 
         self.max_tokens = int(max_tokens) if max_tokens else 0
 
@@ -1378,28 +1156,19 @@ class SlidingChunker(BaseChunker):
 
 
     def encode_text(self, input_text):
-
-        # if no tokenizer model, use words as tokens
-        if not self.model:
-            output_tokens = input_text.split(" ")
-            return output_tokens
-
-        # if tokenizer model, init tokenizer at the first iteration
-        elif not self.tokenizer:
-            self.tokenizer, self.max_tokens = self.get_tokenizer_tools(self.model, self.max_tokens)
-
-        output_tokens = self.tokenizer.get_tokenizer().encode(input_text)
+        # use words as tokens
+        output_tokens = input_text.split(" ")
         return output_tokens
 
 
 
+
+
     def decode_tokens(self, input_tokens):
-        if not self.model:
-            return input_tokens
 
-        output_text = self.tokenizer.get_tokenizer().decode(input_tokens)
+        return input_tokens
 
-        return output_text
+
 
 
     def chunk_text(self, text: str)-> list[str]:
@@ -1418,114 +1187,6 @@ class SlidingChunker(BaseChunker):
 
 
 
-
-
-class DoclingChunker(BaseChunker):
-    """
-    Base Docling Method for Hierarchical and Hybrid variants
-
-    """
-
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, project_id: UUID, doc_id: UUID, level_name: str, doc_title: str, with_title: bool):
-
-        super().__init__(db=db, logger=logger, user_id=user_id, project_id=project_id, doc_id=doc_id, level_name=level_name, with_title=with_title, doc_title=doc_title)
-
-        self.chunker = "" # expected from child class
-
-    @staticmethod
-    def convert_text(input_text: str):
-        converter = DocumentConverter()
-
-        normalized_text = input_text.replace("\r\n", "\n")
-
-        try:
-            result = converter.convert_string(
-                content=normalized_text,
-                format=InputFormat.MD,
-                name="input.md",
-            )
-        except Exception as e:
-            raise ExtractionError(
-                f"Text conversion failed: {str(e)}",
-                status_code=502,
-            ) from e
-
-        try:
-            document = result.document
-
-        except Exception as e:
-            raise ExtractionError(
-                "Converted text result is missing document",
-                status_code=502,
-            ) from e
-
-
-        if document is None:
-            raise ExtractionError(
-                "Converted text result returned no document",
-                status_code=502,
-            )
-
-        return document
-
-    def chunk_text(self, input_chunk: str):
-
-        dl_doc = self.convert_text(input_chunk)
-        chunk_iter = self.chunker.chunk(dl_doc=dl_doc)
-        output_chunks = [self.chunker.contextualize(chunk=chunk) for chunk in chunk_iter]
-
-        return output_chunks
-
-        
-
-
-class HierarchicalDoclingChunker(DoclingChunker):
-
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, project_id: UUID, doc_id: UUID, level_name: str, doc_title: str,
-        with_title: bool, max_tokens: int, min_tokens, overlap, merge_across_blocks):
-        super().__init__(db=db, logger=logger, user_id=user_id, project_id=project_id, doc_id=doc_id, level_name=level_name, with_title=with_title, doc_title=doc_title)
-
-        try:
-            self.chunker = HierarchicalChunker(
-                max_tokens=max_tokens,
-                min_tokens=min_tokens,
-                overlap=overlap,
-                merge_across_blocks=merge_across_blocks,
-            )
-        except Exception as e:
-            raise ExtractionError(
-                f"Failed to initialize HierarchicalChunker with "
-                f"max_tokens={max_tokens}, min_tokens={min_tokens}, "
-                f"overlap={overlap}, merge_across_blocks={merge_across_blocks}: {str(e)}",
-                status_code=500,
-            ) from e
-
-
-
-
-
-
-
-
-
-class HybridDoclingChunker(DoclingChunker):
-
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, project_id: UUID, doc_id: UUID, level_name: str, doc_title: str,
-        with_title: bool, tokenizer_model: str = "", max_tokens: int = 0):
-
-        super().__init__(db=db, logger=logger, user_id=user_id, project_id=project_id, doc_id=doc_id, level_name=level_name, with_title=with_title, doc_title=doc_title)
-
-        self.tokenizer, _ = self.get_tokenizer_tools(tokenizer_model, max_tokens)
-
-        try:
-
-            self.chunker = HybridChunker(tokenizer=self.tokenizer)
-
-        except Exception as e:
-            raise ExtractionError(
-                f"Failed to initialize HybridChunker with {tokenizer_model} tokenizer model",
-                status_code=500,
-            ) from e
 
 
 
@@ -1574,7 +1235,6 @@ async def run_chunking(pipeline: list[dict[str, Any]], user_id: UUID, project_id
 
 CHUNKING_TYPE_MAPPER = {
     "Paragraph Chunker": ParagraphChunker,
-    "Hybrid Chunker": HybridChunker,
     "Sliding Window Chunker": SlidingChunker,
 }
 
@@ -1696,14 +1356,16 @@ async def run_chunking_pipeline(method_list: list[dict[str, Any]], user_id: UUID
 # Levels
 
 
-async def load_chunking_levels(user_id: UUID, project_id: UUID, doc_id: UUID, db: AsyncSession)-> List[str]:
+async def load_chunking_levels(
+    user_id: UUID, project_id: UUID, doc_id: UUID, db: AsyncSession
+) -> List[str]:
 
+    rows, columns = await Retrieval.get_all(
+        where_dict={"user_id": user_id, "project_id": project_id, "doc_id": doc_id},
+        db=db
+    )
 
-
-    rows, columns = await Retrieval.get_all(where_dict={"user_id": user_id, "project_id": project_id, "doc_id": doc_id}, db=db)
-    retrieval_df = pd.DataFrame(rows, columns=columns)
-
-    chunking_levels = list(set(retrieval_df["level"]))
+    chunking_levels = list({row["level"] for row in rows})
 
     return chunking_levels
 
@@ -1712,41 +1374,45 @@ async def load_chunking_levels(user_id: UUID, project_id: UUID, doc_id: UUID, db
 # Results
 
 
-async def load_chunking_results(user_id: UUID, project_id: UUID, doc_id: UUID, db: AsyncSession)-> List[Dict[str, Any]]:
+async def load_chunking_results(
+    user_id: UUID, project_id: UUID, doc_id: UUID, db: AsyncSession
+) -> List[Dict[str, Any]]:
+
+    rows, columns = await Retrieval.get_all(
+        where_dict={"user_id": user_id, "project_id": project_id, "doc_id": doc_id},
+        db=db
+    )
+
+    groups: dict[str, list] = {}
+    for row in rows:
+        level = row["level"]
+        groups.setdefault(level, []).append({
+            "retrieval_id": row["retrieval_id"],
+            "title":        row["title"],
+            "content":      row["content"],
+        })
+
+    return [{"level": level, "items": items} for level, items in groups.items()]
 
 
 
-    rows, columns = await Retrieval.get_all(where_dict={"user_id": user_id, "project_id": project_id, "doc_id": doc_id}, db=db)
-    retrieval_df = pd.DataFrame(rows, columns=columns)
 
-    indexed_levels = list(set(retrieval_df["level"]))
+async def update_chunking_results(
+    user_id: UUID, project_id: UUID, db: AsyncSession,
+    result_list: List[Dict[str, Any]]
+):
+    for entry in result_list:
+        level = entry["level"]
+        for item in entry["items"]:
+            row = {
+                "level":        level,
+                "retrieval_id": item["retrieval_id"],
+                "user_id":      user_id,
+                "project_id":   project_id,
+            }
+            data_dict = {"content": item["content"]}
 
-    output_list = []
-    for level in indexed_levels:
-        level_mask = retrieval_df["level"] == level
-        item_list = retrieval_df.loc[level_mask, ["retrieval_id", "title", "content"]].to_dict(orient="records")
-
-        output_list.append({"level": level, "items": item_list})
-
-    return output_list
-
-
-
-
-async def update_chunking_results(user_id: UUID, project_id: UUID, db: AsyncSession, result_list: List[Dict[str, Any]]):
-
-
-    df0 = pd.DataFrame(result_list).explode("items", ignore_index=True)
-    df = df0.drop(columns=["items"]).join(pd.json_normalize(df0["items"]))
-
-    input_list = df.to_dict(orient="records")
-
-    for row in input_list:
-        # we only need to add the user_id, as row already contains the pk "retrieval_id"
-        row.update({"user_id": user_id, "project_id": project_id})
-        data_dict = {"content": row.pop("content")}
-
-        await Retrieval.update_data(data_dict=data_dict, where_dict=row, db=db)
+            await Retrieval.update_data(data_dict=data_dict, where_dict=row, db=db)
 
 
 
