@@ -2,9 +2,10 @@ import ForkTsCheckerWebpackPlugin from "fork-ts-checker-webpack-plugin";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'standalone',
   experimental: {
     serverActions: {
-      bodySizeLimit: "20mb", // increase as needed
+      bodySizeLimit: "20mb",
     },
   },
 

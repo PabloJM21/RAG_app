@@ -16,12 +16,6 @@ from app.routes.retrieval import router as retrieval_router
 from app.routes.chat import router as chat_router
 from app.config import settings
 from app.database import create_db_and_tables, drop_tables, drop_specific_table
-import types
-
-
-
-
-
 
 
 

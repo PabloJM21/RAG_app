@@ -1,24 +1,27 @@
-FROM node:20-bookworm
+FROM node:20-bookworm AS builder
 
-# Set the working directory
 WORKDIR /app
 
-# Install pnpm globally
 RUN npm install -g pnpm
 
-# Copy package files and install dependencies
-COPY package*.json ./
+COPY package*.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 
-# Install dependencies as root (or myappuser, depending on your structure)
-RUN pnpm install
-
-## Switch to the non-root user
-USER node
-
-# Copy the rest of your application code
 COPY . .
+
+RUN pnpm build
+
+# Production image
+FROM node:20-bookworm-slim AS runner
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
 
 EXPOSE 3000
 
-# Start the application
-CMD ["./start.sh"]
+CMD ["node", "server.js"]
