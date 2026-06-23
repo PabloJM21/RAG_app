@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 
 import {
   addRetrievers, run,
-} from "@/app/api/rag/main-pipeline/pipeline-action";
+} from "@/api/rag/main-pipeline/pipeline-action";
 
 import { SaveActions, RunExportActions } from "@/components/custom-ui/SaveRunActions";
 import { Button } from "@/components/ui/button";

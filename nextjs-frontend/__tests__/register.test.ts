@@ -1,4 +1,4 @@
-import { register } from "@/app/api/register/register-action";
+import { register } from "@/api/register/register-action";
 import { redirect } from "next/navigation";
 import { registerRegister } from "@/app/clientService";
 

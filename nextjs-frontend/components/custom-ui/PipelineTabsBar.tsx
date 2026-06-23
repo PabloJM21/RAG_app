@@ -12,7 +12,7 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import {Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle} from "@/components/ui/dialog";
-import {exportProject, listExportedProjects, ListProject, loadProject} from "@/app/api/rag/projects/projects-action";
+import {exportProject, listExportedProjects, ListProject, loadProject} from "@/api/rag/projects/projects-action";
 import {Textarea} from "@/components/ui/textarea";
 import {Button} from "@/components/ui/button";
 import {ScrollArea} from "@/components/ui/scroll-area";

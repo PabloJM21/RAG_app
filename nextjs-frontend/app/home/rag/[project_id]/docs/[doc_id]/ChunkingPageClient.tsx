@@ -2,7 +2,7 @@
 "use client";
 
 import { useMemo, useState} from "react";
-import { addChunkingPipeline, runChunking } from "@/app/api/rag/docs/[doc_id]/chunking/chunking-action";
+import { addChunkingPipeline, runChunking } from "@/api/rag/docs/[doc_id]/chunking/chunking-action";
 
 import {SaveRunActions} from "@/components/custom-ui/SaveRunActions";
 

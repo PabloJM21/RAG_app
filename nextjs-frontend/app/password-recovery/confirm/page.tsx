@@ -2,7 +2,7 @@
 
 import { useActionState, Suspense } from "react";
 import { notFound, useSearchParams } from "next/navigation";
-import { passwordResetConfirm } from "@/app/api/password-recovery/password-reset-action";
+import { passwordResetConfirm } from "@/api/password-recovery/password-reset-action";
 import { SubmitButton } from "@/components/ui/submitButton";
 import {
   Card,

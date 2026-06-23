@@ -21,12 +21,12 @@ import { Toaster } from '@/components/chat_components/ui/toaster'
 import { ErrorBoundary } from '@/components/chat_components/ErrorBoundary'
 import { AppErrorFallback } from '@/components/chat_components/fallbacks/AppErrorFallback'
 
-import { submitQuery } from '@/app/api/rag/chat/chat-action'
+import { submitQuery } from '@/api/rag/chat/chat-action'
 
 import {
   ChatMessage,
   useStore,
-} from '@/app/api/rag/chat/useStore'
+} from '@/api/rag/chat/useStore'
 
 import { limitConversationHistory } from '@/components/chat_components/ChatInterfaceSimple'
 import {Dashboard} from "@/components/chat_components/Dashboard";

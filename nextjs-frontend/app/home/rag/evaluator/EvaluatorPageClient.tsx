@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useMemo, useState } from "react";
-import {addEvaluator} from "@/app/api/rag/projects/projects-action";
+import {addEvaluator} from "@/api/rag/projects/projects-action";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

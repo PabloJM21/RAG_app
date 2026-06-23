@@ -6,7 +6,7 @@ import { SaveRunActions } from "@/components/custom-ui/SaveRunActions";
 import {
   addRetrievalPipeline,
   runExport,
-} from "@/app/api/rag/docs/[doc_id]/retrieval/retrieval-action";
+} from "@/api/rag/docs/[doc_id]/retrieval/retrieval-action";
 
 import { FlexibleMethodCard } from "@/components/custom-ui/FlexibleMethodCard";
 import { Button } from "@/components/ui/button";

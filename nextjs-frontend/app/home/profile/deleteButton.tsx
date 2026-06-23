@@ -1,10 +1,10 @@
 "use client";
 
-import { removeKey } from "@/app/api/rag/profile/keys-action";
-import {removeDocPipeline} from "@/app/api/rag/docs/docs-action";
+import { removeKey } from "@/api/rag/profile/keys-action";
+import {removeDocPipeline} from "@/api/rag/docs/docs-action";
 
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import {removeProjectAction} from "@/app/api/rag/projects/projects-action";
+import {removeProjectAction} from "@/api/rag/projects/projects-action";
 
 interface DeleteKeyButtonProps {
   key_id: string;

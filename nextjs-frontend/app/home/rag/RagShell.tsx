@@ -6,7 +6,7 @@ import { ProjectTabsBar } from "@/components/custom-ui/PipelineTabsBar";
 import {
   addProjectAction,
   removeProjectAction,
-} from "@/app/api/rag/projects/projects-action";
+} from "@/api/rag/projects/projects-action";
 
 type Project = {
   project_id: string;

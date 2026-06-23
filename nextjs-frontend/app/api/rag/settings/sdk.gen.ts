@@ -2,10 +2,10 @@ import {
   type Options as ClientOptions,
   type Client,
   type TDataShape,
-} from "@/app/api/custom-openapi-client/client";
+} from "@/api/custom-openapi-client/client";
 
-import { client } from "@/app/api/custom-openapi-client/client.gen";
-import {PipelineSpec} from "@/app/api/rag/docs/[doc_id]/conversion/sdk.gen";
+import { client } from "@/api/custom-openapi-client/client.gen";
+import {PipelineSpec} from "@/api/rag/docs/[doc_id]/conversion/sdk.gen";
 import {ThemeName} from "@/components/frontend_data/themes";
 
 

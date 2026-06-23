@@ -10,7 +10,7 @@ import {
   exportDocPipeline,
   listDocPipelines,
   loadDocPipeline,
-} from "@/app/api/rag/docs/docs-action";
+} from "@/api/rag/docs/docs-action";
 
 import { DocActionsMenu } from "@/components/custom-ui/DocActions";
 

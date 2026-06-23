@@ -21,7 +21,7 @@ import {
 
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ListPipeline } from "@/app/api/rag/docs/docs-action";
+import { ListPipeline } from "@/api/rag/docs/docs-action";
 
 import { useRouter } from "next/navigation";
 import { MenuSubmitButton } from "@/components/custom-ui/SaveRunActions";

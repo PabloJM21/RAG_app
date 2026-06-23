@@ -1,5 +1,5 @@
 import RagShell from "./RagShell";
-import { listSavedProjects } from "@/app/api/rag/projects/projects-action";
+import { listSavedProjects } from "@/api/rag/projects/projects-action";
 
 export default async function RagLayout({
   children,

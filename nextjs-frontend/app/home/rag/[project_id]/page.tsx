@@ -1,5 +1,5 @@
 import MainPipelinePage from "./main-pipeline/page";
-import { setCurrentProject } from "@/app/api/rag/projects/projects-action";
+import { setCurrentProject } from "@/api/rag/projects/projects-action";
 
 export default async function RagProjectPage({
   params,

@@ -2,8 +2,8 @@
 
 import * as React from "react";
 import { useMemo, useState } from "react";
-import { addColors } from "@/app/api/rag/settings/colors-action";
-import { addThemes } from "@/app/api/rag/settings/themes-action";
+import { addColors } from "@/api/rag/settings/colors-action";
+import { addThemes } from "@/api/rag/settings/themes-action";
 
 import {SaveSettingsActions} from "@/components/custom-ui/SaveRunActions";
 import { ColorPicker } from "@/components/custom-ui/ColorPicker";

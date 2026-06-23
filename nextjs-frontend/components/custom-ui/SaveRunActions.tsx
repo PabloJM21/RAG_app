@@ -13,7 +13,7 @@ import * as React from "react";
 import { useFormStatus } from "react-dom";
 
 
-import {listExportedProjects, ListProject} from "@/app/api/rag/projects/projects-action";
+import {listExportedProjects, ListProject} from "@/api/rag/projects/projects-action";
 
 export function MenuSubmitButton({
   labelIdle,

@@ -15,8 +15,8 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 
-import { fetchKeys } from "@/app/api/rag/profile/keys-action";
-import { fetchGenerator } from "@/app/api/rag/main-pipeline/pipeline-action";
+import { fetchKeys } from "@/api/rag/profile/keys-action";
+import { fetchGenerator } from "@/api/rag/main-pipeline/pipeline-action";
 
 import {
   DeleteKeyButton,
@@ -24,8 +24,8 @@ import {
   DeleteProjectButton,
 } from "./deleteButton";
 
-import { listDocPipelines } from "@/app/api/rag/docs/docs-action";
-import { listExportedProjects } from "@/app/api/rag/projects/projects-action";
+import { listDocPipelines } from "@/api/rag/docs/docs-action";
+import { listExportedProjects } from "@/api/rag/projects/projects-action";
 
 import GeneratorPageClient from "./GeneratorPageClient";
 

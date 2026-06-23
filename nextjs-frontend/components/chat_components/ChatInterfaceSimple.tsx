@@ -20,8 +20,8 @@ import { Button } from './ui/button'
 import { Textarea } from './ui/textarea'
 
 import { useToast } from './ui/use-toast'
-import {submitQuery} from "@/app/api/rag/chat/chat-action";
-import {ChatMessage, useStore} from "@/app/api/rag/chat/useStore";
+import {submitQuery} from "@/api/rag/chat/chat-action";
+import {ChatMessage, useStore} from "@/api/rag/chat/useStore";
 
 const MAX_CONVERSATION_HISTORY = 50
 

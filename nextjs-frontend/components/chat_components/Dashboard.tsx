@@ -1,6 +1,6 @@
 // components/chat_components/Dashboard.tsx
 
-import { DashboardItem } from '@/app/api/rag/chat/useStore'
+import { DashboardItem } from '@/api/rag/chat/useStore'
 import {Badge} from "@/components/ui/badge";
 import {
   useState,

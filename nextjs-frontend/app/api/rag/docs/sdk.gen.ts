@@ -4,10 +4,10 @@ import {
   type Options as ClientOptions,
   type Client,
   type TDataShape,
-} from "@/app/api/custom-openapi-client/client";
+} from "@/api/custom-openapi-client/client";
 
-import { client } from "@/app/api/custom-openapi-client/client.gen";
-import { Errors } from "@/app/api/rag/profile/sdk.gen";
+import { client } from "@/api/custom-openapi-client/client.gen";
+import { Errors } from "@/api/rag/profile/sdk.gen";
 
 export type Options<
   TData extends TDataShape = TDataShape,

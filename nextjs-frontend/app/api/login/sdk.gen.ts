@@ -4,9 +4,9 @@ import {
   type Client,
   type TDataShape,
   urlSearchParamsBodySerializer,
-} from "@/app/api/custom-openapi-client/client";
+} from "@/api/custom-openapi-client/client";
 
-import { client } from "@/app/api/custom-openapi-client/client.gen";
+import { client } from "@/api/custom-openapi-client/client.gen";
 
 
 

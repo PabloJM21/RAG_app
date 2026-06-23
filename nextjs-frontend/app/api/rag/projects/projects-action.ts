@@ -8,7 +8,7 @@ import {
   listExportedProjectsSDK,
   listSavedProjectsSDK, loadProjectSDK,
   readEvaluator, setProject
-} from "@/app/api/rag/projects/sdk.gen";
+} from "@/api/rag/projects/sdk.gen";
 
 
 /**

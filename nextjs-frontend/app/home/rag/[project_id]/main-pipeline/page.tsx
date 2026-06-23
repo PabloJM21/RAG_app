@@ -1,4 +1,4 @@
-import { fetchRetrievers } from "@/app/api/rag/main-pipeline/pipeline-action";
+import { fetchRetrievers } from "@/api/rag/main-pipeline/pipeline-action";
 import RetrieversPageClient from "./RetrieversPageClient";
 
 type MethodSpec = Record<string, any>;

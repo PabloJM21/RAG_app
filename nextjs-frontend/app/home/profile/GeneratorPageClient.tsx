@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useMemo, useState } from "react";
-import { addGenerator } from "@/app/api/rag/main-pipeline/pipeline-action";
+import { addGenerator } from "@/api/rag/main-pipeline/pipeline-action";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

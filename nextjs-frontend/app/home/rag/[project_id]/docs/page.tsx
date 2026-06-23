@@ -1,5 +1,5 @@
 import DocsList from "./DocsList";
-import { fetchDocs } from "@/app/api/rag/docs/docs-action";
+import { fetchDocs } from "@/api/rag/docs/docs-action";
 
 type Doc = {
   doc_id: string;

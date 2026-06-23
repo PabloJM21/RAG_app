@@ -3,7 +3,7 @@ import { AlertTriangle, RefreshCw, MessageCircle, Download } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card'
 import { useToast } from '../ui/use-toast'
-import {ChatMessage, useStore} from "@/app/api/rag/chat/useStore";
+import {ChatMessage, useStore} from "@/api/rag/chat/useStore";
 
 export function ChatErrorFallback({ 
   error, 

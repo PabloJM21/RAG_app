@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import {
   addConversionPipeline,
   runConversion,
-} from "@/app/api/rag/docs/[doc_id]/conversion/conversion-action";
+} from "@/api/rag/docs/[doc_id]/conversion/conversion-action";
 
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import { SaveRunActions } from "@/components/custom-ui/SaveRunActions";

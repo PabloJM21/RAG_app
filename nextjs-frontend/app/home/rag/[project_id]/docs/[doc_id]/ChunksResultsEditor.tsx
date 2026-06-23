@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { addResults } from "@/app/api/rag/docs/[doc_id]/indexing_results/table-action";
+import { addResults } from "@/api/rag/docs/[doc_id]/indexing_results/table-action";
 
 import {
   Card,

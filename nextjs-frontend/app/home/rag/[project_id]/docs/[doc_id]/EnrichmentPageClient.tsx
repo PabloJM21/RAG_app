@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import {
   addExtractionPipeline,
   runExtraction,
-} from "@/app/api/rag/docs/[doc_id]/extraction/extraction-action";
+} from "@/api/rag/docs/[doc_id]/extraction/extraction-action";
 
 
 import {SaveRunActions} from "@/components/custom-ui/SaveRunActions";

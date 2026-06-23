@@ -3,7 +3,7 @@ import { AlertTriangle, RefreshCw, Settings, Save } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card'
 import { useToast } from '../ui/use-toast'
-import {safeJsonParseWithDefault} from "@/app/api/rag/chat/safeJson";
+import {safeJsonParseWithDefault} from "@/api/rag/chat/safeJson";
 
 
 

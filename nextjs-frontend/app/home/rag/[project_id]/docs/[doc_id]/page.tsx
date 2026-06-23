@@ -1,12 +1,12 @@
-import { fetchExtractionPipeline } from "@/app/api/rag/docs/[doc_id]/extraction/extraction-action";
+import { fetchExtractionPipeline } from "@/api/rag/docs/[doc_id]/extraction/extraction-action";
 import {
   fetchLevels,
   fetchChunkingPipeline,
-} from "@/app/api/rag/docs/[doc_id]/chunking/chunking-action";
-import { fetchResults } from "@/app/api/rag/docs/[doc_id]/indexing_results/table-action";
-import { fetchConversionPipeline } from "@/app/api/rag/docs/[doc_id]/conversion/conversion-action";
-import { fetchRetrievalPipeline } from "@/app/api/rag/docs/[doc_id]/retrieval/retrieval-action";
-import { fetchColors } from "@/app/api/rag/settings/colors-action";
+} from "@/api/rag/docs/[doc_id]/chunking/chunking-action";
+import { fetchResults } from "@/api/rag/docs/[doc_id]/indexing_results/table-action";
+import { fetchConversionPipeline } from "@/api/rag/docs/[doc_id]/conversion/conversion-action";
+import { fetchRetrievalPipeline } from "@/api/rag/docs/[doc_id]/retrieval/retrieval-action";
+import { fetchColors } from "@/api/rag/settings/colors-action";
 
 import PipelineTabs from "./PipelineTabs";
 
