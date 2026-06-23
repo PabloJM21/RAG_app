@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 
 import { registerRegister } from "./sdk.gen";
 
-import { registerSchema } from "@/lib/definitions";
+import { registerSchema } from "@/api/lib/definitions";
 import { getErrorMessage } from "@/api/lib/utils";
 
 export async function register(prevState: unknown, formData: FormData) {

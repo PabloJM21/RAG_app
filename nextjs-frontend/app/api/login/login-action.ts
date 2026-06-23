@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 
 import { authJwtLogin } from "./sdk.gen";
 import { redirect } from "next/navigation";
-import { loginSchema } from "@/lib/definitions";
+import { loginSchema } from "@/api/lib/definitions";
 import { getErrorMessage } from "@/api/lib/utils";
 
 export async function login(prevState: unknown, formData: FormData) {

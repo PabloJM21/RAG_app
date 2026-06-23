@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
+import { cn } from "@/api/lib/utils";
 
 import { Tabs, TabsList, TabsTrigger } from "@/../components/ui/tabs";
 import {

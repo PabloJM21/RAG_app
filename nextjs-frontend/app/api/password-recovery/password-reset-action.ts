@@ -2,7 +2,7 @@
 
 import { resetForgotPassword, resetResetPassword } from "./sdk.gen";
 import { redirect } from "next/navigation";
-import { passwordResetConfirmSchema } from "@/lib/definitions";
+import { passwordResetConfirmSchema } from "@/api/lib/definitions";
 import { getErrorMessage } from "@/api/lib/utils";
 
 export async function passwordReset(prevState: unknown, formData: FormData) {
