@@ -8,9 +8,7 @@ from app.rag_apis.model_enums import CHAT_SUBCATEGORIES
 from loguru import logger as AgentLogger
 from app.rag_services.helpers import ExtractionError
 
-from dotenv import load_dotenv
 
-import json
 
 
 # # ============================================================
