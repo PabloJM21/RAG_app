@@ -1,6 +1,6 @@
 
 import * as React from "react";
-import EvaluatorPageClient from "@/app/home/rag/evaluator/EvaluatorPageClient";
+import EvaluatorPageClient from "@/home/rag/evaluator/EvaluatorPageClient";
 import {fetchEvaluator} from "@/api/rag/projects/projects-action";
 
 

@@ -1,5 +1,5 @@
 import { passwordReset } from "@/api/password-recovery/password-reset-action";
-import { resetForgotPassword } from "@/app/clientService";
+import { resetForgotPassword } from "@/clientService";
 
 jest.mock("../app/openapi-client/sdk.gen", () => ({
   resetForgotPassword: jest.fn(),

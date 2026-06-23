@@ -1,5 +1,5 @@
 import { login } from "@/api/login/login-action";
-import { authJwtLogin } from "@/app/clientService";
+import { authJwtLogin } from "@/clientService";
 import { cookies } from "next/headers";
 
 jest.mock("../app/clientService", () => ({

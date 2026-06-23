@@ -19,7 +19,7 @@ import {FlexibleMethodCard} from "@/../components/custom-ui/FlexibleMethodCard";
 import {MethodsContainerCard} from "@/../components/custom-ui/Containers";
 
 import {ENRICHER_PROMPTS, FILTER_PROMPTS} from "@/../components/frontend_data/Prompts"
-import ChunksResultsEditor, {Results} from "@/app/home/rag/[project_id]/docs/[doc_id]/ChunksResultsEditor";
+import ChunksResultsEditor, {Results} from "@/home/rag/[project_id]/docs/[doc_id]/ChunksResultsEditor";
 
 type MethodSpec = Record<string, any>;
 type PipelineSpec = MethodSpec[]

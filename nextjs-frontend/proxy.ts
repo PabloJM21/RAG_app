@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { usersCurrentUser } from "@/app/clientService";
+import { usersCurrentUser } from "@/clientService";
 
 export async function proxy(request: NextRequest) {
   const token = request.cookies.get("accessToken");

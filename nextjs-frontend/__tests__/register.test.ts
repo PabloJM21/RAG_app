@@ -1,6 +1,6 @@
 import { register } from "@/api/register/register-action";
 import { redirect } from "next/navigation";
-import { registerRegister } from "@/app/clientService";
+import { registerRegister } from "@/clientService";
 
 jest.mock("next/navigation", () => ({
   redirect: jest.fn(),

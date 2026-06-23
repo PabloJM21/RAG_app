@@ -15,7 +15,7 @@ import { useActionState } from "react";
 import { SubmitButton } from "@/../components/ui/submitButton";
 import Link from "next/link";
 import { FieldError, FormError } from "@/../components/ui/FormError";
-import HomeBackground from "@/app/home-background";
+import HomeBackground from "@/home-background";
 
 export default function Page() {
   const [state, dispatch] = useActionState(register, undefined);

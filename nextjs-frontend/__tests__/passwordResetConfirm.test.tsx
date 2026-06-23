@@ -1,5 +1,5 @@
 import { passwordResetConfirm } from "@/api/password-recovery/password-reset-action";
-import { resetResetPassword } from "@/app/clientService";
+import { resetResetPassword } from "@/clientService";
 import { redirect } from "next/navigation";
 
 jest.mock("next/navigation", () => ({

@@ -1,4 +1,4 @@
-import { client } from "@/app/openapi-client/client.gen";
+import { client } from "@/openapi-client/client.gen";
 
 const configureClient = () => {
   const baseURL = process.env.API_BASE_URL ?? "http://localhost:8000";

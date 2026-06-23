@@ -15,7 +15,7 @@ import { login } from "@/api/login/login-action";
 import { useActionState } from "react";
 import { SubmitButton } from "@/../components/ui/submitButton";
 import { FieldError, FormError } from "@/../components/ui/FormError";
-import HomeBackground from "@/app/home-background";
+import HomeBackground from "@/home-background";
 
 export default function Page() {
   const [state, dispatch] = useActionState(login, undefined);

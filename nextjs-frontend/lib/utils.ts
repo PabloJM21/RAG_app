@@ -1,4 +1,4 @@
-import { AuthJwtLoginError, RegisterRegisterError } from "@/app/clientService";
+import { AuthJwtLoginError, RegisterRegisterError } from "@/clientService";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
