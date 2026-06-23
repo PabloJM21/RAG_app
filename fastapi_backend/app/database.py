@@ -5,8 +5,6 @@ from fastapi import Depends
 from fastapi_users.db import SQLAlchemyUserDatabase
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-import sqlite3
-import sqlite_vec
 
 from .config import settings
 from .models import Base, User
