@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ThemeSpec } from "@/components/frontend_data/themes";
+import { ThemeSpec } from "@/../components/frontend_data/themes";
 
 export function ThemeScope({
   theme,

@@ -4,14 +4,14 @@ import * as React from "react";
 import { useMemo, useState } from "react";
 import {addEvaluator} from "@/api/rag/projects/projects-action";
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {MenuSubmitButton} from "@/components/custom-ui/SaveRunActions";
+import { Button } from "@/../components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/../components/ui/card";
+import {MenuSubmitButton} from "@/../components/custom-ui/SaveRunActions";
 import {
   EVALUATOR_QUERY_PROMPTS,
-} from "@/components/frontend_data/Prompts";
+} from "@/../components/frontend_data/Prompts";
 
-import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger} from "@/components/ui/dropdown-menu";
+import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger} from "@/../components/ui/dropdown-menu";
 
 type MethodSpec = Record<string, any>;
 

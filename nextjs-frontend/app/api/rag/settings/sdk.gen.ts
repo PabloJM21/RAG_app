@@ -6,7 +6,7 @@ import {
 
 import { client } from "@/api/custom-openapi-client/client.gen";
 import {PipelineSpec} from "@/api/rag/docs/[doc_id]/conversion/sdk.gen";
-import {ThemeName} from "@/components/frontend_data/themes";
+import {ThemeName} from "@/../components/frontend_data/themes";
 
 
 

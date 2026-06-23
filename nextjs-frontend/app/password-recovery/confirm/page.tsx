@@ -3,17 +3,17 @@
 import { useActionState, Suspense } from "react";
 import { notFound, useSearchParams } from "next/navigation";
 import { passwordResetConfirm } from "@/api/password-recovery/password-reset-action";
-import { SubmitButton } from "@/components/ui/submitButton";
+import { SubmitButton } from "@/../components/ui/submitButton";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { FieldError, FormError } from "@/components/ui/FormError";
+} from "@/../components/ui/card";
+import { Label } from "@/../components/ui/label";
+import { Input } from "@/../components/ui/input";
+import { FieldError, FormError } from "@/../components/ui/FormError";
 import HomeBackground from "@/app/home-background";
 
 function ResetPasswordForm() {

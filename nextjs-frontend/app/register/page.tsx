@@ -6,15 +6,15 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from "@/../components/ui/card";
+import { Input } from "@/../components/ui/input";
+import { Label } from "@/../components/ui/label";
 
 import { register } from "@/api/register/register-action";
 import { useActionState } from "react";
-import { SubmitButton } from "@/components/ui/submitButton";
+import { SubmitButton } from "@/../components/ui/submitButton";
 import Link from "next/link";
-import { FieldError, FormError } from "@/components/ui/FormError";
+import { FieldError, FormError } from "@/../components/ui/FormError";
 import HomeBackground from "@/app/home-background";
 
 export default function Page() {

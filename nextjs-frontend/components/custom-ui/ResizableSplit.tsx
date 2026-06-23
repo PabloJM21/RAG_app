@@ -5,7 +5,7 @@ import * as React from "react";
 import {
   themedResizerLineActiveStyle,
   themedResizerLineStyle,
-} from "@/components/custom-ui/themeStyles";
+} from "@/../components/custom-ui/themeStyles";
 
 type ResizableSplitProps = {
   left: React.ReactNode;

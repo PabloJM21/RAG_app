@@ -2,23 +2,23 @@
 
 import { useMemo, useState } from "react";
 
-import { SaveRunActions } from "@/components/custom-ui/SaveRunActions";
+import { SaveRunActions } from "@/../components/custom-ui/SaveRunActions";
 import {
   addRetrievalPipeline,
   runExport,
 } from "@/api/rag/docs/[doc_id]/retrieval/retrieval-action";
 
-import { FlexibleMethodCard } from "@/components/custom-ui/FlexibleMethodCard";
-import { Button } from "@/components/ui/button";
+import { FlexibleMethodCard } from "@/../components/custom-ui/FlexibleMethodCard";
+import { Button } from "@/../components/ui/button";
 import {
   BM25_QUERY_PROMPTS,
   EMBEDDING_QUERY_PROMPTS,
   REASONER_QUERY_PROMPTS,
-} from "@/components/frontend_data/Prompts";
+} from "@/../components/frontend_data/Prompts";
 import {
   MethodsContainerCard,
   HierarchicalMethodsContainerCard,
-} from "@/components/custom-ui/Containers";
+} from "@/../components/custom-ui/Containers";
 
 type MethodSpec = Record<string, any>;
 type PipelineSpec = MethodSpec[];

@@ -7,12 +7,12 @@ import {
   BreadcrumbLink,
   BreadcrumbList,
   BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+} from "@/../components/ui/breadcrumb";
 
 import { logout } from "@/api/login/logout-action";
 import { fetchThemes } from "@/api/rag/settings/themes-action";
-import { THEME_PRESETS, ThemeName } from "@/components/frontend_data/themes";
-import { ThemeScope } from "@/components/custom-ui/ThemeScope";
+import { THEME_PRESETS, ThemeName } from "@/../components/frontend_data/themes";
+import { ThemeScope } from "@/../components/custom-ui/ThemeScope";
 
 import { UserMenu } from "./UserMenu";
 

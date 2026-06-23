@@ -6,8 +6,8 @@ import {
   runConversion,
 } from "@/api/rag/docs/[doc_id]/conversion/conversion-action";
 
-import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
-import { SaveRunActions } from "@/components/custom-ui/SaveRunActions";
+import {Card, CardContent, CardHeader, CardTitle} from "@/../components/ui/card";
+import { SaveRunActions } from "@/../components/custom-ui/SaveRunActions";
 
 import {
   themedCardStyle,
@@ -25,7 +25,7 @@ import {
   themedSectionMutedStyle,
   themedSectionContentStyle,
   themedValueStyle,
-} from "@/components/custom-ui/themeStyles";
+} from "@/../components/custom-ui/themeStyles";
 
 /* ---------- Domain options ---------- */
 

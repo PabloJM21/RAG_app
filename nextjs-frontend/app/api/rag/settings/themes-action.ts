@@ -3,7 +3,7 @@
 import { createThemes, ThemeSettings, readThemes } from "./sdk.gen";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { THEME_PRESETS, ThemeName } from "@/components/frontend_data/themes";
+import { THEME_PRESETS, ThemeName } from "@/../components/frontend_data/themes";
 
 export async function addThemes(formData: FormData) {
 

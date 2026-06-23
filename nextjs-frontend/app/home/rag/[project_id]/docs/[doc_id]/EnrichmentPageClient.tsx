@@ -10,15 +10,15 @@ import {
 } from "@/api/rag/docs/[doc_id]/extraction/extraction-action";
 
 
-import {SaveRunActions} from "@/components/custom-ui/SaveRunActions";
+import {SaveRunActions} from "@/../components/custom-ui/SaveRunActions";
 
-import {Button} from "@/components/ui/button";
+import {Button} from "@/../components/ui/button";
 
 
-import {FlexibleMethodCard} from "@/components/custom-ui/FlexibleMethodCard";
-import {MethodsContainerCard} from "@/components/custom-ui/Containers";
+import {FlexibleMethodCard} from "@/../components/custom-ui/FlexibleMethodCard";
+import {MethodsContainerCard} from "@/../components/custom-ui/Containers";
 
-import {ENRICHER_PROMPTS, FILTER_PROMPTS} from "@/components/frontend_data/Prompts"
+import {ENRICHER_PROMPTS, FILTER_PROMPTS} from "@/../components/frontend_data/Prompts"
 import ChunksResultsEditor, {Results} from "@/app/home/rag/[project_id]/docs/[doc_id]/ChunksResultsEditor";
 
 type MethodSpec = Record<string, any>;

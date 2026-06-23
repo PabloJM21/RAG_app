@@ -9,9 +9,9 @@ import {
   CardTitle,
   CardDescription,
   CardContent,
-} from "@/components/ui/card";
+} from "@/../components/ui/card";
 import { cn } from "@/lib/utils";
-import {SaveResultsActions} from "@/components/custom-ui/SaveRunActions";
+import {SaveResultsActions} from "@/../components/custom-ui/SaveRunActions";
 
 type Item = {
   retrieval_id: number;

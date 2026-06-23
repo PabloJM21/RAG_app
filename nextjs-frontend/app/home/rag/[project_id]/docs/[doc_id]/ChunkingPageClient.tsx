@@ -4,16 +4,16 @@
 import { useMemo, useState} from "react";
 import { addChunkingPipeline, runChunking } from "@/api/rag/docs/[doc_id]/chunking/chunking-action";
 
-import {SaveRunActions} from "@/components/custom-ui/SaveRunActions";
+import {SaveRunActions} from "@/../components/custom-ui/SaveRunActions";
 
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/../components/ui/button";
 
-import { FlexibleMethodCard } from "@/components/custom-ui/FlexibleMethodCard";
+import { FlexibleMethodCard } from "@/../components/custom-ui/FlexibleMethodCard";
 import {
   HierarchicalMethodsContainerCard,
-} from "@/components/custom-ui/Containers";
-import { FILTER_PROMPTS } from "@/components/frontend_data/Prompts";
+} from "@/../components/custom-ui/Containers";
+import { FILTER_PROMPTS } from "@/../components/frontend_data/Prompts";
 
 type MethodSpec = Record<string, any>;
 type PipelineSpec = MethodSpec[];

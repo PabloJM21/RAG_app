@@ -4,17 +4,17 @@ import * as React from "react";
 import { useMemo, useState } from "react";
 import { addGenerator } from "@/api/rag/main-pipeline/pipeline-action";
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {MenuSubmitButton, SaveActions} from "@/components/custom-ui/SaveRunActions";
+import { Button } from "@/../components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/../components/ui/card";
+import {MenuSubmitButton, SaveActions} from "@/../components/custom-ui/SaveRunActions";
 
 import {
   GENERATOR_PROMPTS,
   GENERATOR_QUERY_PROMPTS,
-} from "@/components/frontend_data/Prompts";
+} from "@/../components/frontend_data/Prompts";
 
-import { GENERATOR_MODELS } from "@/components/frontend_data/models";
-import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger} from "@/components/ui/dropdown-menu";
+import { GENERATOR_MODELS } from "@/../components/frontend_data/models";
+import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger} from "@/../components/ui/dropdown-menu";
 
 type MethodSpec = Record<string, any>;
 

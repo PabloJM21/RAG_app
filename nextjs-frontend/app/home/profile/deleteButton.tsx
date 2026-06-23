@@ -3,7 +3,7 @@
 import { removeKey } from "@/api/rag/profile/keys-action";
 import {removeDocPipeline} from "@/api/rag/docs/docs-action";
 
-import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { DropdownMenuItem } from "@/../components/ui/dropdown-menu";
 import {removeProjectAction} from "@/api/rag/projects/projects-action";
 
 interface DeleteKeyButtonProps {

@@ -6,7 +6,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-} from "@/components/ui/dropdown-menu";
+} from "@/../components/ui/dropdown-menu";
 
 const SOFT_METHOD_COLORS = [
   { name: "White", value: "#ffffff" },

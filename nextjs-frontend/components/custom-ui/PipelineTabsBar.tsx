@@ -4,18 +4,18 @@ import * as React from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/../components/ui/tabs";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-} from "@/components/ui/dropdown-menu";
-import {Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle} from "@/components/ui/dialog";
+} from "@/../components/ui/dropdown-menu";
+import {Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle} from "@/../components/ui/dialog";
 import {exportProject, listExportedProjects, ListProject, loadProject} from "@/api/rag/projects/projects-action";
-import {Textarea} from "@/components/ui/textarea";
-import {Button} from "@/components/ui/button";
-import {ScrollArea} from "@/components/ui/scroll-area";
+import {Textarea} from "@/../components/ui/textarea";
+import {Button} from "@/../components/ui/button";
+import {ScrollArea} from "@/../components/ui/scroll-area";
 import { useRouter } from "next/navigation";
 
 

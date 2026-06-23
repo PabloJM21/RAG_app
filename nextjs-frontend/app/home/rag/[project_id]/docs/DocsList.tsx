@@ -12,7 +12,7 @@ import {
   loadDocPipeline,
 } from "@/api/rag/docs/docs-action";
 
-import { DocActionsMenu } from "@/components/custom-ui/DocActions";
+import { DocActionsMenu } from "@/../components/custom-ui/DocActions";
 
 type Doc = {
   doc_id: string;

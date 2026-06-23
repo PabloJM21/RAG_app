@@ -1,7 +1,7 @@
 "use client"
 
 import { useFormStatus } from "react-dom"
-import { Button } from "@/components/ui/button"
+import { Button } from "@/../components/ui/button"
 
 export function RunButton({ label }: { label: string }) {
   const { pending } = useFormStatus()

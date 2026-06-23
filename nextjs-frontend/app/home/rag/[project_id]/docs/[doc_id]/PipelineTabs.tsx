@@ -6,7 +6,7 @@ import {
   TabsList,
   TabsTrigger,
   TabsContent,
-} from "@/components/ui/tabs";
+} from "@/../components/ui/tabs";
 
 import ChunkingPageClient from "./ChunkingPageClient";
 import EnrichmentPageClient from "./EnrichmentPageClient";

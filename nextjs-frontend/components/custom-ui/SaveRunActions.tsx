@@ -5,9 +5,9 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-} from "@/components/ui/dropdown-menu";
+} from "@/../components/ui/dropdown-menu";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/../components/ui/button";
 
 import * as React from "react";
 import { useFormStatus } from "react-dom";

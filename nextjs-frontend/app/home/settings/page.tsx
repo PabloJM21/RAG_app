@@ -1,7 +1,7 @@
 import { fetchColors } from "@/api/rag/settings/colors-action";
 import { fetchThemes } from "@/api/rag/settings/themes-action";
 import ColorsPageClient from "./ColorsPageClient";
-import { ThemeName, THEME_PRESETS } from "@/components/frontend_data/themes";
+import { ThemeName, THEME_PRESETS } from "@/../components/frontend_data/themes";
 
 export default async function SettingsPage() {
   const [colors, themeSettings] = await Promise.all([

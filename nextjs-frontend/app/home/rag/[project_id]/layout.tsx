@@ -1,5 +1,5 @@
 import DocsPage from "./docs/page";
-import { ResizableSplit } from "@/components/custom-ui/ResizableSplit";
+import { ResizableSplit } from "@/../components/custom-ui/ResizableSplit";
 
 export default async function RagProjectLayout({
   children,

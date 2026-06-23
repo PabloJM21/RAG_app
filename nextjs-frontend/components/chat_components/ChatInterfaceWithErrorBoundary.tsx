@@ -3,7 +3,7 @@ import type { ErrorInfo } from 'react'
 
 import { ChatErrorFallback } from './fallbacks/ChatErrorFallback'
 import { ChatInterfaceSimple } from './ChatInterfaceSimple'
-import { ErrorBoundary } from '@/components/chat_components/ErrorBoundary'
+import { ErrorBoundary } from '@/../components/chat_components/ErrorBoundary'
 
 function ChatInterfaceWrapper({ children }: { children: React.ReactNode }) {
   const handleChatError = (error: Error, errorInfo: ErrorInfo) => {

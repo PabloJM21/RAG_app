@@ -5,9 +5,9 @@ import { useMemo, useState } from "react";
 import { addColors } from "@/api/rag/settings/colors-action";
 import { addThemes } from "@/api/rag/settings/themes-action";
 
-import {SaveSettingsActions} from "@/components/custom-ui/SaveRunActions";
-import { ColorPicker } from "@/components/custom-ui/ColorPicker";
-import { Button } from "@/components/ui/button";
+import {SaveSettingsActions} from "@/../components/custom-ui/SaveRunActions";
+import { ColorPicker } from "@/../components/custom-ui/ColorPicker";
+import { Button } from "@/../components/ui/button";
 import {
   Table,
   TableBody,
@@ -15,8 +15,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { THEME_PRESETS, ThemeName } from "@/components/frontend_data/themes";
+} from "@/../components/ui/table";
+import { THEME_PRESETS, ThemeName } from "@/../components/frontend_data/themes";
 
 type MethodColors = Record<string, string>;
 type ColorsConfig = Record<string, MethodColors>;

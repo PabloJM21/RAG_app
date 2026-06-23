@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/../components/ui/button";
 
 import {
   DropdownMenu,
@@ -9,7 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "@/../components/ui/dropdown-menu";
 
 import {
   Dialog,
@@ -17,14 +17,14 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/components/ui/dialog";
+} from "@/../components/ui/dialog";
 
-import { Textarea } from "@/components/ui/textarea";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/../components/ui/textarea";
+import { ScrollArea } from "@/../components/ui/scroll-area";
 import { ListPipeline } from "@/api/rag/docs/docs-action";
 
 import { useRouter } from "next/navigation";
-import { MenuSubmitButton } from "@/components/custom-ui/SaveRunActions";
+import { MenuSubmitButton } from "@/../components/custom-ui/SaveRunActions";
 
 export function DocActionsMenu({
   project_id,

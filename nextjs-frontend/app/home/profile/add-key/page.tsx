@@ -2,10 +2,10 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { SubmitButton } from "@/components/ui/submitButton";
+import { Input } from "@/../components/ui/input";
+import { Label } from "@/../components/ui/label";
+import { Button } from "@/../components/ui/button";
+import { SubmitButton } from "@/../components/ui/submitButton";
 import { addKey } from "@/api/rag/profile/keys-action";
 
 const initialState: { message?: string } = {};

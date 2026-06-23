@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { usePathname } from "next/navigation";
-import { ProjectTabsBar } from "@/components/custom-ui/PipelineTabsBar";
+import { ProjectTabsBar } from "@/../components/custom-ui/PipelineTabsBar";
 import {
   addProjectAction,
   removeProjectAction,

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/../components/ui/button";
 import {
   Table,
   TableBody,
@@ -7,13 +7,13 @@ import {
   TableHead,
   TableRow,
   TableHeader,
-} from "@/components/ui/table";
+} from "@/../components/ui/table";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-} from "@/components/ui/dropdown-menu";
+} from "@/../components/ui/dropdown-menu";
 
 import { fetchKeys } from "@/api/rag/profile/keys-action";
 import { fetchGenerator } from "@/api/rag/main-pipeline/pipeline-action";

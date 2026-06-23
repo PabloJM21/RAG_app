@@ -1,17 +1,17 @@
 "use client";
 
 import * as React from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardContent } from "@/components/ui/card";
-import { Table, TableBody, TableRow, TableCell } from "@/components/ui/table";
+import { Button } from "@/../components/ui/button";
+import { Card, CardHeader, CardContent } from "@/../components/ui/card";
+import { Table, TableBody, TableRow, TableCell } from "@/../components/ui/table";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@/../components/ui/dialog";
 import { X } from "lucide-react";
-import { ColorPicker } from "@/components/custom-ui/ColorPicker";
+import { ColorPicker } from "@/../components/custom-ui/ColorPicker";
 
 type MethodSpec = Record<string, any>;
 

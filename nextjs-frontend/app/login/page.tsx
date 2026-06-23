@@ -7,14 +7,14 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from "@/../components/ui/card";
+import { Input } from "@/../components/ui/input";
+import { Label } from "@/../components/ui/label";
 
 import { login } from "@/api/login/login-action";
 import { useActionState } from "react";
-import { SubmitButton } from "@/components/ui/submitButton";
-import { FieldError, FormError } from "@/components/ui/FormError";
+import { SubmitButton } from "@/../components/ui/submitButton";
+import { FieldError, FormError } from "@/../components/ui/FormError";
 import HomeBackground from "@/app/home-background";
 
 export default function Page() {

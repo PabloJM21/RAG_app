@@ -11,15 +11,15 @@ import type { ErrorInfo } from 'react'
 
 import "./index.css"
 
-import { Button } from '@/components/chat_components/ui/button'
-import { Input } from '@/components/chat_components/ui/input'
+import { Button } from '@/../components/chat_components/ui/button'
+import { Input } from '@/../components/chat_components/ui/input'
 
 import { Sun, Moon } from 'lucide-react'
 
-import { Toaster } from '@/components/chat_components/ui/toaster'
+import { Toaster } from '@/../components/chat_components/ui/toaster'
 
-import { ErrorBoundary } from '@/components/chat_components/ErrorBoundary'
-import { AppErrorFallback } from '@/components/chat_components/fallbacks/AppErrorFallback'
+import { ErrorBoundary } from '@/../components/chat_components/ErrorBoundary'
+import { AppErrorFallback } from '@/../components/chat_components/fallbacks/AppErrorFallback'
 
 import { submitQuery } from '@/api/rag/chat/chat-action'
 
@@ -28,8 +28,8 @@ import {
   useStore,
 } from '@/api/rag/chat/useStore'
 
-import { limitConversationHistory } from '@/components/chat_components/ChatInterfaceSimple'
-import {Dashboard} from "@/components/chat_components/Dashboard";
+import { limitConversationHistory } from '@/../components/chat_components/ChatInterfaceSimple'
+import {Dashboard} from "@/../components/chat_components/Dashboard";
 
 
 type ActiveView = 'chat' | 'dashboard'

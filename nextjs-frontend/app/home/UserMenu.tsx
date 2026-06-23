@@ -6,8 +6,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+} from "@/../components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/../components/ui/avatar";
 
 type UserMenuProps = {
   logoutAction: (formData: FormData) => void | Promise<void>;

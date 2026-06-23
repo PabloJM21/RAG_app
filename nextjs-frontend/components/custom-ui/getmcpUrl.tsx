@@ -1,5 +1,5 @@
 import { useFormStatus } from "react-dom"
-import { Button } from "@/components/ui/button"
+import { Button } from "@/../components/ui/button"
 
 export function SaveButton({ label }: { label: string }) {
   const { pending } = useFormStatus()

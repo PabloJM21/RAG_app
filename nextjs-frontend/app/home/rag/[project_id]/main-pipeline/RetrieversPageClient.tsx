@@ -7,10 +7,10 @@ import {
   addRetrievers, run,
 } from "@/api/rag/main-pipeline/pipeline-action";
 
-import { SaveActions, RunExportActions } from "@/components/custom-ui/SaveRunActions";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FlexibleMethodCard } from "@/components/custom-ui/FlexibleMethodCard";
+import { SaveActions, RunExportActions } from "@/../components/custom-ui/SaveRunActions";
+import { Button } from "@/../components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/../components/ui/card";
+import { FlexibleMethodCard } from "@/../components/custom-ui/FlexibleMethodCard";
 
 type MethodSpec = Record<string, any>;
 type PipelineSpec = MethodSpec[];
@@ -75,8 +75,8 @@ import {
   EMBEDDING_QUERY_PROMPTS,
   REASONER_QUERY_PROMPTS,
   BM25_QUERY_PROMPTS,
-} from "@/components/frontend_data/Prompts";
-import { EMBEDDING_MODELS, GENERATOR_MODELS } from "@/components/frontend_data/models";
+} from "@/../components/frontend_data/Prompts";
+import { EMBEDDING_MODELS, GENERATOR_MODELS } from "@/../components/frontend_data/models";
 
 /* ---------- Helpers ---------- */
 
