@@ -1,10 +1,9 @@
 
 import os
 import asyncio
-import base64
+
 import httpx
-import json
-from datetime import datetime, timedelta
+
 from itertools import cycle
 from app.rag_apis.model_enums import MULTIMODAL_SUBCATEGORIES
 from app.rag_services.helpers import ExtractionError

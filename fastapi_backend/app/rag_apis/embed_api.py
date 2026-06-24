@@ -2,7 +2,6 @@ import os
 
 import asyncio
 import httpx
-import numpy as np
 
 from itertools import cycle
 from httpx import HTTPStatusError, RequestError

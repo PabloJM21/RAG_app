@@ -1,6 +1,6 @@
-import os
+
 import time
-from enum import Enum
+
 from itertools import cycle
 from openai import OpenAI, APIError, RateLimitError, AuthenticationError, APITimeoutError
 
