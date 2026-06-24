@@ -1,9 +1,9 @@
 import os
-import json
+
 import asyncio
 import httpx
 import numpy as np
-from datetime import datetime, timedelta
+
 from itertools import cycle
 from httpx import HTTPStatusError, RequestError
 
@@ -130,7 +130,7 @@ class EmbeddingOrchestrator:
                 "Embedding retrieved successfully",
                 extra={"model": model.value, "key": api_key[:6]},
             )
-            return np.array(embeds, dtype=np.float32)
+            return embeds #np.array(embeds, dtype=np.float32)
 
         except HTTPStatusError as e:
             code = e.response.status_code

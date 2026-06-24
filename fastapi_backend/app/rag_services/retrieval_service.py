@@ -841,7 +841,8 @@ class EmbeddingRetriever(BaseRetriever):
         emb_matrix = vectors  # shape: (N, dim) als Python list
 
         # Query embedding als plain list
-        query_embedding = list((await self._embed([query]))[0])
+        # _embed gibt jetzt list[list[float]] zurück → [0] reicht
+        query_embedding = (await self._embed([query]))[0]
 
         # compute score
         embedding_columns["cosine_similarity"] = self._cosine_similarity(query_embedding, emb_matrix)
