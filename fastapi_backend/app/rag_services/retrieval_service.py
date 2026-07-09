@@ -39,7 +39,12 @@ from app.models import ProjectData, SavedProjects, DocPipelines, MainPipeline, P
 
 # ---------------------------------------------
 
-
+def is_json(s: str) -> bool:
+    try:
+        json.loads(s)
+        return True
+    except json.JSONDecodeError:
+        return False
 
 class ChatGenerator:
     """"
@@ -67,6 +72,9 @@ class ChatGenerator:
         user_key_list = await get_user_api_keys(user_id=self.user_id, base_api="https://chat-ai.academiccloud.de/v1", db=self.db)
 
         self.chat_orchestrator = ChatOrchestrator(user_key_list=user_key_list,  base_api="https://chat-ai.academiccloud.de/v1")
+
+
+
 
     @staticmethod
     def unwrap_answer(chat_output: str) -> Any:
@@ -127,7 +135,10 @@ class ChatGenerator:
             user_prompt=user_prompt,
         )
 
-        return self.unwrap_answer(chat_output)
+        if is_json(chat_output):
+            chat_output = self.unwrap_answer(chat_output)
+
+        return chat_output
 
     def _generate_content(self, query: str, history: list[dict[str, Any]], retrieval_input_chunks: str) -> str:
         system_prompt = f"""
@@ -182,7 +193,10 @@ class ChatGenerator:
                 user_prompt=user_prompt,
             )
 
-        return self.unwrap_answer(chat_output)
+        if is_json(chat_output):
+            chat_output = self.unwrap_answer(chat_output)
+
+        return chat_output
 
     async def run_generation(self, query: str, history: list[dict[str, Any]], input_chunks: list[str]) -> str:
         await self.init_chat_client()
@@ -283,6 +297,8 @@ async def get_chunk_metadata(db: AsyncSession, user_id: UUID, project_id: UUID, 
 
         doc_id = row["doc_id"]
         doc_title = await get_doc_title(user_id, project_id, doc_id, db=db)
+
+
         table_data["Document"].append(doc_title)
 
         retrieval_id, level = row["retrieval_id"], row["level"]
@@ -517,8 +533,9 @@ class BaseRetriever:
             system_prompt=system_prompt,
             user_prompt=user_prompt,
         )
-
-        return self.unwrap_answer(chat_output)
+        if is_json(chat_output):
+            chat_output = self.unwrap_answer(chat_output)
+        return chat_output
 
 
 
@@ -1079,7 +1096,9 @@ class Evaluator:
             user_prompt=user_prompt,
         )
 
-        return self.unwrap_answer(chat_output)
+        if is_json(chat_output):
+            chat_output = self.unwrap_answer(chat_output)
+        return chat_output
 
 
 
@@ -1384,16 +1403,16 @@ async def run_retrieval(db, user_id, query, history):
             rows, _ = await SavedProjects.get_all(columns=["project_id", "name"],
                                                   where_dict={"kind": "saved", "user_id": user_id}, db=db)
             project_ids = [row["project_id"] for row in rows]
-            p_number = project_ids.index(project_id) + 1
+            p_number = str(project_ids.index(project_id) + 1)
 
             ###############
 
-            dashboard_list = {
+            dashboard_list = [{
                 "project": p_number,
                 "answer": output_answer,
                 "time": round(end - start, 2),
                 "metadata": metadata
-            }
+            }]
 
             session_logger.log_step(task="table", layer=2, log_text="Sources: ", table_data=metadata)
 
@@ -1572,7 +1591,9 @@ async def run_project_retrieval(session_logger, query: str, history: List[Dict[s
             pipeline_str = ", ".join([method["type"] for method in doc_pipeline])
 
             # log start of document retrieval
-            doc_title = await get_doc_title(user_id, project_id, doc_id, db=db)
+            row = await get_doc_title(user_id, project_id, doc_id, db=db)
+            session_logger.log_step(task="info_text", layer=1, log_text=f"Printing DocPipelines row: {row}")
+            doc_title = row.name
 
             #session_logger.log_step(task="header_3", layer=2, log_text=f"Starting Document Pipeline for Document: {doc_title}")
             log_pipeline_methods(logger=session_logger, input_pipeline=doc_pipeline)

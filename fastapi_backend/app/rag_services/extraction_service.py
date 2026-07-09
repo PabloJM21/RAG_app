@@ -219,6 +219,7 @@ def is_json(text: str) -> bool:
 
 
 class Enricher:
+
     """
     ENRICHES ALREADY EXTRACTED/ENRICHED CONTENT FROM THE RETRIEVALS TABLES
 
@@ -263,6 +264,13 @@ class Enricher:
     # ============================================================
     # INTERNAL HELPERS
     # ============================================================
+    @staticmethod
+    def is_json(s: str) -> bool:
+        try:
+            json.loads(s)
+            return True
+        except json.JSONDecodeError:
+            return False
 
     @staticmethod
     def unwrap_answer(chat_output: str) -> Any:
@@ -307,7 +315,13 @@ class Enricher:
                 user_prompt=user_prompt,
             )
 
-        output_string = self.unwrap_answer(chat_output)
+
+        self.logger.log_step(task="info_text", log_text=f"[ENRICHMENT_DEBUG]: chat_output: {chat_output}")
+        safe = chat_output.replace("\n", "\\n")
+        if self.is_json(safe):
+            output_string = self.unwrap_answer(safe)
+        else:
+            output_string = chat_output
 
 
         # Reject echoed instruction / schema garbage

@@ -96,10 +96,13 @@ async def get_doc_paths(user_id: UUID, project_id: UUID, doc_id: UUID, db: Async
 
     return source_path, processed_path
 
+
+
+
 async def get_doc_title(user_id: UUID, project_id: UUID, doc_id: UUID, db: AsyncSession):
     row = await DocPipelines.get_row(where_dict={"user_id": user_id, "project_id": project_id, "doc_id": doc_id}, db=db)
 
-    return row.name
+    return row#row.name
 
 
 async def get_log_path(user_id: UUID, stage: str):

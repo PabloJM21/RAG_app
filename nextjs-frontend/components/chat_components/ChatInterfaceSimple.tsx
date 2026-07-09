@@ -23,7 +23,7 @@ import { useToast } from './ui/use-toast'
 import {submitQuery} from "@/api/rag/chat/chat-action";
 import {ChatMessage, useStore} from "@/api/rag/chat/useStore";
 
-const MAX_CONVERSATION_HISTORY = 50
+const MAX_CONVERSATION_HISTORY = 3 //50
 
 export const limitConversationHistory = (
     history: any[]

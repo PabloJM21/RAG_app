@@ -107,6 +107,9 @@ function App() {
 
       const res = await submitQuery(formData)
 
+      console.log("submitQuery response", res)
+      console.log("dashboard_list", res.data?.dashboard_list)
+
       if (res?.ok === false) {
         setRunError(res.error ?? 'Query failed')
 
@@ -126,6 +129,7 @@ function App() {
       // ✅ Store dashboard data so button activates
       if (res.data?.dashboard_list?.length) {
         setDashboardItems(res.data.dashboard_list)
+        console.log("setting dashboard", res.data.dashboard_list)
       }
     } catch (error) {
       console.error('Failed to submit query:', error)

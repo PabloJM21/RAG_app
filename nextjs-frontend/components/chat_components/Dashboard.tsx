@@ -43,7 +43,7 @@ function DashboardCard({ item, index }: { item: DashboardItem; index: number }) 
         </div>
 
         <div className="flex items-center gap-2">
-          {item.score !== undefined && (
+          {typeof item.score === "number" && (
             <Badge variant="secondary">
               Score: {item.score.toFixed(3)}
             </Badge>
