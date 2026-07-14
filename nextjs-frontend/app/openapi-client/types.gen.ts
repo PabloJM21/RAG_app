@@ -69,25 +69,48 @@ export type BodyDocsUploadDocFile = {
 };
 
 /**
- * Body_mcp-token
+ * ChunkMetadata
  */
-export type BodyMcpToken = {
+export type ChunkMetadata = {
   /**
-   * Grant Type
+   * Chunk
    */
-  grant_type: string;
+  Chunk: Array<string>;
   /**
-   * Code
+   * Document
    */
-  code: string;
+  Document: Array<string>;
   /**
-   * Client Id
+   * Level
    */
-  client_id: string;
+  Level: Array<string>;
   /**
-   * Client Secret
+   * Number
    */
-  client_secret?: string | null;
+  Number: Array<string | number>;
+};
+
+/**
+ * DashboardEntry
+ */
+export type DashboardEntry = {
+  /**
+   * Project
+   */
+  project: string;
+  /**
+   * Answer
+   */
+  answer: string;
+  /**
+   * Time
+   */
+  time: number;
+  /**
+   * Score
+   */
+  score?: number | null;
+  metadata: ChunkMetadata;
 };
 
 /**
@@ -139,30 +162,6 @@ export type HttpValidationError = {
 };
 
 /**
- * JsonRpcRequest
- */
-export type JsonRpcRequest = {
-  /**
-   * Jsonrpc
-   */
-  jsonrpc?: string;
-  /**
-   * Id
-   */
-  id?: number | string | null;
-  /**
-   * Method
-   */
-  method: string;
-  /**
-   * Params
-   */
-  params?: {
-    [key: string]: unknown;
-  } | null;
-};
-
-/**
  * KeyReadData
  */
 export type KeyReadData = {
@@ -206,6 +205,28 @@ export type LoadProjectBody = {
    * Target Id
    */
   target_id: string;
+};
+
+/**
+ * MethodSpec
+ */
+export type MethodSpec = {
+  /**
+   * Ok
+   */
+  ok: boolean;
+  /**
+   * Answer
+   */
+  answer: string;
+  /**
+   * Sources
+   */
+  sources?: Array<string> | null;
+  /**
+   * Dashboard List
+   */
+  dashboard_list?: Array<DashboardEntry> | null;
 };
 
 /**
@@ -2459,145 +2480,14 @@ export type RagQueryToolError = RagQueryToolErrors[keyof RagQueryToolErrors];
 
 export type RagQueryToolResponses = {
   /**
-   * Response Chat-Rag Query Tool
    * Successful Response
    */
-  200: {
-    [key: string]: unknown;
-  };
+  200: MethodSpec;
 };
 
 export type RagQueryToolResponse =
   RagQueryToolResponses[keyof RagQueryToolResponses];
 
-export type AuthorizeData = {
-  body?: never;
-  path?: never;
-  query: {
-    /**
-     * Response Type
-     */
-    response_type: string;
-    /**
-     * Client Id
-     */
-    client_id: string;
-    /**
-     * Redirect Uri
-     */
-    redirect_uri: string;
-    /**
-     * State
-     */
-    state: string;
-  };
-  url: "/mcp/oauth/authorize";
-};
-
-export type AuthorizeErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type AuthorizeError = AuthorizeErrors[keyof AuthorizeErrors];
-
-export type AuthorizeResponses = {
-  /**
-   * Successful Response
-   */
-  200: unknown;
-};
-
-export type TokenData = {
-  body: BodyMcpToken;
-  path?: never;
-  query?: never;
-  url: "/mcp/oauth/token";
-};
-
-export type TokenErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type TokenError = TokenErrors[keyof TokenErrors];
-
-export type TokenResponses = {
-  /**
-   * Successful Response
-   */
-  200: unknown;
-};
-
-export type OauthMetadataData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: "/mcp/.well-known/oauth-authorization-server";
-};
-
-export type OauthMetadataResponses = {
-  /**
-   * Successful Response
-   */
-  200: unknown;
-};
-
-export type ResourceMetadataData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: "/mcp/.well-known/oauth-protected-resource";
-};
-
-export type ResourceMetadataResponses = {
-  /**
-   * Successful Response
-   */
-  200: unknown;
-};
-
-export type IssueMcpUrlData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: "/mcp/issue-url";
-};
-
-export type IssueMcpUrlResponses = {
-  /**
-   * Successful Response
-   */
-  200: unknown;
-};
-
-export type McpJsonrpcData = {
-  body: JsonRpcRequest;
-  path?: never;
-  query?: never;
-  url: "/mcp/";
-};
-
-export type McpJsonrpcErrors = {
-  /**
-   * Validation Error
-   */
-  422: HttpValidationError;
-};
-
-export type McpJsonrpcError = McpJsonrpcErrors[keyof McpJsonrpcErrors];
-
-export type McpJsonrpcResponses = {
-  /**
-   * Successful Response
-   */
-  200: unknown;
-};
-
 export type ClientOptions = {
-  baseURL: `${string}://openapi.json` | (string & {});
+  baseURL: `${string}://${string}` | (string & {});
 };

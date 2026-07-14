@@ -1513,7 +1513,14 @@ async def run_project_retrieval(session_logger, query: str, history: List[Dict[s
         doc_ids = list(set(router_dict["doc_id"]))
         doc_title_dict = {}
         for doc_id in doc_ids:
-            doc_title_dict[doc_id] = await get_doc_title(user_id, project_id, doc_id, db=db)
+            try:
+                doc_title_dict[doc_id] = await get_doc_title(user_id, project_id, doc_id, db=db)
+            except LookupError:
+                session_logger.log_step(task="info_text", layer=1, log_text=(
+                    f"Skipping doc_id={doc_id}: no DocPipelines row found "
+                    f"(document was deleted after pipeline export)"
+                ))
+                doc_title_dict[doc_id] = f"<deleted doc {doc_id}>"
 
         table_data = {"Chunk": [], "Document": []}
         for doc_id, chunk in zip(router_dict["doc_id"], router_dict["content"]):
@@ -1590,10 +1597,17 @@ async def run_project_retrieval(session_logger, query: str, history: List[Dict[s
         for doc_id, doc_pipeline in retrieval_dict.items():
             pipeline_str = ", ".join([method["type"] for method in doc_pipeline])
 
-            # log start of document retrieval
-            row = await get_doc_title(user_id, project_id, doc_id, db=db)
-            session_logger.log_step(task="info_text", layer=1, log_text=f"Printing DocPipelines row: {row}")
-            doc_title = row.name
+            # Resolve doc title — skip stale entries where the document was deleted
+            # after the pipeline was exported to MainPipeline.doc_pipelines.
+            try:
+                doc_title = await get_doc_title(user_id, project_id, doc_id, db=db)
+            except LookupError:
+                session_logger.log_step(task="info_text", layer=1, log_text=(
+                    f"Skipping doc_id={doc_id}: no DocPipelines row found "
+                    f"(document was deleted after pipeline export)"
+                ))
+                continue
+                 
 
             #session_logger.log_step(task="header_3", layer=2, log_text=f"Starting Document Pipeline for Document: {doc_title}")
             log_pipeline_methods(logger=session_logger, input_pipeline=doc_pipeline)
@@ -1733,6 +1747,7 @@ async def run_embeddings(method_list: list[dict[str, Any]], user_id: UUID, proje
     session_logger = InfoLogger(log_path=log_path, stage="retrieval")
 
     # logg
+    
     doc_title = await get_doc_title(user_id, project_id, doc_id, db=db)
     session_logger.log_step(task="header_1", layer=2, log_text=f"Generating Embeddings in project {project_id} for document: {doc_title}")
     log_pipeline_methods(session_logger, method_list)

@@ -33,6 +33,14 @@ async def copy_rows_to_project(
         db=db,
     )
 
+    # Delete any existing rows for the target project before inserting,
+    # so a repeated load/export doesn't leave a partial copy due to unique
+    # constraint violations (e.g. DocPipelines.uq_docpipelines).
+    await db_model.delete_data(
+        where_dict={"user_id": user_id, "project_id": target_project_id},
+        db=db,
+    )
+
     for row in rows:
         if row:
             data_dict: dict[str, Any] = dict(row)
@@ -45,7 +53,6 @@ async def copy_rows_to_project(
 
 
 async def copy_project_data(db, user_id, source_id, target_id):
-
 
     # ===================================================
 

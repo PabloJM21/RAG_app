@@ -100,9 +100,25 @@ async def get_doc_paths(user_id: UUID, project_id: UUID, doc_id: UUID, db: Async
 
 
 async def get_doc_title(user_id: UUID, project_id: UUID, doc_id: UUID, db: AsyncSession):
-    row = await DocPipelines.get_row(where_dict={"user_id": user_id, "project_id": project_id, "doc_id": doc_id}, db=db)
+    if doc_id is None:
+        raise LookupError("No DocPipelines row found for doc_id=None")
 
-    return row#row.name
+    if isinstance(doc_id, str):
+        normalized_doc_id = UUID(doc_id)
+    elif isinstance(doc_id, UUID):
+        normalized_doc_id = doc_id
+    else:
+        normalized_doc_id = UUID(str(doc_id))
+
+    row = await DocPipelines.get_row(
+        where_dict={"user_id": user_id, "project_id": project_id, "doc_id": normalized_doc_id},
+        db=db,
+    )
+
+    if row is None:
+        raise LookupError(f"No DocPipelines row found for doc_id={doc_id} under project_id={project_id}")
+
+    return row.name
 
 
 async def get_log_path(user_id: UUID, stage: str):
