@@ -847,13 +847,13 @@
         ]
       }
     },
-    "/projects/set/{project_id}": {
-      "post": {
+    "/projects/{project_id}/rename": {
+      "patch": {
         "tags": [
           "projects"
         ],
-        "summary": "Set Project",
-        "operationId": "set_project",
+        "summary": "Rename Project",
+        "operationId": "rename_project",
         "security": [
           {
             "OAuth2PasswordBearer": []
@@ -871,6 +871,18 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -3531,6 +3543,53 @@
                 "schema": {
                   "$ref": "#/components/schemas/MethodSpec"
                 }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/chat/generator/stream": {
+      "post": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Rag Query Stream",
+        "description": "SSE endpoint: streams progress events, then a final 'result' event.",
+        "operationId": "rag_query_stream",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Payload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
               }
             }
           },

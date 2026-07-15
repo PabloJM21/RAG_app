@@ -56,9 +56,9 @@ import type {
   ListExportedProjectsResponses,
   CreateProjectData,
   CreateProjectResponses,
-  SetProjectData,
-  SetProjectResponses,
-  SetProjectErrors,
+  RenameProjectData,
+  RenameProjectResponses,
+  RenameProjectErrors,
   DeleteProjectData,
   DeleteProjectResponses,
   DeleteProjectErrors,
@@ -208,6 +208,9 @@ import type {
   RagQueryToolData,
   RagQueryToolResponses,
   RagQueryToolErrors,
+  RagQueryStreamData,
+  RagQueryStreamResponses,
+  RagQueryStreamErrors,
 } from "./types.gen";
 import { client } from "./client.gen";
 
@@ -624,14 +627,14 @@ export const createProject = <ThrowOnError extends boolean = false>(
 };
 
 /**
- * Set Project
+ * Rename Project
  */
-export const setProject = <ThrowOnError extends boolean = false>(
-  options: Options<SetProjectData, ThrowOnError>,
+export const renameProject = <ThrowOnError extends boolean = false>(
+  options: Options<RenameProjectData, ThrowOnError>,
 ) => {
-  return (options.client ?? client).post<
-    SetProjectResponses,
-    SetProjectErrors,
+  return (options.client ?? client).patch<
+    RenameProjectResponses,
+    RenameProjectErrors,
     ThrowOnError
   >({
     responseType: "json",
@@ -641,8 +644,12 @@ export const setProject = <ThrowOnError extends boolean = false>(
         type: "http",
       },
     ],
-    url: "/projects/set/{project_id}",
+    url: "/projects/{project_id}/rename",
     ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
   });
 };
 
@@ -1939,6 +1946,34 @@ export const ragQueryTool = <ThrowOnError extends boolean = false>(
       },
     ],
     url: "/chat/generator",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Rag Query Stream
+ * SSE endpoint: streams progress events, then a final 'result' event.
+ */
+export const ragQueryStream = <ThrowOnError extends boolean = false>(
+  options: Options<RagQueryStreamData, ThrowOnError>,
+) => {
+  return (options.client ?? client).post<
+    RagQueryStreamResponses,
+    RagQueryStreamErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/chat/generator/stream",
     ...options,
     headers: {
       "Content-Type": "application/json",

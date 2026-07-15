@@ -888,8 +888,13 @@ export type CreateProjectResponses = {
   200: unknown;
 };
 
-export type SetProjectData = {
-  body?: never;
+export type RenameProjectData = {
+  /**
+   * Body
+   */
+  body: {
+    [key: string]: unknown;
+  };
   path: {
     /**
      * Project Id
@@ -897,19 +902,19 @@ export type SetProjectData = {
     project_id: string;
   };
   query?: never;
-  url: "/projects/set/{project_id}";
+  url: "/projects/{project_id}/rename";
 };
 
-export type SetProjectErrors = {
+export type RenameProjectErrors = {
   /**
    * Validation Error
    */
   422: HttpValidationError;
 };
 
-export type SetProjectError = SetProjectErrors[keyof SetProjectErrors];
+export type RenameProjectError = RenameProjectErrors[keyof RenameProjectErrors];
 
-export type SetProjectResponses = {
+export type RenameProjectResponses = {
   /**
    * Successful Response
    */
@@ -2487,6 +2492,35 @@ export type RagQueryToolResponses = {
 
 export type RagQueryToolResponse =
   RagQueryToolResponses[keyof RagQueryToolResponses];
+
+export type RagQueryStreamData = {
+  /**
+   * Payload
+   */
+  body: {
+    [key: string]: unknown;
+  };
+  path?: never;
+  query?: never;
+  url: "/chat/generator/stream";
+};
+
+export type RagQueryStreamErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type RagQueryStreamError =
+  RagQueryStreamErrors[keyof RagQueryStreamErrors];
+
+export type RagQueryStreamResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
 
 export type ClientOptions = {
   baseURL: `${string}://${string}` | (string & {});

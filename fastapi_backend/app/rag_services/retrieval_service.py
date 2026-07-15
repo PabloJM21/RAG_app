@@ -1326,7 +1326,7 @@ def retrieval_pipeline_not_empty(input_pipeline: list[dict[str, Any]]):
 # retrieval logic
 
 
-async def run_retrieval(db, user_id, query, history):
+async def run_retrieval(db, user_id, query, history, progress=None):
 
     log_path = await get_log_path(user_id, stage="retrieval")
     session_logger = InfoLogger(log_path=log_path, stage="retrieval")
@@ -1347,7 +1347,7 @@ async def run_retrieval(db, user_id, query, history):
             start = time.time()
             project_id = row["project_id"]
 
-            output = await get_retrieval_output(db, user_id, project_id, session_logger, query, history)
+            output = await get_retrieval_output(db, user_id, project_id, session_logger, query, history, progress=progress)
             end = time.time()
 
             if output:
@@ -1392,7 +1392,7 @@ async def run_retrieval(db, user_id, query, history):
         project_id = info_row.current_id
 
         start = time.time()
-        output = await get_retrieval_output(db, user_id, project_id, session_logger, query, history)
+        output = await get_retrieval_output(db, user_id, project_id, session_logger, query, history, progress=progress)
         end = time.time()
 
         if output:
@@ -1418,8 +1418,7 @@ async def run_retrieval(db, user_id, query, history):
 
             await export_logs(log_path)
 
-            return dashboard_list #output_answer, metadata["Chunk"]
-
+            return dashboard_list
 
         # Finally we export the logs to md
         await export_logs(log_path)
@@ -1431,23 +1430,16 @@ async def run_retrieval(db, user_id, query, history):
 
 from sqlalchemy import select
 
-async def get_retrieval_output(db, user_id, project_id, session_logger, query, history):
-    #session_logger.log_step(task="info_text", layer=2, log_text=f"Requesting project_id {project_id}")
-
-
+async def get_retrieval_output(db, user_id, project_id, session_logger, query, history, progress=None):
     main_pipeline = await MainPipeline.get_row(where_dict={"user_id": user_id, "project_id": project_id}, db=db)
-    #session_logger.log_step(task="info_text", layer=2, log_text=f"Requesting doc_pipelines {main_pipeline.doc_pipelines}")
     router, reranker, doc_pipelines = None, None, None
     if main_pipeline:
         router, reranker, doc_pipelines = main_pipeline.router, main_pipeline.reranker, main_pipeline.doc_pipelines
-
 
     settings = await Settings.get_row(where_dict={"user_id": user_id}, db=db)
     generator = None
     if settings:
         generator = settings.generator
-
-
 
     retrieval_dict = load_doc_pipelines(doc_pipelines)
 
@@ -1465,13 +1457,18 @@ async def get_retrieval_output(db, user_id, project_id, session_logger, query, h
         user_id=user_id,
         project_id=project_id,
         db=db,
+        progress=progress,
     )
 
     return output
 
 
 
-async def run_project_retrieval(session_logger, query: str, history: List[Dict[str, Any]], retrieval_dict: Dict[str, Any], user_id: UUID, project_id: UUID, db: AsyncSession):
+async def run_project_retrieval(session_logger, query: str, history: List[Dict[str, Any]], retrieval_dict: Dict[str, Any], user_id: UUID, project_id: UUID, db: AsyncSession, progress=None):
+
+    async def emit(msg: str):
+        if progress is not None:
+            await progress(msg)
 
     # init main pipeline methods
     generator_method = retrieval_dict.pop("generator")
@@ -1489,15 +1486,12 @@ async def run_project_retrieval(session_logger, query: str, history: List[Dict[s
 
     # with router
     if router_method and retriever_not_empty(router_method):
-        # log
-
-        #session_logger.log_step(task="header_3", layer=2, log_text=f"Starting Router")
-        #session_logger.log_step(task="table", layer=2, log_text=f"Method description ", table_data=router_method)
 
         router_type = router_method.pop("type")
         router_method.update({"logger": session_logger, "user_id": user_id, "project_id": project_id, "db": db})
         router_instance = TYPE_MAPPER[router_type](**router_method)
 
+        await emit("Filtering documents")
         start = time.time()
         router_dict = await router_instance.run_retrieval(query=query)
         end = time.time()
@@ -1539,26 +1533,13 @@ async def run_project_retrieval(session_logger, query: str, history: List[Dict[s
             output_ids = []
             for doc_id in doc_ids:
 
-                # log start of document retrieval
-                #session_logger.log_step(task="header_3", layer=2, log_text=f"Processing Document: {doc_title_dict[doc_id]}")
-
-                # get pipeline if it was exported for this doc_id, otherwise []
                 doc_pipeline = retrieval_dict[doc_id] if doc_id in retrieval_dict else []
                 pipeline_str = ", ".join([method["type"] for method in doc_pipeline])
 
-                #if doc_pipeline:
-                    #session_logger.log_step(task="info_text", layer=2, log_text=f"Found Document Pipeline")
-                    #session_logger.log_step(task="header_3", layer=2, log_text=f"Starting Document Pipeline")
-                    #log_pipeline_methods(logger=session_logger, input_pipeline=doc_pipeline)
-
-                #else:
-                    #session_logger.log_step(task="info_text", layer=2, log_text=f"Document Pipeline not found")
-
-                # run pipeline
-
+                await emit(f"Processing document {doc_title_dict[doc_id]}")
                 start = time.time()
                 filter_ids = await run_document_pipeline(query=query, input_ids=input_ids, input_pipeline=doc_pipeline,
-                                                         logger=session_logger, user_id=user_id, project_id=project_id, doc_id=doc_id, db=db)
+                                                         logger=session_logger, user_id=user_id, project_id=project_id, doc_id=doc_id, db=db, progress=progress)
                 end = time.time()
 
                 #if doc_pipeline:
@@ -1607,14 +1588,13 @@ async def run_project_retrieval(session_logger, query: str, history: List[Dict[s
                     f"(document was deleted after pipeline export)"
                 ))
                 continue
-                 
 
-            #session_logger.log_step(task="header_3", layer=2, log_text=f"Starting Document Pipeline for Document: {doc_title}")
+            await emit(f"Processing document {doc_title}")
             log_pipeline_methods(logger=session_logger, input_pipeline=doc_pipeline)
 
             start = time.time()
             filter_ids = await run_document_pipeline(query=query, input_ids=[], input_pipeline=doc_pipeline,
-                                                         logger=session_logger, user_id=user_id, project_id=project_id, doc_id=doc_id, db=db)
+                                                         logger=session_logger, user_id=user_id, project_id=project_id, doc_id=doc_id, db=db, progress=progress)
             end = time.time()
 
             doc_pipeline_data.append({"Document": doc_title,
@@ -1645,19 +1625,17 @@ async def run_project_retrieval(session_logger, query: str, history: List[Dict[s
 
 
     if reranker_method and reranker_or_evaluator_not_empty(reranker_method):
-        #session_logger.log_step(task="header_3", layer=2, log_text=f"Starting Master Reranker")
-        #session_logger.log_step(task="table", layer=2, log_text=f"Method description: ", table_data=reranker_method)
-
-
         reranker_type = reranker_method.pop("type")
         reranker_method.update({"logger": session_logger, "user_id": user_id, "project_id": project_id, "db": db, "level": "rerank"})
         reranker_instance = TYPE_MAPPER[reranker_type](**reranker_method)
+        await emit(f"Scanning rerank chunks")
         reranker_dict = await reranker_instance.run_retrieval(query=query, filter_ids=output_ids)
 
         if not reranker_dict:
             return None
 
         output_ids = reranker_dict["retrieval_id"]
+        await emit(f"{len(output_ids)} chunks reranked")
 
 
     # --- GENERATION -----
@@ -1682,7 +1660,11 @@ async def run_project_retrieval(session_logger, query: str, history: List[Dict[s
 
 
 
-async def run_document_pipeline(query, input_ids, input_pipeline, logger, user_id, project_id, doc_id, db):
+async def run_document_pipeline(query, input_ids, input_pipeline, logger, user_id, project_id, doc_id, db, progress=None):
+
+    async def emit(msg: str):
+        if progress is not None:
+            await progress(msg)
 
     logger.log_step(task="info_text", layer=1, log_text=f"Starting Document Pipeline")
     if input_pipeline:
@@ -1691,29 +1673,30 @@ async def run_document_pipeline(query, input_ids, input_pipeline, logger, user_i
         for method in input_pipeline:
 
             method_type = method.pop("type")
+            level = method.get("level", "")
 
-            logger.log_step(task="info_text", layer=2, log_text=f"**Starting {method["level"]} retrieval with {method_type}**")
-
+            logger.log_step(task="info_text", layer=2, log_text=f"**Starting {level} retrieval with {method_type}**")
             logger.log_step(task="table", layer=1, log_text=f"Method description: ", table_data=method)
 
+            await emit(f"Scanning {level} chunks")
 
             method.update({"logger": logger, "user_id": user_id, "project_id": project_id, "doc_id": doc_id, "db": db})
             method_instance = TYPE_MAPPER[method_type](**method)
 
-
-
             pipeline_output_dict = await method_instance.run_retrieval(query=query, filter_ids=pipeline_output_ids)
-
-
 
             # stop pipeline if any retriever returns no IDs
             if not pipeline_output_dict:
-
                 return []
 
             pipeline_output_ids = pipeline_output_dict["retrieval_id"]
 
-            # logg chunks
+            is_reranker = (level == "rerank")
+            n = len(pipeline_output_ids)
+            if is_reranker:
+                await emit(f"{n} chunks reranked")
+            else:
+                await emit(f"{n} chunks retrieved")
 
     #if no pipeline was exported for this doc, just filter the input ids
     else:

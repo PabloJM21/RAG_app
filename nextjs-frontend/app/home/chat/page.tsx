@@ -11,17 +11,12 @@ import type { ErrorInfo } from 'react'
 
 import "./index.css"
 
-import { Button } from '@/../components/chat_components/ui/button'
-import { Input } from '@/../components/chat_components/ui/input'
-
 import { Plus, Trash2 } from 'lucide-react'
 
 import { Toaster } from '@/../components/chat_components/ui/toaster'
 
 import { ErrorBoundary } from '@/../components/chat_components/ErrorBoundary'
 import { AppErrorFallback } from '@/../components/chat_components/fallbacks/AppErrorFallback'
-
-import { submitQuery } from '@/api/rag/chat/chat-action'
 
 import {
   ChatMessage,
@@ -32,8 +27,9 @@ import { limitConversationHistory } from '@/../components/chat_components/ChatIn
 import { Dashboard } from "@/../components/chat_components/Dashboard"
 import { MarkdownContent } from "@/../components/chat_components/MarkdownContent"
 
-
 type ActiveView = 'chat' | 'dashboard'
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000'
 
 function App() {
   const {
@@ -53,14 +49,12 @@ function App() {
   const [activeView, setActiveView] = useState<ActiveView>('chat')
   const [input, setInput] = useState('')
   const [runError, setRunError] = useState<string | null>(null)
+  const [progressLines, setProgressLines] = useState<string[]>([])
 
   const isMountedRef = useRef(false)
 
-  // Create an initial session if none exist
   useEffect(() => {
-    if (sessions.length === 0) {
-      createSession()
-    }
+    if (sessions.length === 0) createSession()
   }, [])
 
   useEffect(() => {
@@ -68,21 +62,18 @@ function App() {
     return () => { isMountedRef.current = false }
   }, [])
 
-  const safeSetLoading = (loading: boolean) => {
-    if (isMountedRef.current) setLoading(loading)
-  }
-
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault()
     if (!input.trim() || isLoading) return
     if (!activeSessionId) createSession()
 
     setRunError(null)
+    setProgressLines([])
     const userMessage = input.trim()
     setInput('')
 
     addMessage({ role: 'user', content: userMessage })
-    safeSetLoading(true)
+    setLoading(true)
 
     try {
       const limitedMessages = limitConversationHistory(messages)
@@ -90,32 +81,79 @@ function App() {
         .filter((msg: ChatMessage) => msg.role === 'user' || msg.role === 'assistant')
         .map((msg: ChatMessage) => ({ role: msg.role, content: msg.content }))
 
-      const formData = new FormData()
-      formData.append('query', JSON.stringify({ query: userMessage, history: conversationHistory }))
+      // Read auth token from cookie
+      const token = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('accessToken='))
+        ?.split('=')[1]
 
-      const res = await submitQuery(formData)
-
-      if (res?.ok === false) {
-        setRunError(res.error ?? 'Query failed')
-        addMessage({ role: 'assistant', content: 'Sorry, something went wrong while processing your request.' })
-        return
-      }
-
-      addMessage({
-        role: 'assistant',
-        content: res.data?.answer ?? 'No response returned',
-        sources: res.data?.sources ?? [],
+      const response = await fetch(`${API_BASE}/chat/generator/stream`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ query: userMessage, history: conversationHistory }),
       })
 
-      if (res.data?.dashboard_list?.length) {
-        setDashboardItems(res.data.dashboard_list)
+      if (!response.ok || !response.body) {
+        throw new Error(`HTTP ${response.status}`)
       }
-    } catch (error) {
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+
+        const lines = buffer.split('\n')
+        buffer = lines.pop() ?? ''
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          try {
+            const event = JSON.parse(line.slice(6))
+
+            if (event.type === 'progress') {
+              if (isMountedRef.current) {
+                setProgressLines(prev => [...prev, event.text as string])
+              }
+            } else if (event.type === 'result') {
+              if (isMountedRef.current) {
+                setProgressLines([])
+                addMessage({
+                  role: 'assistant',
+                  content: event.answer ?? 'No response returned',
+                  sources: event.sources ?? [],
+                })
+                if (event.dashboard_list?.length) {
+                  setDashboardItems(event.dashboard_list)
+                }
+              }
+            } else if (event.type === 'error') {
+              if (isMountedRef.current) {
+                setProgressLines([])
+                setRunError(event.detail ?? 'Query failed')
+                addMessage({ role: 'assistant', content: 'Sorry, something went wrong.' })
+              }
+            }
+          } catch {
+            // malformed JSON line — skip
+          }
+        }
+      }
+    } catch (error: any) {
       console.error('Failed to submit query:', error)
-      setRunError('Unexpected error')
-      addMessage({ role: 'assistant', content: 'An unexpected error occurred.' })
+      if (isMountedRef.current) {
+        setProgressLines([])
+        setRunError('Unexpected error')
+        addMessage({ role: 'assistant', content: 'An unexpected error occurred.' })
+      }
     } finally {
-      safeSetLoading(false)
+      if (isMountedRef.current) setLoading(false)
     }
   }
 
@@ -261,12 +299,25 @@ function App() {
                 </div>
               ))}
 
+              {/* Live progress indicator while loading */}
               {isLoading && (
                 <div
-                  className="rounded-lg p-4 max-w-[80%]"
+                  className="rounded-lg p-4 max-w-[80%] space-y-1"
                   style={{ backgroundColor: 'var(--theme-inner-panel-bg)', color: 'var(--theme-page-muted-fg)' }}
                 >
-                  Running...
+                  {progressLines.length === 0 ? (
+                    <p className="text-sm">Thinking...</p>
+                  ) : (
+                    progressLines.map((line, i) => (
+                      <p
+                        key={i}
+                        className="text-sm"
+                        style={{ opacity: i === progressLines.length - 1 ? 1 : 0.4 }}
+                      >
+                        {i === progressLines.length - 1 ? '⟳ ' : '✓ '}{line}
+                      </p>
+                    ))
+                  )}
                 </div>
               )}
 
