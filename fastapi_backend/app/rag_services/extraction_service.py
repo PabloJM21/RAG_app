@@ -33,7 +33,7 @@ class Extractor:
     TEXT
     """
 
-    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, project_id: UUID, doc_id: UUID, input_level: str, output_level: str, caption: str, what: str, position: str):
+    def __init__(self, db: AsyncSession, logger: InfoLogger, user_id: UUID, project_id: UUID, doc_id: UUID, input_level: str, output_level: str, caption: str, item: str, position: str):
         # the caption - what introduces the content - is the equivalent of the instructions for the Enricher (for example generate a summary as "context" for children levels)
 
         self.db = db
@@ -49,7 +49,7 @@ class Extractor:
         self.doc_id = doc_id
 
         self.title = False
-        if what == "title":
+        if item == "title":
             self.title = True
 
         self.position = position
@@ -315,14 +315,22 @@ class Enricher:
                 user_prompt=user_prompt,
             )
 
-
         self.logger.log_step(task="info_text", log_text=f"[ENRICHMENT_DEBUG]: chat_output: {chat_output}")
-        safe = chat_output.replace("\n", "\\n")
-        if self.is_json(safe):
-            output_string = self.unwrap_answer(safe)
-        else:
-            output_string = chat_output
 
+        # Attempt to unwrap {"output": "..."} — try the raw string first,
+        # then a newline-escaped version for models that embed literal \n in JSON.
+        output_string = None
+        for candidate in (chat_output, chat_output.replace("\n", "\\n")):
+            if self.is_json(candidate):
+                try:
+                    output_string = self.unwrap_answer(candidate)
+                    break
+                except ExtractionError:
+                    pass
+
+        if output_string is None:
+            # Not JSON or unwrapping failed — use the raw text
+            output_string = chat_output
 
         # Reject echoed instruction / schema garbage
         #if self._looks_like_prompt_echo(output_string):

@@ -211,7 +211,29 @@ async def create_project(
     }
 
 
-@router.post("/set/{project_id}")
+@router.patch("/{project_id}/rename")
+async def rename_project(
+    project_id: UUID,
+    body: dict,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+    name = body.get("name", "").strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="Name cannot be empty")
+
+    row = await SavedProjects.get_row(
+        where_dict={"user_id": user.id, "project_id": project_id},
+        db=db,
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    row.name = name
+    await db.commit()
+    return {"status": "ok", "name": name}
+
+
 async def set_project(
     project_id: UUID,
     db: AsyncSession = Depends(get_async_session),

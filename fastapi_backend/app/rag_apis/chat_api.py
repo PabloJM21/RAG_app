@@ -256,8 +256,16 @@ class ChatOrchestrator:
 
             else:
                 AgentLogger.error("Unhandled API error status", extra={"status": status})
+                # For 404 (model not found) and other client errors, skip to next model
+                if model_queue:
+                    next_model = model_queue.pop(0)
+                    AgentLogger.warning(
+                        "Skipping unavailable model, trying next",
+                        extra={"failed_model": model.value, "next_model": next_model.value, "status": status}
+                    )
+                    return self._safe_call(client, next_model, messages, model_queue, failure_count, 0)
                 raise ExtractionError(
-                    f"Unhandled API error status {status}: {str(e)}",
+                    f"All models exhausted after API error {status}: {str(e)}",
                     status_code=status or 500,
                 ) from e
 
@@ -299,14 +307,34 @@ class ChatOrchestrator:
             AgentLogger.error("Unknown model label", extra={"label": label})
             raise ValueError(f"Unknown model label: {label}")
 
-        model_queue = CHAT_SUBCATEGORIES[label].copy()
-        current_model = model_queue.pop(0)
+        # Build the primary model queue from the requested label.
+        primary_queue = CHAT_SUBCATEGORIES[label].copy()
+
+        # Build a fallback queue from all other named labels (skip explicit single-model entries).
+        NAMED_LABELS = {"coder", "thinker", "classifier", "generator", "reasoner"}
+        seen_models = set(primary_queue)
+        fallback_queue: list = []
+        for other_label in NAMED_LABELS:
+            if other_label == label:
+                continue
+            for model in CHAT_SUBCATEGORIES.get(other_label, []):
+                if model not in seen_models:
+                    fallback_queue.append(model)
+                    seen_models.add(model)
+
+        # Full queue: primary first, then fallback
+        full_queue = primary_queue + fallback_queue
+        current_model = full_queue.pop(0)
         failure_count = {}
 
         api_key = next(self.key_cycle)
         client = make_client(api_key, self.base_api)
-        AgentLogger.debug("Running model pipeline", extra={"label": label, "current_model": current_model.value})
-        return self._safe_call(client, current_model, messages, model_queue, failure_count)
+        AgentLogger.debug(
+            "Running model pipeline",
+            extra={"label": label, "current_model": current_model.value,
+                   "total_candidates": len(full_queue) + 1}
+        )
+        return self._safe_call(client, current_model, messages, full_queue, failure_count)
 
 
 # ============================================================

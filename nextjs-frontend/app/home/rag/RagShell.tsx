@@ -110,7 +110,7 @@ export default function RagShell({
       }}
     >
       {/* main content grows */}
-      <div style={{ flex: 1, overflow: "auto" }}>
+      <div style={{ flex: 1, overflow: "hidden" }}>
         {children}
       </div>
 

@@ -18,6 +18,7 @@ export default async function RagProjectLayout({
       minRightWidth={420}
       left={
         <aside
+          className="rag-panel-scroll"
           style={{
             border: "1px solid var(--theme-card-border)",
             padding: 12,
@@ -34,6 +35,7 @@ export default async function RagProjectLayout({
       }
       right={
         <div
+          className="rag-panel-scroll"
           style={{
             overflow: "auto",
             background: "var(--theme-inner-panel-bg)",

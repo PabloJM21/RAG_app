@@ -30,6 +30,7 @@ import {
 
 import { limitConversationHistory } from '@/../components/chat_components/ChatInterfaceSimple'
 import { Dashboard } from "@/../components/chat_components/Dashboard"
+import { MarkdownContent } from "@/../components/chat_components/MarkdownContent"
 
 
 type ActiveView = 'chat' | 'dashboard'
@@ -247,21 +248,14 @@ function App() {
                         }
                   }
                 >
-                  <p className="whitespace-pre-wrap">{message.content}</p>
+                  <MarkdownContent content={message.content} />
 
                   {Array.isArray(message.sources) && message.sources.length > 0 && (
                     <div
-                      className="mt-3 pt-3 text-sm"
-                      style={{ borderTop: '1px solid var(--theme-card-border)' }}
+                      className="mt-2 text-xs italic"
+                      style={{ color: 'var(--theme-page-muted-fg)' }}
                     >
-                      <p className="font-medium mb-1">Sources</p>
-                      <ul className="space-y-1">
-                        {message.sources.map((source, idx) => (
-                          <li key={idx}>
-                            {typeof source === 'string' ? source : JSON.stringify(source)}
-                          </li>
-                        ))}
-                      </ul>
+                      {message.sources[0]}
                     </div>
                   )}
                 </div>

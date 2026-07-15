@@ -51,7 +51,7 @@ export default function PipelineTabs({
   };
 
   return (
-    <Tabs defaultValue="chunking" className="h-full flex flex-col">
+    <Tabs defaultValue="chunking" className="flex flex-col">
       <div className="border-b px-4 py-3">
         <TabsList>
           <TabsTrigger value="conversion">Conversion</TabsTrigger>
@@ -61,9 +61,9 @@ export default function PipelineTabs({
         </TabsList>
       </div>
 
-      <div className="flex-1 overflow-hidden">
-        <TabsContent value="conversion" className="h-full m-0">
-          <section className="p-4 overflow-auto h-full">
+      <div>
+        <TabsContent value="conversion" className="m-0">
+          <section className="p-4">
             <ConversionPageClient
               project_id={project_id}
               doc_id={doc_id}
@@ -72,8 +72,8 @@ export default function PipelineTabs({
           </section>
         </TabsContent>
 
-        <TabsContent value="chunking" className="h-full m-0">
-          <section className="p-4 overflow-auto h-full">
+        <TabsContent value="chunking" className="m-0">
+          <section className="p-4">
             <ChunkingPageClient
               project_id={project_id}
               doc_id={doc_id}
@@ -83,8 +83,8 @@ export default function PipelineTabs({
           </section>
         </TabsContent>
 
-        <TabsContent value="enrichment" className="h-full m-0">
-          <section className="p-4 overflow-auto h-full">
+        <TabsContent value="enrichment" className="m-0">
+          <section className="p-4">
             <EnrichmentPageClient
               project_id={project_id}
               doc_id={doc_id}
@@ -96,9 +96,8 @@ export default function PipelineTabs({
           </section>
         </TabsContent>
 
-
-        <TabsContent value="retrieval" className="h-full m-0">
-          <section className="p-4 overflow-auto h-full">
+        <TabsContent value="retrieval" className="m-0">
+          <section className="p-4">
             <RetrievalPageClient
               project_id={project_id}
               doc_id={doc_id}

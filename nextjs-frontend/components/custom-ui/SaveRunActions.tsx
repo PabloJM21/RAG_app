@@ -224,8 +224,8 @@ export function SaveRunActions({
             <input type="hidden" name="pipeline" value={pipelineJson} />
 
             <MenuSubmitButton
-              labelIdle="Save Project"
-              labelPending="Saving Project…"
+              labelIdle={`Save ${runLabel} pipeline`}
+              labelPending={`Saving ${runLabel} pipeline…`}
               keepOpen={() => setOpen(true)}
             />
           </form>

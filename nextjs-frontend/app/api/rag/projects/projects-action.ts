@@ -7,7 +7,7 @@ import {
   exportProjectSDK,
   listExportedProjectsSDK,
   listSavedProjectsSDK, loadProjectSDK,
-  readEvaluator, setProject
+  readEvaluator, setProject, renameProjectSDK
 } from "@/api/rag/projects/sdk.gen";
 
 
@@ -269,8 +269,23 @@ export async function addEvaluator(formData: FormData) {
   revalidatePath(`/home/rag/evaluator`);
 }
 
-export async function fetchEvaluator(): Promise<EvaluatorSpec> {
+export async function renameProject(project_id: string, name: string) {
   const cookieStore = await cookies();
+  const token = cookieStore.get("accessToken")?.value;
+  if (!token) throw new Error("No access token found");
+
+  const { data, error } = await renameProjectSDK({
+    path: { project_id },
+    body: { name },
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (error) throw new Error("Rename failed");
+  revalidatePath("/home/rag");
+  return data;
+}
+
+export async function fetchEvaluator(): Promise<EvaluatorSpec> {  const cookieStore = await cookies();
   const token = cookieStore.get("accessToken")?.value;
 
   if (!token) {

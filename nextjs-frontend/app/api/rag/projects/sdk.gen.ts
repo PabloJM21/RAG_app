@@ -419,3 +419,37 @@ export const readEvaluator = <ThrowOnError extends boolean = false>(
     ...options,
   });
 };
+
+
+/**
+ * Rename Project
+ */
+export type RenameProjectData = {
+  body: { name: string };
+  path: { project_id: string };
+  query?: never;
+  url: "/projects/{project_id}/rename";
+};
+
+export type RenameProjectResponses = {
+  200: { status: string; name: string };
+};
+
+export const renameProjectSDK = <ThrowOnError extends boolean = false>(
+  options: Options<RenameProjectData, ThrowOnError>,
+) => {
+  return (options.client ?? client).patch<
+    RenameProjectResponses,
+    Errors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [{ scheme: "bearer", type: "http" }],
+    url: "/projects/{project_id}/rename",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};

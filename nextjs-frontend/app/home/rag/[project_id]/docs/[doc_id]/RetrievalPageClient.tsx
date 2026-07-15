@@ -10,6 +10,7 @@ import {
 
 import { FlexibleMethodCard } from "@/../components/custom-ui/FlexibleMethodCard";
 import { Button } from "@/../components/ui/button";
+import * as React from "react";
 import {
   BM25_QUERY_PROMPTS,
   EMBEDDING_QUERY_PROMPTS,
@@ -98,11 +99,13 @@ export function RetrievalEditor({
   levels,
   colors,
   onChange,
+  saveActions,
 }: {
   methods: PipelineSpec;
   levels: string[];
   colors: StageColors;
   onChange: (next: PipelineSpec) => void;
+  saveActions?: React.ReactNode;
 }) {
   const pipeline = methods;
 
@@ -282,10 +285,8 @@ export function RetrievalEditor({
   /* ---------------- Render ---------------- */
 
   return (
-    <section className="h-full flex flex-col gap-3">
+    <section className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold">Retrieval</h2>
-
         <div className="flex items-center gap-2">
           <select
             value={selectedType}
@@ -303,6 +304,8 @@ export function RetrievalEditor({
             + Add method
           </Button>
         </div>
+
+        {saveActions && <div>{saveActions}</div>}
       </div>
 
       <HierarchicalMethodsContainerCard
@@ -347,39 +350,24 @@ export default function RetrievalPageClient({
   const pipelineJson = useMemo(() => JSON.stringify(pipeline), [pipeline]);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <div
-        style={{
-          flex: 1,
-          position: "relative",
-          display: "flex",
-          flexDirection: "column",
-          minHeight: 0,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            marginBottom: 12,
-          }}
-        >
-          <SaveRunActions
-            project_id={project_id}
-            addFunction={addRetrievalPipeline}
-            runFunction={runExport}
-            doc_id={doc_id}
-            pipelineJson={pipelineJson}
-            runLabel="Staging"
-          />
-        </div>
-
-        <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+    <div>
+      <div style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
+        <div style={{ minHeight: 0 }}>
           <RetrievalEditor
             methods={pipeline}
             levels={levels}
             colors={colors}
             onChange={setPipeline}
+            saveActions={
+              <SaveRunActions
+                project_id={project_id}
+                addFunction={addRetrievalPipeline}
+                runFunction={runExport}
+                doc_id={doc_id}
+                pipelineJson={pipelineJson}
+                runLabel="Staging"
+              />
+            }
           />
         </div>
       </div>

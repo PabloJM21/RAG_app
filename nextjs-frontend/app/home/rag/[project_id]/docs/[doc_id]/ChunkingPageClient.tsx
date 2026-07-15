@@ -129,7 +129,7 @@ export function ChunkingEditor({
   }
 
   return (
-    <section className="h-full flex flex-col gap-3">
+    <section className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <select
@@ -189,27 +189,18 @@ export default function ChunkingPageClient({
 
 
   return (
-    <div style={{display: "flex", flexDirection: "column", height: "100%"}}>
-      {/* ---------- Main ---------- */}
-      <div style={{flex: 1, position: "relative", display: "flex", flexDirection: "column", minHeight: 0 }}>
-
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
-          <SaveRunActions
-            project_id={project_id}
-            addFunction={addChunkingPipeline}
-            runFunction={runChunking}
-            doc_id={doc_id}
-            pipelineJson={pipelineJson}
-            runLabel="Chunking"
-          />
-        </div>
-
-
-        <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
-
-          <ChunkingEditor methods={pipeline} onChange={setPipeline} colors={colors} />;
-        </div>
+    <div>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+        <SaveRunActions
+          project_id={project_id}
+          addFunction={addChunkingPipeline}
+          runFunction={runChunking}
+          doc_id={doc_id}
+          pipelineJson={pipelineJson}
+          runLabel="Chunking"
+        />
       </div>
+      <ChunkingEditor methods={pipeline} onChange={setPipeline} colors={colors} />
     </div>
   );
 }

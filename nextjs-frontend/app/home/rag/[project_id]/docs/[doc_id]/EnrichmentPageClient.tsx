@@ -29,7 +29,7 @@ type StageColors = Record<string, string>;
 
 const METHOD_TYPES = ["Extractor", "Enricher", "Filter", "Reset"] as const;
 
-const EXTRACTOR_WHAT = ["content", "title"];
+const EXTRACTOR_ITEM = ["content", "title"];
 const EXTRACTOR_CAPTIONS = ["A section title of this document", "Context"]
 
 const ENRICHER_POSITION = ["top", "bottom", "replace"];
@@ -46,7 +46,7 @@ const EXTRACTOR_TEMPLATE: MethodSpec = {
   type: "Extractor",
   input_level: "",
   output_level: "",
-  what: "",
+  item: "",
   position: "",
   caption: ""
 };
@@ -210,7 +210,7 @@ export function EnrichmentEditor({
 
     // Extractor-specific dropdowns
 
-    if (method.type === "Extractor" && key === "what") {
+    if (method.type === "Extractor" && key === "item") {
       return (
         <select
           value={value}
@@ -219,7 +219,7 @@ export function EnrichmentEditor({
           }
         >
           <option value="">—</option>
-          {EXTRACTOR_WHAT.map((w) => (
+          {EXTRACTOR_ITEM.map((w) => (
             <option key={w} value={w}>
               {w}
             </option>
@@ -361,7 +361,7 @@ export function EnrichmentEditor({
   // keep your Button / X imports as-is
 
   return (
-    <section className="h-full flex flex-col gap-3">
+    <section className="flex flex-col gap-3">
       {/* Top toolbar (fixed at top) */}
       <div className="flex items-center justify-between gap-3">
 
@@ -427,7 +427,7 @@ export default function EnrichmentPageClient({
   const pipelineJson = useMemo(() => JSON.stringify(pipeline), [pipeline]);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col">
       {/* Switcher */}
       <div className="flex items-center justify-end gap-2 mb-4 px-1">
         <button
@@ -456,10 +456,10 @@ export default function EnrichmentPageClient({
       </div>
 
       {/* Content */}
-      <div className="flex-1 min-h-0 overflow-hidden">
+      <div>
         {view === "pipeline" ? (
-          <div className="h-full flex flex-col">
-            <div className="flex justify-end mb-3">
+          <div className="flex flex-col gap-3">
+            <div className="flex justify-end">
               <SaveRunActions
                 project_id={project_id}
                 addFunction={addExtractionPipeline}
@@ -470,23 +470,19 @@ export default function EnrichmentPageClient({
               />
             </div>
 
-            <div className="flex-1 min-h-0 overflow-auto">
-              <EnrichmentEditor
-                methods={pipeline}
-                levels={levels}
-                colors={colors}
-                onChange={setPipeline}
-              />
-            </div>
-          </div>
-        ) : (
-          <div className="h-full overflow-auto">
-            <ChunksResultsEditor
-              project_id={project_id}
-              doc_id={doc_id}
-              initialResults={initialResults}
+            <EnrichmentEditor
+              methods={pipeline}
+              levels={levels}
+              colors={colors}
+              onChange={setPipeline}
             />
           </div>
+        ) : (
+          <ChunksResultsEditor
+            project_id={project_id}
+            doc_id={doc_id}
+            initialResults={initialResults}
+          />
         )}
       </div>
     </div>

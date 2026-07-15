@@ -205,7 +205,7 @@ function EvaluatorSettingsCard({
               className="mt-1 text-xs"
               style={themedMutedStyle}
             >
-              Generate the final output.
+              When active, the evaluator runs all your saved projects in parallel on each query and scores their answers. Only the highest-scoring answer is returned in the chat. Use it to compare retrieval pipelines and automatically surface the best result.
             </div>
           </div>
 

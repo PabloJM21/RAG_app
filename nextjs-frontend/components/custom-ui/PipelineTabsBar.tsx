@@ -11,11 +11,11 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/../components/ui/dropdown-menu";
-import {Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle} from "@/../components/ui/dialog";
-import {exportProject, listExportedProjects, ListProject, loadProject} from "@/api/rag/projects/projects-action";
-import {Textarea} from "@/../components/ui/textarea";
-import {Button} from "@/../components/ui/button";
-import {ScrollArea} from "@/../components/ui/scroll-area";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/../components/ui/dialog";
+import { exportProject, listExportedProjects, ListProject, loadProject, renameProject } from "@/api/rag/projects/projects-action";
+import { Textarea } from "@/../components/ui/textarea";
+import { Button } from "@/../components/ui/button";
+import { ScrollArea } from "@/../components/ui/scroll-area";
 import { useRouter } from "next/navigation";
 
 
@@ -39,13 +39,14 @@ export function ProjectTabsBar({
   deleteProject,
   className,
 }: Props) {
-
   const [exportOpen, setExportOpen] = React.useState(false);
   const [loadOpen, setLoadOpen] = React.useState(false);
+  const [renameOpen, setRenameOpen] = React.useState(false);
+  const [renamingProjectId, setRenamingProjectId] = React.useState<string | null>(null);
+  const [renameValue, setRenameValue] = React.useState("");
 
   const [open, setOpen] = React.useState(false);
   const [runError, setRunError] = React.useState<string | null>(null);
-
   const [name, setname] = React.useState("");
   const [exported_projects, setProjects] = React.useState<ListProject[]>([]);
   const [listPending, setListPending] = React.useState(false);
@@ -64,7 +65,6 @@ export function ProjectTabsBar({
 
   const listFormRef = React.useRef<HTMLFormElement | null>(null);
   const listBtnRef = React.useRef<HTMLButtonElement | null>(null);
-
 
   return (
     <div
@@ -112,6 +112,17 @@ export function ProjectTabsBar({
 
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      setRenamingProjectId(project.project_id);
+                      setRenameValue(project.name);
+                      setRenameOpen(true);
+                    }}
+                  >
+                    Rename…
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
                     className="text-red-500 cursor-pointer"
                     onClick={(e) => {
                       e.stopPropagation();
@@ -120,14 +131,15 @@ export function ProjectTabsBar({
                   >
                     Delete
                   </DropdownMenuItem>
+
                   <DropdownMenuItem
-                      onSelect={(e) => {
-                        e.preventDefault();
-                        setOpen(false);
-                        setExportOpen(true);
-                      }}
-                    >
-                      Save project…
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      setOpen(false);
+                      setExportOpen(true);
+                    }}
+                  >
+                    Save project…
                   </DropdownMenuItem>
 
                   <DropdownMenuItem
@@ -145,6 +157,8 @@ export function ProjectTabsBar({
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
+
+              {/* Save project dialog */}
               <Dialog
                 open={exportOpen}
                 onOpenChange={(open) => {
@@ -170,7 +184,6 @@ export function ProjectTabsBar({
 
                     <div className="grid gap-2">
                       <label className="text-sm font-medium">Project name</label>
-
                       <Textarea
                         name="name"
                         value={name}
@@ -178,7 +191,6 @@ export function ProjectTabsBar({
                         placeholder="e.g. retrieval_v3"
                         className="min-h-[90px] font-mono"
                       />
-
                       <p className="text-xs text-muted-foreground">
                         Choose a name to save the current project under.
                       </p>
@@ -196,6 +208,7 @@ export function ProjectTabsBar({
                 </DialogContent>
               </Dialog>
 
+              {/* Load project dialog */}
               <Dialog open={loadOpen} onOpenChange={setLoadOpen}>
                 <DialogContent
                   className="sm:max-w-[520px]"
@@ -221,13 +234,11 @@ export function ProjectTabsBar({
                         {listPending && (
                           <div className="p-2 text-sm text-muted-foreground">Loading…</div>
                         )}
-
                         {!listPending && exported_projects.length === 0 && (
                           <div className="p-2 text-sm text-muted-foreground">
                             No projects available.
                           </div>
                         )}
-
                         {exported_projects.map((p) => (
                           <form
                             key={p.project_id}
@@ -239,7 +250,6 @@ export function ProjectTabsBar({
                           >
                             <input type="hidden" name="target_id" value={project.project_id} />
                             <input type="hidden" name="source_id" value={p.project_id} />
-
                             <button
                               type="submit"
                               className="w-full text-left px-3 py-2 rounded-md text-sm hover:bg-muted transition"
@@ -267,6 +277,62 @@ export function ProjectTabsBar({
           </TabsTrigger>
         </TabsList>
       </Tabs>
+
+      {/* Rename dialog — outside the project map so it doesn't re-mount per project */}
+      <Dialog
+        open={renameOpen}
+        onOpenChange={(open) => {
+          setRenameOpen(open);
+          if (!open) setRenamingProjectId(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Rename project</DialogTitle>
+          </DialogHeader>
+
+          <div className="grid gap-2">
+            <label className="text-sm font-medium">New name</label>
+            <input
+              className="h-9 rounded-md border bg-background px-3 text-sm w-full"
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && renameValue.trim() && renamingProjectId) {
+                  e.preventDefault();
+                  renameProject(renamingProjectId, renameValue.trim()).then(() => {
+                    setRenameOpen(false);
+                    router.refresh();
+                  });
+                }
+              }}
+              autoFocus
+            />
+          </div>
+
+          <DialogFooter className="mt-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setRenameOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={!renameValue.trim()}
+              onClick={async () => {
+                if (!renamingProjectId || !renameValue.trim()) return;
+                await renameProject(renamingProjectId, renameValue.trim());
+                setRenameOpen(false);
+                router.refresh();
+              }}
+            >
+              Rename
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <button
         type="button"
