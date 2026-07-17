@@ -24,10 +24,10 @@ import {
 } from '@/api/rag/chat/useStore'
 
 import { limitConversationHistory } from '@/../components/chat_components/ChatInterfaceSimple'
-import { Dashboard } from "@/../components/chat_components/Dashboard"
+import { Dashboard, RetrievalGraphView } from "@/../components/chat_components/Dashboard"
 import { MarkdownContent } from "@/../components/chat_components/MarkdownContent"
 
-type ActiveView = 'chat' | 'dashboard'
+type ActiveView = 'chat' | 'dashboard' | 'graph'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000'
 
@@ -81,7 +81,6 @@ function App() {
         .filter((msg: ChatMessage) => msg.role === 'user' || msg.role === 'assistant')
         .map((msg: ChatMessage) => ({ role: msg.role, content: msg.content }))
 
-      // Read auth token from cookie
       const token = document.cookie
         .split('; ')
         .find(row => row.startsWith('accessToken='))
@@ -104,9 +103,44 @@ function App() {
       const decoder = new TextDecoder()
       let buffer = ''
 
+      const processEvent = async (event: any) => {
+        if (!isMountedRef.current) return
+        if (event.type === 'progress') {
+          setProgressLines(prev => [...prev, event.text as string])
+        } else if (event.type === 'result') {
+          // Add the message first — progress clears after a tick so user sees the final lines
+          addMessage({
+            role: 'assistant',
+            content: event.answer ?? 'No response returned',
+            sources: event.sources ?? [],
+          })
+          if (event.dashboard_list?.length) {
+            setDashboardItems(event.dashboard_list)
+          }
+          // Clear progress after React has rendered the message
+          setTimeout(() => {
+            if (isMountedRef.current) setProgressLines([])
+          }, 100)
+        } else if (event.type === 'error') {
+          setRunError(event.detail ?? 'Query failed')
+          addMessage({ role: 'assistant', content: 'Sorry, something went wrong.' })
+          setTimeout(() => {
+            if (isMountedRef.current) setProgressLines([])
+          }, 100)
+        }
+      }
+
       while (true) {
         const { done, value } = await reader.read()
-        if (done) break
+        if (done) {
+          // Flush any trailing data in buffer
+          if (buffer.trim().startsWith('data: ')) {
+            try {
+              await processEvent(JSON.parse(buffer.trim().slice(6)))
+            } catch { /* ignore */ }
+          }
+          break
+        }
         buffer += decoder.decode(value, { stream: true })
 
         const lines = buffer.split('\n')
@@ -115,34 +149,8 @@ function App() {
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue
           try {
-            const event = JSON.parse(line.slice(6))
-
-            if (event.type === 'progress') {
-              if (isMountedRef.current) {
-                setProgressLines(prev => [...prev, event.text as string])
-              }
-            } else if (event.type === 'result') {
-              if (isMountedRef.current) {
-                setProgressLines([])
-                addMessage({
-                  role: 'assistant',
-                  content: event.answer ?? 'No response returned',
-                  sources: event.sources ?? [],
-                })
-                if (event.dashboard_list?.length) {
-                  setDashboardItems(event.dashboard_list)
-                }
-              }
-            } else if (event.type === 'error') {
-              if (isMountedRef.current) {
-                setProgressLines([])
-                setRunError(event.detail ?? 'Query failed')
-                addMessage({ role: 'assistant', content: 'Sorry, something went wrong.' })
-              }
-            }
-          } catch {
-            // malformed JSON line — skip
-          }
+            await processEvent(JSON.parse(line.slice(6)))
+          } catch { /* malformed — skip */ }
         }
       }
     } catch (error: any) {
@@ -263,6 +271,19 @@ function App() {
               </span>
             )}
           </button>
+
+          <button
+            className="rounded-md px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-40"
+            style={{
+              backgroundColor: activeView === 'graph' ? 'var(--theme-button-primary-bg)' : 'var(--theme-button-outline-bg)',
+              color: activeView === 'graph' ? 'var(--theme-button-primary-fg)' : 'var(--theme-button-outline-fg)',
+              border: `1px solid ${activeView === 'graph' ? 'var(--theme-button-primary-border)' : 'var(--theme-button-outline-border)'}`,
+            }}
+            onClick={() => setActiveView('graph')}
+            disabled={dashboardItems.length === 0}
+          >
+            Graph
+          </button>
         </header>
 
         {/* Main */}
@@ -299,8 +320,8 @@ function App() {
                 </div>
               ))}
 
-              {/* Live progress indicator while loading */}
-              {isLoading && (
+              {/* Live progress indicator — visible while lines exist or still loading */}
+              {(isLoading || progressLines.length > 0) && (
                 <div
                   className="rounded-lg p-4 max-w-[80%] space-y-1"
                   style={{ backgroundColor: 'var(--theme-inner-panel-bg)', color: 'var(--theme-page-muted-fg)' }}
@@ -327,6 +348,8 @@ function App() {
                 </div>
               )}
             </div>
+          ) : activeView === 'graph' ? (
+            <RetrievalGraphView items={dashboardItems} />
           ) : (
             <Dashboard items={dashboardItems} />
           )}

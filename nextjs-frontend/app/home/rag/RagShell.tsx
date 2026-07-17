@@ -38,7 +38,14 @@ export default function RagShell({
   );
 
   React.useEffect(() => {
-    setActiveProjectId(activeProjectIdFromPath(pathname));
+    const newId = activeProjectIdFromPath(pathname);
+    setActiveProjectId(newId);
+    if (newId && newId !== "evaluator") {
+      // Use the Next.js API route so the server-side auth cookie is available
+      fetch(`/api/rag/projects/set-current?project_id=${newId}`, {
+        method: "POST",
+      }).catch(() => {});
+    }
   }, [pathname]);
 
   const addProject = React.useCallback(async () => {

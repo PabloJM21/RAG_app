@@ -59,6 +59,9 @@ import type {
   RenameProjectData,
   RenameProjectResponses,
   RenameProjectErrors,
+  SetProjectData,
+  SetProjectResponses,
+  SetProjectErrors,
   DeleteProjectData,
   DeleteProjectResponses,
   DeleteProjectErrors,
@@ -650,6 +653,29 @@ export const renameProject = <ThrowOnError extends boolean = false>(
       "Content-Type": "application/json",
       ...options.headers,
     },
+  });
+};
+
+/**
+ * Set Project
+ */
+export const setProject = <ThrowOnError extends boolean = false>(
+  options: Options<SetProjectData, ThrowOnError>,
+) => {
+  return (options.client ?? client).post<
+    SetProjectResponses,
+    SetProjectErrors,
+    ThrowOnError
+  >({
+    responseType: "json",
+    security: [
+      {
+        scheme: "bearer",
+        type: "http",
+      },
+    ],
+    url: "/projects/set/{project_id}",
+    ...options,
   });
 };
 

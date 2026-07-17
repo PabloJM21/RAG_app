@@ -1,6 +1,30 @@
 from enum import Enum
 
 
+# ─── Context window limits (tokens) per model ───────────────────────────────
+# Conservative: reserve ~4 k tokens for system prompt + current user prompt + response.
+CONTEXT_RESERVE = 4096
+
+MODEL_CONTEXT_LENGTHS: dict[str, int] = {
+    "qwen3-coder-30b-a3b-instruct":         32_768,
+    "meta-llama-3.1-8b-instruct":           32_768,
+    "openai-gpt-oss-120b":                 131_072,
+    "qwen3-30b-a3b-instruct-2507":          32_768,
+    "qwen3-32b":                            32_768,
+    "qwen3-235b-a22b":                      32_768,
+    "llama-3.3-70b-instruct":              131_072,
+    "qwen-qwq-32b":                         32_768,
+    "deepseek-r1":                         131_072,
+    "deepseek-r1-distill-llama-70b":       131_072,
+    "mistral-large-instruct":              131_072,
+    "qwen2.5-coder-32b-instruct":           32_768,
+    "teuken-7b-instruct-research":           8_192,
+    "codestral-22b":                        32_768,
+    "llama-3.1-sauerkrautlm-70b-instruct":  32_768,
+}
+
+DEFAULT_CONTEXT_LENGTH = 32_768
+
 
 class ChatModels(str, Enum):
     QWEN3_CODER_30B_A3B_INSTRUCT = "qwen3-coder-30b-a3b-instruct"

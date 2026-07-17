@@ -29,6 +29,7 @@ class ChunkMetadata(BaseModel):
     Document: list[str]
     Level: list[str]
     Number: list[str | int]
+    tree: Optional[dict] = None
 
 class DashboardEntry(BaseModel):
     project: str
@@ -103,6 +104,9 @@ async def rag_query_stream(
 
     async def progress(msg: str):
         await queue.put({"type": "progress", "text": msg})
+        # Yield the event loop so the generator can flush this event
+        # to the network before the next progress message is enqueued
+        await asyncio.sleep(0)
 
     async def run():
         try:

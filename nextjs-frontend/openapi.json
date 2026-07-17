@@ -905,6 +905,52 @@
         }
       }
     },
+    "/projects/set/{project_id}": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Set Project",
+        "operationId": "set_project",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/projects/{project_id}": {
       "delete": {
         "tags": [
@@ -3741,6 +3787,18 @@
             },
             "type": "array",
             "title": "Number"
+          },
+          "tree": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tree"
           }
         },
         "type": "object",

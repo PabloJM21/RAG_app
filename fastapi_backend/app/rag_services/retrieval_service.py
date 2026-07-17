@@ -284,26 +284,165 @@ async def get_chunk_metadata(db: AsyncSession, user_id: UUID, project_id: UUID, 
     where = {"user_id": user_id, "project_id": project_id, "retrieval_id": retrieval_ids}
 
     output_rows, _ = await Retrieval.get_all(
-        columns=["doc_id", "retrieval_id", "level", "content"],
+        columns=["doc_id", "retrieval_id", "level", "level_id", "content"],
         where_dict=where,
         db=db,
     )
 
-    table_data = {"Chunk": [], "Document": [], "Level": [], "Number": []}
+    table_data: dict = {"Chunk": [], "Document": [], "Level": [], "Number": [], "tree": {}}
+
+    # Cache for level positions to avoid redundant DB calls
+    _pos_cache: dict = {}
+
+    async def level_pos(doc_id, level, retrieval_id):
+        key = (str(doc_id), level, int(retrieval_id))
+        if key not in _pos_cache:
+            _pos_cache[key] = await get_level_position(db, user_id, project_id, doc_id, level, retrieval_id)
+        return _pos_cache[key]
+
+    # Group retrieved rows by document for tree building
+    from collections import defaultdict
+    doc_chunks: dict = defaultdict(list)  # doc_id -> list of (retrieval_id, level, level_id)
 
     for row in output_rows:
+        try:
+            doc_id = row["doc_id"]
+            doc_title = await get_doc_title(user_id, project_id, doc_id, db=db)
+        except LookupError:
+            doc_title = f"<deleted>"
+
         table_data["Chunk"].append(row["content"])
         table_data["Level"].append(row["level"])
-
-        doc_id = row["doc_id"]
-        doc_title = await get_doc_title(user_id, project_id, doc_id, db=db)
-
-
         table_data["Document"].append(doc_title)
 
-        retrieval_id, level = row["retrieval_id"], row["level"]
-        level_position = await get_level_position(db, user_id, project_id, doc_id, level, retrieval_id)
+        retrieval_id, level, level_id = row["retrieval_id"], row["level"], row["level_id"]
+        level_position = await level_pos(doc_id, level, retrieval_id)
         table_data["Number"].append(level_position)
+
+        doc_chunks[doc_id].append({
+            "retrieval_id": retrieval_id,
+            "level": level,
+            "level_id": level_id,
+        })
+
+    # Build retrieval tree per document — wrapped in try/except so tree errors
+    # never corrupt the core Chunk/Document/Level/Number metadata.
+    try:
+        for doc_id, chunks in doc_chunks.items():
+            doc_title = await get_doc_title(user_id, project_id, doc_id, db=db)
+            leaf_level = chunks[0]["level"]
+            leaf_level_ids = list({c["level_id"] for c in chunks})
+
+            para_rows, _ = await Paragraph.get_all_paragraphs(
+                columns=["paragraph_id"],
+                where_dict={
+                    "user_id": user_id,
+                    "project_id": project_id,
+                    "doc_id": doc_id,
+                    f"{leaf_level}_id": leaf_level_ids,
+                },
+                db=db,
+            )
+
+            para_ids = [r["paragraph_id"] for r in para_rows]
+
+            from sqlalchemy.future import select as sa_select
+            from sqlalchemy import and_
+            from app.models import Paragraph as ParaModel
+            import json as _json
+
+            stmt = sa_select(ParaModel.paragraph_id, ParaModel.paragraph_metadata).where(
+                and_(
+                    ParaModel.user_id == user_id,
+                    ParaModel.project_id == project_id,
+                    ParaModel.doc_id == doc_id,
+                    ParaModel.paragraph_id.in_(para_ids),
+                )
+            )
+            result = await db.execute(stmt)
+            meta_rows = result.fetchall()
+
+            ancestry: dict = {}
+            for para_id, meta_json in meta_rows:
+                try:
+                    meta = _json.loads(meta_json) if isinstance(meta_json, str) else (meta_json or {})
+                except Exception:
+                    meta = {}
+                leaf_id = meta.get(f"{leaf_level}_id")
+                if leaf_id is not None:
+                    ancestry[int(leaf_id)] = meta
+
+            all_levels_in_meta: set = set()
+            for meta in ancestry.values():
+                for k in meta:
+                    if k.endswith("_id"):
+                        all_levels_in_meta.add(k[:-3])
+
+            doc_retrieval_rows, _ = await Retrieval.get_all(
+                columns=["retrieval_id"],
+                where_dict={"user_id": user_id, "project_id": project_id, "doc_id": doc_id, "level": "document"},
+                db=db,
+            )
+
+            intermediate = sorted(all_levels_in_meta - {"document", leaf_level})
+            level_order = ["document"] + intermediate + ([leaf_level] if leaf_level != "document" else [])
+
+            nodes: dict = {}
+            edges: list = []
+
+            for leaf_id, meta in ancestry.items():
+                leaf_ret_rows, _ = await Retrieval.get_all(
+                    columns=["retrieval_id"],
+                    where_dict={"user_id": user_id, "project_id": project_id, "doc_id": doc_id,
+                                "level": leaf_level, "level_id": leaf_id},
+                    db=db,
+                )
+                if not leaf_ret_rows:
+                    continue
+                leaf_ret_id = leaf_ret_rows[0]["retrieval_id"]
+                leaf_pos = await level_pos(doc_id, leaf_level, leaf_ret_id)
+
+                nodes.setdefault(leaf_level, set()).add(leaf_pos)
+
+                prev_level = leaf_level
+                prev_pos = leaf_pos
+
+                for lvl in reversed(level_order[:-1]):
+                    if lvl == "document":
+                        anc_pos = 1
+                    else:
+                        anc_level_id = meta.get(f"{lvl}_id")
+                        if anc_level_id is None:
+                            continue
+                        anc_ret_rows, _ = await Retrieval.get_all(
+                            columns=["retrieval_id"],
+                            where_dict={"user_id": user_id, "project_id": project_id, "doc_id": doc_id,
+                                        "level": lvl, "level_id": anc_level_id},
+                            db=db,
+                        )
+                        if not anc_ret_rows:
+                            continue
+                        anc_pos = await level_pos(doc_id, lvl, anc_ret_rows[0]["retrieval_id"])
+
+                    nodes.setdefault(lvl, set()).add(anc_pos)
+                    edge = {"parent_level": lvl, "parent_num": anc_pos,
+                            "child_level": prev_level, "child_num": prev_pos}
+                    if edge not in edges:
+                        edges.append(edge)
+
+                    prev_level = lvl
+                    prev_pos = anc_pos
+
+            table_data["tree"][doc_title] = {
+                "level_order": level_order,
+                "nodes": {lvl: sorted(nums) for lvl, nums in nodes.items()},
+                "edges": edges,
+            }
+    except Exception as _tree_err:
+        # Tree building is optional — never let it break the core metadata
+        import logging as _logging
+        _logging.getLogger(__name__).warning(f"Retrieval tree build failed: {_tree_err}")
+        table_data["tree"] = {}
 
     return table_data
 
@@ -539,7 +678,11 @@ class BaseRetriever:
 
 
 
-    async def run_retrieval(self, query: str, filter_ids: Optional[Iterable] = ()) -> Dict[str, List]:
+    async def run_retrieval(self, query: str, filter_ids: Optional[Iterable] = (), progress=None) -> Dict[str, List]:
+
+        async def emit(msg: str):
+            if progress is not None:
+                await progress(msg)
 
         # first of all instance chat orchestrator
         await self.init_chat_client()
@@ -564,6 +707,8 @@ class BaseRetriever:
         # call to child method
         #self.logger.log_step(task="info_text", layer=1, log_text=f"Input dict:\n{retrieval_dict}")
 
+        scan_message = "Scanning rerank chunks" if self.level == "rerank" else f"Scanning {self.level} chunks"
+        await emit(scan_message)
         retrieval_output_ids = await self.run_retriever(query, retrieval_dict)
 
 
@@ -573,6 +718,8 @@ class BaseRetriever:
 
         self.logger.log_step(task="info_text", layer=2, log_text=f"Retrieved {len(retrieval_output_ids)} out of {len(retrieval_dict["retrieval_id"])} Chunks")
 
+        result_message = f"{len(retrieval_output_ids)} chunks reranked" if self.level == "rerank" else f"{len(retrieval_output_ids)} chunks retrieved"
+        await emit(result_message)
 
         output_dict = await get_retrieval_content(self.db, self.user_id, self.project_id, retrieval_output_ids)
 
@@ -1398,14 +1545,12 @@ async def run_retrieval(db, user_id, query, history, progress=None):
         if output:
             output_answer, metadata = output
 
-            ################## Obtain project number (temporary)
-
-            rows, _ = await SavedProjects.get_all(columns=["project_id", "name"],
-                                                  where_dict={"kind": "saved", "user_id": user_id}, db=db)
-            project_ids = [row["project_id"] for row in rows]
-            p_number = str(project_ids.index(project_id) + 1)
-
-            ###############
+            # Use the project's stored name directly
+            project_row = await SavedProjects.get_row(
+                where_dict={"project_id": project_id},
+                db=db,
+            )
+            p_number = project_row.name if project_row else "1"
 
             dashboard_list = [{
                 "project": p_number,
@@ -1628,14 +1773,12 @@ async def run_project_retrieval(session_logger, query: str, history: List[Dict[s
         reranker_type = reranker_method.pop("type")
         reranker_method.update({"logger": session_logger, "user_id": user_id, "project_id": project_id, "db": db, "level": "rerank"})
         reranker_instance = TYPE_MAPPER[reranker_type](**reranker_method)
-        await emit(f"Scanning rerank chunks")
-        reranker_dict = await reranker_instance.run_retrieval(query=query, filter_ids=output_ids)
+        reranker_dict = await reranker_instance.run_retrieval(query=query, filter_ids=output_ids, progress=progress)
 
         if not reranker_dict:
             return None
 
         output_ids = reranker_dict["retrieval_id"]
-        await emit(f"{len(output_ids)} chunks reranked")
 
 
     # --- GENERATION -----
@@ -1644,7 +1787,7 @@ async def run_project_retrieval(session_logger, query: str, history: List[Dict[s
     #session_logger.log_step(task="table", layer=2, log_text=f"Method description: ", table_data=generator_method)
 
 
-    metadata= await get_chunk_metadata(db, user_id, project_id, output_ids)
+    metadata = await get_chunk_metadata(db, user_id, project_id, output_ids)
 
     # pass chunks and query to generator
     generator_type = generator_method.pop("type")
@@ -1678,25 +1821,16 @@ async def run_document_pipeline(query, input_ids, input_pipeline, logger, user_i
             logger.log_step(task="info_text", layer=2, log_text=f"**Starting {level} retrieval with {method_type}**")
             logger.log_step(task="table", layer=1, log_text=f"Method description: ", table_data=method)
 
-            await emit(f"Scanning {level} chunks")
-
             method.update({"logger": logger, "user_id": user_id, "project_id": project_id, "doc_id": doc_id, "db": db})
             method_instance = TYPE_MAPPER[method_type](**method)
 
-            pipeline_output_dict = await method_instance.run_retrieval(query=query, filter_ids=pipeline_output_ids)
+            pipeline_output_dict = await method_instance.run_retrieval(query=query, filter_ids=pipeline_output_ids, progress=progress)
 
             # stop pipeline if any retriever returns no IDs
             if not pipeline_output_dict:
                 return []
 
             pipeline_output_ids = pipeline_output_dict["retrieval_id"]
-
-            is_reranker = (level == "rerank")
-            n = len(pipeline_output_ids)
-            if is_reranker:
-                await emit(f"{n} chunks reranked")
-            else:
-                await emit(f"{n} chunks retrieved")
 
     #if no pipeline was exported for this doc, just filter the input ids
     else:

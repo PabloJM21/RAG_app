@@ -15,6 +15,17 @@ export interface ChatMessage {
 
 export type NewMessage = Omit<ChatMessage, "id" | "timestamp">
 
+export interface TreeNode {
+  level_order: string[]
+  nodes: Record<string, number[]>   // level -> sorted list of position numbers
+  edges: Array<{
+    parent_level: string
+    parent_num: number
+    child_level: string
+    child_num: number
+  }>
+}
+
 export interface DashboardItem {
   project: string
   answer: string
@@ -25,6 +36,7 @@ export interface DashboardItem {
     Document: string[]
     Level: string[]
     Number: (string | number)[]
+    tree?: Record<string, TreeNode>  // doc_title -> tree
   }
 }
 

@@ -4,9 +4,61 @@ import time
 from itertools import cycle
 from openai import OpenAI, APIError, RateLimitError, AuthenticationError, APITimeoutError
 
-from app.rag_apis.model_enums import CHAT_SUBCATEGORIES
+from app.rag_apis.model_enums import CHAT_SUBCATEGORIES, MODEL_CONTEXT_LENGTHS, DEFAULT_CONTEXT_LENGTH, CONTEXT_RESERVE
 from loguru import logger as AgentLogger
 from app.rag_services.helpers import ExtractionError
+
+
+# ============================================================
+# Token estimation
+# ============================================================
+
+def _estimate_tokens(text: str) -> int:
+    """Rough token estimate: ~4 chars per token (conservative for multilingual)."""
+    return max(1, len(text) // 3)
+
+
+def _truncate_history(
+    system_prompt: str,
+    history: list[dict],
+    user_prompt: str,
+    context_limit: int,
+) -> list[dict]:
+    """
+    Drop oldest history messages (in user/assistant pairs) until the total
+    estimated token count fits within context_limit - CONTEXT_RESERVE.
+    Always keeps the most recent pairs.
+    """
+    budget = context_limit - CONTEXT_RESERVE
+    # Account for system + user prompt first
+    used = _estimate_tokens(system_prompt) + _estimate_tokens(user_prompt)
+
+    if used >= budget:
+        # Even without history we're close to the limit — return empty history
+        AgentLogger.warning(
+            "System+user prompt already near context limit; dropping all history",
+            extra={"estimated_tokens": used, "budget": budget},
+        )
+        return []
+
+    # Walk history from newest to oldest, accumulate tokens, keep what fits
+    kept: list[dict] = []
+    for msg in reversed(history):
+        msg_tokens = _estimate_tokens(msg.get("content", ""))
+        if used + msg_tokens > budget:
+            break
+        kept.append(msg)
+        used += msg_tokens
+
+    kept.reverse()
+    dropped = len(history) - len(kept)
+    if dropped:
+        AgentLogger.warning(
+            "History truncated to fit context window",
+            extra={"dropped_messages": dropped, "kept_messages": len(kept),
+                   "estimated_tokens": used, "context_limit": context_limit},
+        )
+    return kept
 
 
 
@@ -75,7 +127,7 @@ BASE_API = os.getenv("BASE_API", "https://chat-ai.academiccloud.de/v1/")
 # Configuration
 # ============================================================
 
-MAX_RETRIES = 3
+MAX_RETRIES = 1  # reduced from 3 — fail fast and switch model/key sooner
 
 
 # ============================================================
@@ -150,19 +202,20 @@ class ChatOrchestrator:
                     ) from inner_e
             else:
                 AgentLogger.warning("Retrying same key once more", extra={"api_key": client.api_key[:6]})
-                time.sleep(2)
-                return self._safe_call(client, model, messages, model_queue, failure_count, retry_num)
-
+                time.sleep(1)
         # -----------------------------
         # RATE LIMITS
         # -----------------------------
         except RateLimitError as e:
-            AgentLogger.warning("Rate limit hit — sleeping briefly", extra={"error": str(e)})
-            time.sleep(10)
+            AgentLogger.warning("Rate limit hit — switching model", extra={"error": str(e)})
 
-            if retry_num < self.max_retries:
-                return self._safe_call(client, model, messages, model_queue, failure_count, retry_num + 1)
+            # Skip straight to the next model rather than sleeping and retrying
+            if model_queue:
+                next_model = model_queue.pop(0)
+                AgentLogger.warning("Switching to next model after rate limit", extra={"next_model": next_model.value})
+                return self._safe_call(client, next_model, messages, model_queue, failure_count, 0)
 
+            # No more models — try rotating the API key as a last resort
             try:
                 next_key = next(self.key_cycle)
                 return self._safe_call(
@@ -186,53 +239,54 @@ class ChatOrchestrator:
         # TIMEOUTS
         # -----------------------------
         except APITimeoutError as e:
-            AgentLogger.warning("Timeout occurred", extra={"error": str(e)})
+            AgentLogger.warning("Timeout — switching model", extra={"model": model.value})
 
+            if model_queue:
+                next_model = model_queue.pop(0)
+                AgentLogger.warning("Switching to next model after timeout", extra={"next_model": next_model.value})
+                return self._safe_call(client, next_model, messages, model_queue, failure_count, 0)
+
+            # No more models — try once more with a key rotation
             if retry_num < self.max_retries:
-                time.sleep(5)
-                return self._safe_call(client, model, messages, model_queue, failure_count, retry_num + 1)
+                time.sleep(2)
+                try:
+                    next_key = next(self.key_cycle)
+                    return self._safe_call(
+                        make_client(next_key, self.base_api),
+                        model,
+                        messages,
+                        model_queue,
+                        failure_count,
+                        retry_num + 1,
+                    )
+                except ExtractionError:
+                    raise
+                except Exception as inner_e:
+                    raise ExtractionError("Timeout recovery failed", status_code=504) from inner_e
 
-            try:
-                next_key = next(self.key_cycle)
-                AgentLogger.warning("Switching key after repeated timeout", extra={"next_key": next_key[:6]})
-                return self._safe_call(
-                    make_client(next_key, self.base_api),
-                    model,
-                    messages,
-                    model_queue,
-                    failure_count,
-                    0,
-                )
-            except ExtractionError:
-                raise
-            except Exception as inner_e:
-                AgentLogger.error("Failed after timeout recovery", extra={"error": str(inner_e)})
-                raise ExtractionError(
-                    f"Failed after timeout recovery: {str(inner_e)}",
-                    status_code=504,
-                ) from inner_e
+            raise ExtractionError("All models timed out", status_code=504)
 
         # -----------------------------
         # OTHER API ERRORS
         # -----------------------------
         except APIError as e:
             status = getattr(e, "status_code", None)
-            AgentLogger.error("API error", extra={"status": status, "error": str(e)})
+            # Log a short message — no raw API error body in the log
+            AgentLogger.warning(
+                "API error — trying next model",
+                extra={"status": status, "model": model.value},
+            )
 
             if status in (500, 502, 503, 504):
                 if retry_num < self.max_retries:
-                    time.sleep(5)
+                    time.sleep(2)
                     return self._safe_call(client, model, messages, model_queue, failure_count, retry_num + 1)
                 elif model_queue:
                     next_model = model_queue.pop(0)
                     AgentLogger.warning("Switching to next model", extra={"next_model": next_model.value})
                     return self._safe_call(client, next_model, messages, model_queue, failure_count, 0)
                 else:
-                    AgentLogger.error("Server errors exhausted and no fallback model left")
-                    raise ExtractionError(
-                        f"Server errors exhausted and no fallback model left: {str(e)}",
-                        status_code=502,
-                    ) from e
+                    raise ExtractionError("All models returned server errors", status_code=502) from e
 
             elif status == 401:
                 try:
@@ -248,42 +302,30 @@ class ChatOrchestrator:
                 except ExtractionError:
                     raise
                 except Exception as inner_e:
-                    AgentLogger.error("Failed to recover from API 401", extra={"error": str(inner_e)})
-                    raise ExtractionError(
-                        f"Failed to recover from API 401: {str(inner_e)}",
-                        status_code=401,
-                    ) from inner_e
+                    raise ExtractionError("Auth failure — no valid key", status_code=401) from inner_e
 
             else:
-                AgentLogger.error("Unhandled API error status", extra={"status": status})
-                # For 404 (model not found) and other client errors, skip to next model
+                # 404 (model not found) and other client errors — skip to next model
                 if model_queue:
                     next_model = model_queue.pop(0)
                     AgentLogger.warning(
-                        "Skipping unavailable model, trying next",
-                        extra={"failed_model": model.value, "next_model": next_model.value, "status": status}
+                        "Skipping unavailable model",
+                        extra={"failed_model": model.value, "next_model": next_model.value, "status": status},
                     )
                     return self._safe_call(client, next_model, messages, model_queue, failure_count, 0)
-                raise ExtractionError(
-                    f"All models exhausted after API error {status}: {str(e)}",
-                    status_code=status or 500,
-                ) from e
+                raise ExtractionError(f"All models exhausted (status {status})", status_code=status or 500) from e
 
         except ExtractionError:
             raise
 
         except Exception as e:
-            AgentLogger.error("Unexpected error", extra={"error": str(e)})
+            AgentLogger.warning("Unexpected error — retrying", extra={"model": model.value})
 
             if retry_num < self.max_retries:
-                time.sleep(3)
+                time.sleep(1)
                 return self._safe_call(client, model, messages, model_queue, failure_count, retry_num + 1)
 
-            AgentLogger.error("Unexpected error retries exhausted")
-            raise ExtractionError(
-                f"Unexpected error retries exhausted: {str(e)}",
-                status_code=500,
-            ) from e
+            raise ExtractionError("Unexpected error — retries exhausted", status_code=500) from e
     # ========================================================
     # User-Facing Methods
     # ========================================================
@@ -296,13 +338,10 @@ class ChatOrchestrator:
         return self._run(label, messages)
 
     def call_with_history(self, label: str, system_prompt: str, history: list, user_prompt: str):
-        messages = [{"role": "system", "content": system_prompt}] + history + [
-            {"role": "user", "content": user_prompt}
-        ]
         AgentLogger.info("Starting chat with history", extra={"label": label, "history_len": len(history)})
-        return self._run(label, messages)
+        return self._run(label, system_prompt=system_prompt, history=history, user_prompt=user_prompt)
 
-    def _run(self, label, messages):
+    def _run(self, label, messages=None, *, system_prompt=None, history=None, user_prompt=None):
         if label not in CHAT_SUBCATEGORIES:
             AgentLogger.error("Unknown model label", extra={"label": label})
             raise ValueError(f"Unknown model label: {label}")
@@ -322,10 +361,30 @@ class ChatOrchestrator:
                     fallback_queue.append(model)
                     seen_models.add(model)
 
-        # Full queue: primary first, then fallback
         full_queue = primary_queue + fallback_queue
         current_model = full_queue.pop(0)
         failure_count = {}
+
+        # Resolve context limit for current model
+        context_limit = MODEL_CONTEXT_LENGTHS.get(current_model.value, DEFAULT_CONTEXT_LENGTH)
+
+        # Build final message list, truncating history if needed
+        if messages is not None:
+            # Called from call() — no history to truncate
+            final_messages = messages
+        else:
+            # Called from call_with_history()
+            truncated_history = _truncate_history(
+                system_prompt or "",
+                history or [],
+                user_prompt or "",
+                context_limit,
+            )
+            final_messages = (
+                [{"role": "system", "content": system_prompt}]
+                + truncated_history
+                + [{"role": "user", "content": user_prompt}]
+            )
 
         api_key = next(self.key_cycle)
         client = make_client(api_key, self.base_api)
@@ -334,7 +393,7 @@ class ChatOrchestrator:
             extra={"label": label, "current_model": current_model.value,
                    "total_candidates": len(full_queue) + 1}
         )
-        return self._safe_call(client, current_model, messages, full_queue, failure_count)
+        return self._safe_call(client, current_model, final_messages, full_queue, failure_count)
 
 
 # ============================================================

@@ -107,19 +107,12 @@ async def export_pipeline(
     pipeline_valid = await run_doc_embeddings(retrieval_pipeline=retrieval_pipeline, user_id=user.id, project_id=project_id, doc_id=doc_id, db=db)
 
     if pipeline_valid:
-        # update document_pipelines with this doc's pipeline
-
-        # remove color key
         for pipeline_method in retrieval_pipeline:
             pipeline_method.pop("color", None)
 
         document_pipelines[str(doc_id)] = retrieval_pipeline
-
-        # NEXT: Set exported=1
-
         row.exported = True
 
-        # finally update main_pipeline with the created document_pipelines dict
         if document_pipelines:
             if main_pipeline:
                 main_pipeline.doc_pipelines = json.dumps(document_pipelines)

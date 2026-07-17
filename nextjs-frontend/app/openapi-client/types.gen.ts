@@ -88,6 +88,12 @@ export type ChunkMetadata = {
    * Number
    */
   Number: Array<string | number>;
+  /**
+   * Tree
+   */
+  tree?: {
+    [key: string]: unknown;
+  } | null;
 };
 
 /**
@@ -915,6 +921,34 @@ export type RenameProjectErrors = {
 export type RenameProjectError = RenameProjectErrors[keyof RenameProjectErrors];
 
 export type RenameProjectResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type SetProjectData = {
+  body?: never;
+  path: {
+    /**
+     * Project Id
+     */
+    project_id: string;
+  };
+  query?: never;
+  url: "/projects/set/{project_id}";
+};
+
+export type SetProjectErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type SetProjectError = SetProjectErrors[keyof SetProjectErrors];
+
+export type SetProjectResponses = {
   /**
    * Successful Response
    */

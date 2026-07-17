@@ -204,6 +204,18 @@ async def create_project(
     )
 
     await db.commit()
+    await db.refresh(new_row)
+
+    # Also set this new project as the active current_id
+    project_data = await ProjectData.get_row(where_dict={"user_id": user.id}, db=db)
+    if project_data:
+        project_data.current_id = new_row.project_id
+    else:
+        await ProjectData.insert_data(
+            data_dict={"user_id": user.id, "current_id": new_row.project_id},
+            db=db,
+        )
+    await db.commit()
 
     return {
         "name": name_id,
@@ -234,6 +246,7 @@ async def rename_project(
     return {"status": "ok", "name": name}
 
 
+@router.post("/set/{project_id}")
 async def set_project(
     project_id: UUID,
     db: AsyncSession = Depends(get_async_session),
