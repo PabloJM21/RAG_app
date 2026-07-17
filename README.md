@@ -8,10 +8,8 @@ The chunk hierarchy can be structured into multiple levels, such as Chapter and 
 
 In this walkthrough, I submit a query and the interface streams live feedback about the documents and chunks being scanned and retrieved. When the answer arrives, I navigate to the Dashboard and Graph tabs to inspect the evidence sources and the hierarchical chunk structure retrieved from each document.
 
-<video controls width="100%" preload="metadata">
-  <source src="https://PabloJM21.github.io/RAG_app/chat.html">
-  Your browser does not support the video tag.
-</video>
+[![Chat Screencast](docs/chat_thumbnail.png)](https://pablojm21.github.io/RAG_app/chat.html)
+
 
 
 ## System Overview
