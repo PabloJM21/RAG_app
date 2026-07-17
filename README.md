@@ -2,16 +2,19 @@
 
 A no-code interface for designing and executing Retrieval-Augmented Generation (RAG) pipelines over multiple documents. The platform supports multi-document ingestion, document-level orchestration, hierarchical chunking, retrieval over multiple chunk levels, and enrichment workflows that propagate LLM-generated context across the chunk hierarchy.
 
-The system separates document-specific processing from global retrieval and answer generation. Each document can be converted, chunked, enriched, and indexed independently, while the Master pipeline coordinates document selection, chunk reranking, and final response generation across the full document set.
-
-The chunk hierarchy can be structured into multiple levels, such as Chapter and Section, and enrichment methods can attach generated summaries or context to parent and child nodes. Pipeline configurations can be saved and reused, allowing complex document processing workflows to be applied consistently across many documents.
-
-In this walkthrough, I submit a query and the interface streams live feedback about the documents and chunks being scanned and retrieved. When the answer arrives, I navigate to the Dashboard and Graph tabs to inspect the evidence sources and the hierarchical chunk structure retrieved from each document.
-
 ![chat-overview](docs/chat_screencast_gif.gif "Chat Overview")
 
 [![Chat Screencast](docs/chat_thumbnail.png)](https://pablojm21.github.io/RAG_app/chat.html)
 
+In this walkthrough, I submit a query and the interface streams live feedback about the documents and chunks being scanned and retrieved. When the answer arrives, I navigate to the Dashboard and Graph tabs to inspect the evidence sources and the hierarchical chunk structure retrieved from each document.
+
+## Main Features
+
+- **Multi-document support**: The system separates document-specific processing from global retrieval and answer generation. Each document can be converted, chunked, enriched, and indexed independently, while the Master pipeline coordinates document selection, chunk reranking, and final response generation across the full document set.
+
+- **Hierarchical chunking**: The chunk hierarchy can be structured into multiple levels, such as Chapter and Section, and enrichment methods can attach generated summaries or context to parent and child nodes. 
+
+- **Reusability**: Pipeline configurations can be saved and reused, allowing complex document processing workflows to be applied consistently across many documents.
 
 
 ## System Overview
