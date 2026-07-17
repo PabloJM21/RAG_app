@@ -9,7 +9,7 @@ The chunk hierarchy can be structured into multiple levels, such as Chapter and 
 In this walkthrough, I submit a query and the interface streams live feedback about the documents and chunks being scanned and retrieved. When the answer arrives, I navigate to the Dashboard and Graph tabs to inspect the evidence sources and the hierarchical chunk structure retrieved from each document.
 
 <video controls width="100%" preload="metadata">
-  <source src="https://PabloJM21.github.io/RAG_app/chat_screencast.mp4" type="video/mp4">
+  <source src="https://PabloJM21.github.io/RAG_app/chat.html" type="video/mp4">
   Your browser does not support the video tag.
 </video>
 
@@ -72,7 +72,7 @@ Each stage can be configured with multiple methods, making it possible to build 
 This screencast shows the full workflow from document conversion to retrieval. The chunking pipeline creates two hierarchy levels, called "Chapter" and "Section". In enrichment, I create a document summary that is used by the Master Router for document filtering, and I also attach context sections to each Section chunk by summarizing the corresponding Chapter. These Chapter summaries are then propagated upward to the document level to build the overall document summary. The retrieval stage uses two Reasoner retrievers: first at the Chapter level and then at the Section level for the filtered Chapters.
 
 <video controls width="100%" preload="metadata">
-  <source src="https://PabloJM21.github.io/RAG_app/doc_pipeline_sceencast.mp4" type="video/mp4">
+  <source src="https://PabloJM21.github.io/RAG_app/doc_pipeline.html" type="video/mp4">
   Your browser does not support the video tag.
 </video>
 
@@ -133,7 +133,7 @@ The Filter removes chunks that should not participate in later stages, such as e
 This walkthrough highlights how a user can enrich chunks and immediately review the results. It also shows how the completed document pipeline can be exported into another document, making it easy to save and reuse complex workflows across many documents.
 
 <video controls width="100%" preload="metadata">
-  <source src="https://PabloJM21.github.io/RAG_app/enrichment_screencast.mp4" type="video/mp4">
+  <source src="https://PabloJM21.github.io/RAG_app/enrichment.html" type="video/mp4">
   Your browser does not support the video tag.
 </video>
 
