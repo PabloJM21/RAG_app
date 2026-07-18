@@ -12,7 +12,7 @@ In this walkthrough, I submit a query and the interface streams live feedback ab
 
 - **Multi-document support**: The system separates document-specific processing from global retrieval and answer generation. Each document can be converted, chunked, enriched, and indexed independently, while the Master pipeline coordinates document selection, chunk reranking, and final response generation across the full document set.
 
-- **Hierarchical chunking**: The chunk hierarchy can be structured into multiple levels, such as Chapter and Section, and enrichment methods can attach generated summaries or context to parent and child nodes. 
+- **Hierarchical chunking and retrieval**: The chunk hierarchy can be structured into multiple levels, such as Chapter and Section, and enrichment methods can attach generated summaries or context to parent and child nodes. Retrievers operate on a specific hierarchy level and accept filters based on chunks retrieved from higher levels, enabling workflows such as first selecting relevant chapters and then narrowing down to sections within those selected chapters.
 
 - **Reusability**: Pipeline configurations can be saved and reused, allowing complex document processing workflows to be applied consistently across many documents.
 
